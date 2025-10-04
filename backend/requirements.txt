@@ -1,0 +1,34 @@
+# backend/requirements.txt
+# 
+# NOTE: If you encounter SSL certificate errors during installation, use:
+# pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
+#
+
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database - MS SQL Express
+sqlalchemy==2.0.23
+alembic==1.12.1
+pyodbc==5.0.1
+
+# Authentication (Phase 2)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# OpenAI API
+openai==1.3.5
+
+# HTTP requests (for downloading images)
+requests==2.31.0
+
+# Additional utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Image handling (Phase 2)
+# Pillow==10.1.0
+# cloudinary==1.36.0
