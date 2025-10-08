@@ -409,6 +409,11 @@ frontend/
   - Preferred language
   - Study preferences
   - Settings storage
+  - **Instructional language preferences**:
+    - Current: English explanations for foreign words (Option A)
+    - Future: User-configurable instruction language
+    - Options: 'english', 'target_language', 'auto'
+    - Per-language preferences for advanced users
 - [ ] Multi-tenant data
   - User-specific flashcards
   - Shared public decks (optional)
