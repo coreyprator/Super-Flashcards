@@ -1,7 +1,7 @@
 # Language Learning Flashcards - Updated Roadmap v2
 
 **Last Updated**: End of Sprint 1  
-**Current Status**: MVP functional, ready for Sprint 2  
+**Current Status**: Sprint 2 complete, ready for Sprint 3  
 **Next Milestone**: Offline PWA + Spaced Repetition
 
 ---
@@ -19,8 +19,8 @@ AI-powered flashcard system for language learning with offline-first architectur
 | Sprint | Status | Duration | Focus |
 |--------|--------|----------|-------|
 | Sprint 1 | ✅ COMPLETE | Initial dev | Core flashcard system + AI generation |
-| Sprint 2 | 🔄 NEXT | 1 week | Offline PWA + Spaced repetition |
-| Sprint 3 | 📋 PLANNED | 1 week | Mobile polish + Statistics |
+| Sprint 2 | ✅ COMPLETE | 1 week | Advanced features + Edit modal + Spaced repetition |
+| Sprint 3 | � NEXT | 1 week | Import/Export + Advanced Study Features |
 | Sprint 4 | 📋 PLANNED | 1 week | Authentication + Deployment |
 | Sprint 5+ | 💭 BACKLOG | TBD | Enhancements |
 
@@ -83,7 +83,7 @@ AI-powered flashcard system for language learning with offline-first architectur
 
 ---
 
-## 🔄 Sprint 2: CRUD UI + PWA Foundation (CURRENT)
+## ✅ Sprint 2: CRUD UI + PWA Foundation (COMPLETE)
 
 **Goal**: Complete CRUD interface and lay PWA groundwork.
 
@@ -741,4 +741,4 @@ frontend/
 ---
 
 **Next Review**: Sprint 2 completion  
-**Status**: ✅ Sprint 1 complete, Sprint 2 ready to start
+**Status**: ✅ Sprint 2 complete, Sprint 3 ready to start
