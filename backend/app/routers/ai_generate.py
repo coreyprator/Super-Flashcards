@@ -1,42 +1,49 @@
 # backend/app/routers/ai_generate.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import json
 import os
-from openai import OpenAI
 
 from app import crud, schemas
 from app.database import get_db
 
 router = APIRouter()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI client will be initialized on first use
+client = None
 
-def generate_flashcard_content(word_or_phrase: str, language_code: str) -> dict:
-    """
-    Generate flashcard content using OpenAI API
-    Returns dict with definition, etymology, cognates, related_words
-    """
+def get_openai_client():
+    """Initialize OpenAI client on first use"""
+    global client
+    if client is None:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return client
+
+def generate_flashcard_content(word_or_phrase: str, language_code: str, user_id: str, db: Session) -> dict:
+    """Generate flashcard content using OpenAI GPT-4"""
     
-    # Map language codes to full names
-    language_names = {
-        "fr": "French",
-        "el": "Greek",
-        "es": "Spanish",
-        "de": "German",
-        "it": "Italian"
-    }
-    language_name = language_names.get(language_code, language_code)
+    # Get language
+    language = crud.get_language_by_code(db, language_code)
+    if not language:
+        raise HTTPException(status_code=404, detail=f"Language {language_code} not found")
     
-    prompt = f"""Create a language learning flashcard for the {language_name} word/phrase: "{word_or_phrase}"
+    # Determine instruction language for this user + language
+    instruction_lang_code = crud.get_instruction_language(db, user_id, str(language.id))
+    instruction_lang = crud.get_language_by_code(db, instruction_lang_code)
+    instruction_lang_name = instruction_lang.name if instruction_lang else "English"
+    
+    # Build prompt with instruction language
+    prompt = f"""Create a language learning flashcard for the {language.name} word/phrase: "{word_or_phrase}"
+
+IMPORTANT: All explanations must be written in {instruction_lang_name}. Do not use English unless {instruction_lang_name} is English.
 
 Provide the following in JSON format:
-1. definition: A clear definition or context example in {language_name} (2-3 sentences)
-2. etymology: The word's origin (Latin, Greek, or other roots if applicable)
-3. english_cognates: Related English words or cognates (comma-separated)
-4. related_words: 2-3 related {language_name} words or expressions (as array)
-5. image_description: A detailed description for generating an image (for DALL-E)
+1. definition: A clear definition or context example in {instruction_lang_name} (2-3 sentences)
+2. etymology: The word's origin explained in {instruction_lang_name} (Latin, Greek, or other roots if applicable)
+3. english_cognates: Related English words or cognates (comma-separated, these can be in English)
+4. related_words: 2-3 related {language.name} words or expressions (as array)
+5. image_description: A detailed description for generating an image (for DALL-E, in English)
 
 Format your response as valid JSON only, no additional text:
 {{
@@ -48,7 +55,7 @@ Format your response as valid JSON only, no additional text:
 }}"""
 
     try:
-        response = client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
                 {"role": "system", "content": "You are a language learning expert who creates detailed, educational flashcards."},
@@ -96,7 +103,7 @@ def generate_image(image_description: str, word: str) -> str:
         logger.info(f"Starting image generation for: {word}")
         
         # Generate image with DALL-E
-        response = client.images.generate(
+        response = get_openai_client().images.generate(
             model="dall-e-3",
             prompt=f"Educational illustration for language learning: {image_description}. Simple, clear, educational style.",
             size="1024x1024",
@@ -157,13 +164,21 @@ def generate_ai_flashcard(
     """
     Generate a flashcard using OpenAI API and save it to the database
     """
+    # Get default user (Phase 1)
+    user = crud.get_or_create_default_user(db)
+    
     # Get language info
-    language = crud.get_language(db, request.language_id)
+    language = crud.get_language(db, str(request.language_id))
     if not language:
         raise HTTPException(status_code=404, detail="Language not found")
     
-    # Generate content
-    content = generate_flashcard_content(request.word_or_phrase, language.code)
+    # Generate content with user's instruction language preferences
+    content = generate_flashcard_content(
+        request.word_or_phrase, 
+        language.code, 
+        str(user.id),
+        db
+    )
     
     # Generate image if requested
     image_url = None
@@ -190,13 +205,21 @@ def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depen
     """
     Generate flashcard content without saving (for preview/editing)
     """
+    # Get default user (Phase 1)
+    user = crud.get_or_create_default_user(db)
+    
     # Get language info
-    language = crud.get_language(db, request.language_id)
+    language = crud.get_language(db, str(request.language_id))
     if not language:
         raise HTTPException(status_code=404, detail="Language not found")
     
-    # Generate content
-    content = generate_flashcard_content(request.word_or_phrase, language.code)
+    # Generate content with user's instruction language preferences
+    content = generate_flashcard_content(
+        request.word_or_phrase, 
+        language.code, 
+        str(user.id),
+        db
+    )
     
     # Generate image if requested
     image_url = None
@@ -211,6 +234,38 @@ def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depen
         "related_words": content.get("related_words", []),
         "image_url": image_url,
         "image_description": content.get("image_description", "")
+    }
+
+@router.post("/image")
+def generate_image_only(
+    word_or_phrase: str = Query(..., description="Word or phrase to generate image for"),
+    language_id: str = Query(..., description="Language ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate only an image for a word/phrase without full flashcard content
+    """
+    # Check for OpenAI API key first
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.")
+    
+    # Get language info
+    language = crud.get_language(db, language_id)
+    if not language:
+        raise HTTPException(status_code=404, detail="Language not found")
+    
+    # Create a simple image description based on the word and language
+    image_description = f"Educational illustration for learning the {language.name} word '{word_or_phrase}'. Simple, clear, educational style showing the concept or meaning of the word."
+    
+    # Generate image
+    image_url = generate_image(image_description, word_or_phrase)
+    
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Failed to generate image")
+    
+    return {
+        "image_url": image_url,
+        "image_description": image_description
     }
 
 @router.post("/fix-broken-images")

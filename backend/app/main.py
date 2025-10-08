@@ -7,7 +7,7 @@ import os
 
 from app.database import engine
 from app import models
-from app.routers import flashcards, ai_generate, languages
+from app.routers import flashcards, ai_generate, languages, users
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -32,6 +32,7 @@ app.add_middleware(
 app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcards"])
 app.include_router(ai_generate.router, prefix="/api/ai", tags=["ai"])
 app.include_router(languages.router, prefix="/api/languages", tags=["languages"])
+app.include_router(users.router)
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")

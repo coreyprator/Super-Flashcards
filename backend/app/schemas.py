@@ -76,6 +76,60 @@ class AIGenerateResponse(BaseModel):
     image_description: Optional[str] = None
     image_url: Optional[str] = None
 
+# User Schemas
+class UserBase(BaseModel):
+    username: str
+    preferred_instruction_language: str = "en"
+
+class UserCreate(UserBase):
+    email: Optional[str] = None
+    password: Optional[str] = None
+
+class User(UserBase):
+    id: UUID
+    email: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    @field_serializer('id')
+    def serialize_id(self, value):
+        return str(value)
+    
+    class Config:
+        from_attributes = True
+
+class UserPreferencesUpdate(BaseModel):
+    preferred_instruction_language: str
+
+
+# UserLanguage Schemas
+class UserLanguageBase(BaseModel):
+    instruction_language: Optional[str] = None
+    proficiency_level: Optional[str] = None
+
+class UserLanguageCreate(UserLanguageBase):
+    user_id: UUID
+    language_id: UUID
+
+class UserLanguage(UserLanguageBase):
+    id: UUID
+    user_id: UUID
+    language_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    
+    @field_serializer('id', 'user_id', 'language_id')
+    def serialize_ids(self, value):
+        return str(value)
+    
+    class Config:
+        from_attributes = True
+
+class UserLanguageUpdate(BaseModel):
+    instruction_language: Optional[str] = None
+    proficiency_level: Optional[str] = None
+
+
 # Sync Schemas (for offline support)
 class SyncRequest(BaseModel):
     flashcards: List[FlashcardCreate]

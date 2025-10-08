@@ -1,14 +1,48 @@
 # backend/app/models.py
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text, String
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, NVARCHAR
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
+from datetime import datetime
 
 from app.database import Base
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
+    username = Column(NVARCHAR(50), unique=True, nullable=False)
+    email = Column(NVARCHAR(255), nullable=True)
+    password_hash = Column(NVARCHAR(255), nullable=True)
+    preferred_instruction_language = Column(NVARCHAR(10), default='en')
+    created_at = Column(DateTime, server_default=func.getdate())
+    updated_at = Column(DateTime, server_default=func.getdate())
+    
+    # Relationships
+    flashcards = relationship("Flashcard", back_populates="user")
+    study_sessions = relationship("StudySession", back_populates="user")
+    user_languages = relationship("UserLanguage", back_populates="user")
+
+
+class UserLanguage(Base):
+    __tablename__ = "user_languages"
+    
+    id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
+    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=False)
+    language_id = Column(UNIQUEIDENTIFIER, ForeignKey('languages.id'), nullable=False)
+    instruction_language = Column(NVARCHAR(10), nullable=True)
+    proficiency_level = Column(NVARCHAR(20), nullable=True)
+    created_at = Column(DateTime, server_default=func.getdate())
+    updated_at = Column(DateTime, server_default=func.getdate())
+    
+    # Relationships
+    user = relationship("User", back_populates="user_languages")
+    language = relationship("Language")
+
 
 class Language(Base):
     __tablename__ = "languages"
@@ -26,6 +60,7 @@ class Flashcard(Base):
     
     id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
     language_id = Column(UNIQUEIDENTIFIER, ForeignKey("languages.id"), nullable=False)
+    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=True)
     
     # Core content - Using NVARCHAR for Unicode (Greek, French, etc.)
     word_or_phrase = Column(NVARCHAR(500), nullable=False, index=True)
@@ -51,8 +86,9 @@ class Flashcard(Base):
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
     
-    # Relationship
+    # Relationships
     language = relationship("Language", back_populates="flashcards")
+    user = relationship("User", back_populates="flashcards")
 
 # Phase 2: Study sessions for spaced repetition
 class StudySession(Base):
@@ -60,9 +96,13 @@ class StudySession(Base):
     
     id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
     flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
+    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=True)
     
     reviewed_at = Column(DateTime, server_default=func.getdate())
     ease_rating = Column(Integer)  # 1-5: how easy was it to recall?
     time_spent_seconds = Column(Integer)
     
     created_at = Column(DateTime, server_default=func.getdate())
+    
+    # Relationships
+    user = relationship("User", back_populates="study_sessions")

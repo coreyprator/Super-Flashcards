@@ -94,3 +94,105 @@ def get_flashcards_updated_since(db: Session, since: str, language_id: Optional[
     if language_id:
         query = query.filter(models.Flashcard.language_id == language_id)
     return query.all()
+
+
+# ============================================
+# USER OPERATIONS
+# ============================================
+
+def get_user(db: Session, user_id: str):
+    """Get user by ID"""
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+def get_user_by_username(db: Session, username: str):
+    """Get user by username"""
+    return db.query(models.User).filter(models.User.username == username).first()
+
+def get_or_create_default_user(db: Session):
+    """Get or create the default user (Phase 1: single user)"""
+    user = db.query(models.User).filter(models.User.username == "default_user").first()
+    if not user:
+        user = models.User(
+            username="default_user",
+            preferred_instruction_language="en"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+def update_user_preferences(db: Session, user_id: str, preferred_instruction_language: str):
+    """Update user's global instruction language preference"""
+    user = get_user(db, user_id)
+    if user:
+        user.preferred_instruction_language = preferred_instruction_language
+        from datetime import datetime
+        user.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+# ============================================
+# USER-LANGUAGE OPERATIONS
+# ============================================
+
+def get_user_language_setting(db: Session, user_id: str, language_id: str):
+    """Get user's settings for a specific language"""
+    return db.query(models.UserLanguage).filter(
+        models.UserLanguage.user_id == user_id,
+        models.UserLanguage.language_id == language_id
+    ).first()
+
+def create_or_update_user_language(
+    db: Session, 
+    user_id: str, 
+    language_id: str, 
+    instruction_language: Optional[str] = None,
+    proficiency_level: Optional[str] = None
+):
+    """Create or update user's language-specific settings"""
+    user_lang = get_user_language_setting(db, user_id, language_id)
+    
+    if user_lang:
+        # Update existing
+        if instruction_language is not None:
+            user_lang.instruction_language = instruction_language
+        if proficiency_level is not None:
+            user_lang.proficiency_level = proficiency_level
+        from datetime import datetime
+        user_lang.updated_at = datetime.utcnow()
+    else:
+        # Create new
+        user_lang = models.UserLanguage(
+            user_id=user_id,
+            language_id=language_id,
+            instruction_language=instruction_language,
+            proficiency_level=proficiency_level
+        )
+        db.add(user_lang)
+    
+    db.commit()
+    db.refresh(user_lang)
+    return user_lang
+
+def get_instruction_language(db: Session, user_id: str, language_id: str) -> str:
+    """
+    Determine what language to use for AI-generated content.
+    Priority:
+    1. User's language-specific setting
+    2. User's global preference
+    3. Default to English
+    """
+    # Check user-language specific setting
+    user_lang = get_user_language_setting(db, user_id, language_id)
+    if user_lang and user_lang.instruction_language:
+        return user_lang.instruction_language
+    
+    # Use user's global preference
+    user = get_user(db, user_id)
+    if user and user.preferred_instruction_language:
+        return user.preferred_instruction_language
+    
+    # Default to English
+    return 'en'
