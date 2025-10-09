@@ -19,15 +19,14 @@ END
 -- Create full-text index
 CREATE FULLTEXT INDEX ON dbo.flashcards
 (
-    word LANGUAGE 1033,
-    translation LANGUAGE 1033,
-    pronunciation LANGUAGE 1033,
+    word_or_phrase LANGUAGE 1033,
+    definition LANGUAGE 1033,
     etymology LANGUAGE 1033,
-    example_sentences LANGUAGE 1033,
+    english_cognates LANGUAGE 1033,
     related_words LANGUAGE 1033,
-    notes LANGUAGE 1033
+    image_description LANGUAGE 1033
 )
-KEY INDEX PK__flashcar__3213E83F1234567
+KEY INDEX PK__flashcar__3213E83F7F60ED59
 ON FlashcardCatalog
 WITH CHANGE_TRACKING AUTO
 
@@ -40,8 +39,8 @@ PRINT '✓ Index population started'
 -- Test search
 PRINT ''
 PRINT 'Testing search...'
-SELECT TOP 5 word, translation
+SELECT TOP 5 word_or_phrase as word, definition as translation
 FROM flashcards
-WHERE CONTAINS((word, translation), 'friend OR love OR hello')
+WHERE CONTAINS((word_or_phrase, definition), 'friend OR love OR hello')
 
 PRINT '✅ Full-Text Search setup complete!'

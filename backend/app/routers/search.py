@@ -35,10 +35,10 @@ async def search_flashcards(
         
         if search_type == "ranked":
             sql_query = text(f"""
-                SELECT f.id, f.word, f.translation, f.pronunciation, f.etymology,
+                SELECT f.id, f.word_or_phrase as word, f.definition as translation, f.etymology,
                        f.language_id, l.name as language_name, ft.[RANK] as rank
                 FROM flashcards f
-                INNER JOIN FREETEXTTABLE(flashcards, (word, translation, etymology), '{clean_query}') ft
+                INNER JOIN FREETEXTTABLE(flashcards, (word_or_phrase, definition, etymology), '{clean_query}') ft
                     ON f.id = ft.[KEY]
                 LEFT JOIN languages l ON f.language_id = l.id
                 WHERE 1=1 {f"AND f.language_id = '{language_id}'" if language_id else ""}
@@ -47,14 +47,14 @@ async def search_flashcards(
             """)
         else:
             if search_type == "phrase":
-                search_cond = f'CONTAINS((word, translation, etymology), \'"{clean_query}"\')'
+                search_cond = f'CONTAINS((word_or_phrase, definition, etymology), \'"{clean_query}"\')'
             elif search_type == "fuzzy":
-                search_cond = f'CONTAINS((word, translation, etymology), \'"{clean_query}*"\')'
+                search_cond = f'CONTAINS((word_or_phrase, definition, etymology), \'"{clean_query}*"\')'
             else:
-                search_cond = f'CONTAINS((word, translation, etymology), \'{clean_query}\')'
+                search_cond = f'CONTAINS((word_or_phrase, definition, etymology), \'{clean_query}\')'
             
             sql_query = text(f"""
-                SELECT f.id, f.word, f.translation, f.pronunciation, f.etymology,
+                SELECT f.id, f.word_or_phrase as word, f.definition as translation, f.etymology,
                        f.language_id, l.name as language_name
                 FROM flashcards f
                 LEFT JOIN languages l ON f.language_id = l.id
@@ -87,10 +87,10 @@ async def search_suggestions(
     """Get search suggestions (autocomplete)"""
     clean_query = q.replace("'", "''")
     sql_query = text(f"""
-        SELECT DISTINCT TOP {limit} word, translation, language_id
+        SELECT DISTINCT TOP {limit} word_or_phrase as word, definition as translation, language_id
         FROM flashcards
-        WHERE CONTAINS((word, translation), '"{clean_query}*"')
-        ORDER BY word
+        WHERE CONTAINS((word_or_phrase, definition), '"{clean_query}*"')
+        ORDER BY word_or_phrase
     """)
     results = db.execute(sql_query).fetchall()
     return {"suggestions": [dict(row._mapping) for row in results]}
