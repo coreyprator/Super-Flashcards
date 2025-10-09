@@ -37,6 +37,7 @@ The SuperFlashcards backup system provides automated daily database backups with
 - **Sync**: Automatic via robocopy
 - **Files**: 20 backup files (~5.1 MB total)
 - **Access**: Google Drive cloud sync
+- **Git Policy**: Backup files (.bak) are excluded from version control to avoid repository bloat
 
 ## ⏰ **Automation Schedule**
 
@@ -144,8 +145,21 @@ Get-ChildItem "G:\My Drive\Code\Python\Super-Flashcards\backups\" -Filter "*.bak
 - `backend\scripts\backup_database_fixed.sql` - SQL backup commands
 - `backend\scripts\EMAIL_SETUP_GUIDE.md` - Email configuration guide
 - `backend\scripts\simple_email_test.ps1` - Email testing utility
-- `backups\SuperFlashcards-DailyBackup.xml` - Scheduled task export
-- `backups\backup_log_*.log` - Daily backup logs
+- `backups\SuperFlashcards-DailyBackup.xml` - Scheduled task export (version controlled)
+- `backups\backup_log_*.log` - Daily backup logs (ignored by git)
+- `backups\*.bak` - Database backup files (ignored by git, stored in Google Drive)
+
+## 🗂️ **Git Repository Policy**
+
+**Excluded from Version Control:**
+- `backups/*.bak` - Database backup files (large, already in Google Drive)
+- `backups/backup_log_*.log` - Log files (ephemeral)
+- `backups/backup_copy_log.txt` - Robocopy logs
+
+**Included in Version Control:**
+- `backups/SuperFlashcards-DailyBackup.xml` - Scheduled task configuration (important for setup)
+
+This policy prevents repository bloat while maintaining access to configuration files needed for system recreation.
 
 ## 🎛️ **Email Filter Suggestions**
 

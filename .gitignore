@@ -85,3 +85,11 @@ coverage.xml
 .env.development.local
 .env.test.local
 .env.production.local
+
+# SuperFlashcards Backup Files
+# These are automatically backed up to Google Drive
+# No need to version control large .bak files
+backups/*.bak
+backups/backup_log_*.log
+backups/backup_copy_log.txt
+backups/last_backup_status.txt
