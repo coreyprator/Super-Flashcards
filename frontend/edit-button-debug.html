@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Modal Button Debug - Simplified</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Edit Modal Button Debug - Simplified</h1>
+        
+        <!-- Simulate the exact HTML structure from the modal -->
+        <div class="bg-white rounded-lg p-6 shadow-lg">
+            <h2 class="text-lg font-bold mb-4">Edit Card Form (Simplified)</h2>
+            
+            <!-- Word Input -->
+            <div class="mb-4">
+                <label for="edit-word" class="block text-sm font-medium text-gray-700 mb-1">Word/Phrase</label>
+                <input type="text" id="edit-word" value="test word" 
+                    class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            
+            <!-- Image Generation Buttons -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Image
+                    <span class="text-xs text-gray-500">(Optional)</span>
+                </label>
+                <div class="flex space-x-2">
+                    <button type="button" id="generate-edit-image-btn" 
+                        class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+                        🎨 Generate Image
+                    </button>
+                    <button type="button" id="regenerate-edit-image-btn" 
+                        class="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm hidden">
+                        🔄 Regenerate
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Loading indicator -->
+            <div id="edit-image-loading" class="hidden mb-4">
+                <div class="text-center text-blue-600">
+                    <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                    <div class="mt-2">Generating image...</div>
+                </div>
+            </div>
+            
+            <!-- Image Preview -->
+            <div id="edit-image-section" class="hidden mb-4">
+                <div class="relative inline-block">
+                    <img id="edit-image-preview" 
+                        class="w-32 h-32 object-cover rounded-lg border-2 border-gray-200" 
+                        alt="Flashcard image">
+                    <button type="button" id="remove-edit-image-btn"
+                        class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600">
+                        ×
+                    </button>
+                </div>
+                <p id="edit-image-description" class="text-sm text-gray-600 mt-2"></p>
+            </div>
+        </div>
+        
+        <!-- Debug Output -->
+        <div class="bg-gray-800 text-green-400 p-4 rounded-lg mt-6 font-mono text-sm" style="max-height: 400px; overflow-y: auto;">
+            <div class="font-bold mb-2">Debug Output:</div>
+            <div id="debug-output"></div>
+        </div>
+    </div>
+
+    <script>
+        // Debug logging
+        function log(message) {
+            const output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        // Simulate app state
+        let state = {
+            currentLanguage: 1,  // Simulate selected language
+            isOnline: true
+        };
+
+        // Mock functions
+        function showToast(message) {
+            log(`TOAST: ${message}`);
+            alert(message);
+        }
+
+        // Mock API request function
+        async function apiRequest(endpoint, options = {}) {
+            log(`API REQUEST: ${endpoint} with options: ${JSON.stringify(options)}`);
+            
+            // Simulate API response
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            if (endpoint.includes('/ai/image')) {
+                return {
+                    image_url: 'https://via.placeholder.com/200x200?text=Generated+Image',
+                    image_description: 'A test generated image'
+                };
+            }
+            
+            throw new Error('Unknown endpoint');
+        }
+
+        // The actual function from app.js
+        let editImageData = null;
+        
+        async function generateImageForEditCard() {
+            log('generateImageForEditCard called');
+            const wordInput = document.getElementById('edit-word').value.trim();
+            
+            log(`Edit word input: "${wordInput}"`);
+            log(`Current language: ${state.currentLanguage}`);
+            
+            if (!wordInput) {
+                log('No word input, showing toast');
+                showToast('Please enter a word or phrase first');
+                return;
+            }
+            
+            if (!state.currentLanguage) {
+                log('No current language, showing toast');
+                showToast('Please select a language first');
+                return;
+            }
+            
+            log('Starting edit image generation...');
+            
+            try {
+                // Show loading state
+                log('Showing loading state');
+                document.getElementById('edit-image-loading').classList.remove('hidden');
+                document.getElementById('generate-edit-image-btn').disabled = true;
+                document.getElementById('regenerate-edit-image-btn').disabled = true;
+                
+                // Generate image using image-only endpoint for better performance
+                const response = await apiRequest(`/ai/image?word_or_phrase=${encodeURIComponent(wordInput)}&language_id=${state.currentLanguage}`, {
+                    method: 'POST'
+                });
+                
+                if (response.image_url) {
+                    log(`Image generated successfully: ${response.image_url}`);
+                    editImageData = {
+                        url: response.image_url,
+                        description: response.image_description || ''
+                    };
+                    
+                    // Show image preview
+                    const previewImg = document.getElementById('edit-image-preview');
+                    const previewDesc = document.getElementById('edit-image-description');
+                    
+                    previewImg.src = response.image_url;
+                    previewDesc.textContent = response.image_description || 'Generated image';
+                    
+                    document.getElementById('edit-image-section').classList.remove('hidden');
+                    document.getElementById('regenerate-edit-image-btn').classList.remove('hidden');
+                    showToast('✨ Image generated!');
+                } else {
+                    log('API response did not contain image_url');
+                    showToast('Failed to generate image');
+                }
+                
+            } catch (error) {
+                log(`Image generation failed: ${error.message}`);
+                console.error('Image generation failed:', error);
+                showToast('Failed to generate image. Please try again.');
+            } finally {
+                log('Hiding loading state');
+                // Hide loading state
+                document.getElementById('edit-image-loading').classList.add('hidden');
+                document.getElementById('generate-edit-image-btn').disabled = false;
+                document.getElementById('regenerate-edit-image-btn').disabled = false;
+            }
+        }
+
+        function removeEditImage() {
+            log('removeEditImage called');
+            editImageData = null;
+            document.getElementById('edit-image-section').classList.add('hidden');
+            document.getElementById('regenerate-edit-image-btn').classList.add('hidden');
+        }
+
+        // DOM Ready - exactly like in app.js
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOM Content Loaded');
+            
+            // Check if elements exist
+            const generateBtn = document.getElementById('generate-edit-image-btn');
+            const regenerateBtn = document.getElementById('regenerate-edit-image-btn');
+            const removeBtn = document.getElementById('remove-edit-image-btn');
+            
+            log(`Generate button exists: ${generateBtn !== null}`);
+            log(`Regenerate button exists: ${regenerateBtn !== null}`);
+            log(`Remove button exists: ${removeBtn !== null}`);
+            
+            if (generateBtn) {
+                log('Adding click listener to generate button');
+                generateBtn.addEventListener('click', () => {
+                    log('Generate button clicked!');
+                    generateImageForEditCard();
+                });
+                
+                // Test if the button is clickable
+                log('Testing button click simulation...');
+                setTimeout(() => {
+                    log('Simulating button click...');
+                    generateBtn.click();
+                }, 2000);
+            } else {
+                log('ERROR: Generate button not found!');
+            }
+            
+            if (regenerateBtn) {
+                log('Adding click listener to regenerate button');
+                regenerateBtn.addEventListener('click', () => {
+                    log('Regenerate button clicked!');
+                    generateImageForEditCard();
+                });
+            }
+            
+            if (removeBtn) {
+                log('Adding click listener to remove button');
+                removeBtn.addEventListener('click', () => {
+                    log('Remove button clicked!');
+                    removeEditImage();
+                });
+            }
+        });
+        
+        // Manual test buttons
+        function testGenerateButton() {
+            log('Manual test button clicked');
+            generateImageForEditCard();
+        }
+        
+        // Add manual test button
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.querySelector('.container');
+            const testButton = document.createElement('button');
+            testButton.textContent = 'Manual Test Generate Button';
+            testButton.className = 'bg-red-500 text-white px-4 py-2 rounded-lg mt-4';
+            testButton.onclick = testGenerateButton;
+            container.appendChild(testButton);
+        });
+    </script>
+</body>
+</html>

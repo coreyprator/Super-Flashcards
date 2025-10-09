@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Modal Debug Test</title>
+    <style>
+        .hidden { display: none; }
+        .button { padding: 8px 16px; margin: 4px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .button:hover { background: #4f46e5; }
+        .button:disabled { background: #9ca3af; cursor: not-allowed; }
+        #debug-output { border: 1px solid #ccc; padding: 10px; margin: 10px 0; height: 200px; overflow-y: scroll; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Edit Modal Image Generation Debug Test</h1>
+    
+    <div>
+        <label>Edit Word:</label>
+        <input type="text" id="edit-word" value="test" />
+    </div>
+    
+    <div>
+        <button type="button" id="generate-edit-image-btn" class="button">
+            🎨 Generate Image
+        </button>
+        <button type="button" id="regenerate-edit-image-btn" class="button hidden">
+            🔄 Regenerate
+        </button>
+    </div>
+    
+    <div id="edit-image-loading" class="hidden">
+        Loading image...
+    </div>
+    
+    <div id="edit-image-section" class="hidden">
+        <img id="edit-image-preview" style="max-width: 200px;" />
+        <p id="edit-image-description"></p>
+    </div>
+    
+    <div id="debug-output"></div>
+    
+    <script>
+        // Debug logging function
+        function log(message) {
+            const output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+        
+        // Simulate the app state
+        let state = {
+            currentLanguage: '362b8846-c4ca-49b0-92c0-c8d207cf8d56' // Sample language ID
+        };
+        
+        // Simulate the apiRequest function
+        async function apiRequest(endpoint, options = {}) {
+            log(`API Request: ${endpoint}`);
+            log(`Options: ${JSON.stringify(options)}`);
+            
+            // Simulate API call
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    if (endpoint.includes('/ai/image')) {
+                        resolve({
+                            image_url: 'https://via.placeholder.com/300x200?text=Test+Image',
+                            image_description: 'Test generated image'
+                        });
+                    } else {
+                        reject(new Error('Unknown endpoint'));
+                    }
+                }, 1000);
+            });
+        }
+        
+        // Simulate showToast function
+        function showToast(message) {
+            log(`Toast: ${message}`);
+        }
+        
+        // Copy of the actual generateImageForEditCard function
+        let editImageData = null;
+        
+        async function generateImageForEditCard() {
+            log('generateImageForEditCard called');
+            const wordInput = document.getElementById('edit-word').value.trim();
+            
+            log('Edit word input: ' + wordInput);
+            log('Current language: ' + state.currentLanguage);
+            
+            if (!wordInput) {
+                log('No word input, showing toast');
+                showToast('Please enter a word or phrase first');
+                return;
+            }
+            
+            if (!state.currentLanguage) {
+                log('No current language, showing toast');
+                showToast('Please select a language first');
+                return;
+            }
+            
+            log('Starting edit image generation...');
+            
+            try {
+                // Show loading state
+                log('Setting loading state...');
+                const loadingEl = document.getElementById('edit-image-loading');
+                const generateBtn = document.getElementById('generate-edit-image-btn');
+                const regenerateBtn = document.getElementById('regenerate-edit-image-btn');
+                
+                if (loadingEl) {
+                    loadingEl.classList.remove('hidden');
+                    log('Loading element shown');
+                } else {
+                    log('ERROR: Loading element not found!');
+                }
+                
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                    log('Generate button disabled');
+                } else {
+                    log('ERROR: Generate button not found!');
+                }
+                
+                if (regenerateBtn) {
+                    regenerateBtn.disabled = true;
+                    log('Regenerate button disabled');
+                } else {
+                    log('ERROR: Regenerate button not found!');
+                }
+                
+                // Generate image using image-only endpoint for better performance
+                log('Making API call...');
+                const apiUrl = `/ai/image?word_or_phrase=${encodeURIComponent(wordInput)}&language_id=${state.currentLanguage}`;
+                log('API URL: ' + apiUrl);
+                
+                const response = await apiRequest(apiUrl, {
+                    method: 'POST'
+                });
+                
+                log('API response received: ' + JSON.stringify(response));
+                
+                if (response.image_url) {
+                    editImageData = {
+                        url: response.image_url,
+                        description: response.image_description || ''
+                    };
+                    
+                    log('Image data set: ' + JSON.stringify(editImageData));
+                    
+                    // Show image preview
+                    const previewImg = document.getElementById('edit-image-preview');
+                    const previewDesc = document.getElementById('edit-image-description');
+                    const previewSection = document.getElementById('edit-image-section');
+                    
+                    if (previewImg && previewSection) {
+                        previewImg.src = response.image_url;
+                        if (previewDesc) {
+                            previewDesc.textContent = response.image_description || 'Generated image';
+                        }
+                        previewSection.classList.remove('hidden');
+                        showToast('✨ Image generated!');
+                        log('Image preview shown successfully');
+                        
+                        if (regenerateBtn) {
+                            regenerateBtn.classList.remove('hidden');
+                            log('Regenerate button shown');
+                        }
+                    } else {
+                        log('ERROR: Preview elements not found!');
+                        showToast('Image generated but preview failed');
+                    }
+                } else {
+                    log('ERROR: No image URL in response');
+                    showToast('Failed to generate image');
+                }
+                
+            } catch (error) {
+                log('ERROR: Image generation failed: ' + error.message);
+                showToast('Failed to generate image. Please try again.');
+            } finally {
+                // Hide loading state
+                log('Cleaning up loading state...');
+                const loadingEl = document.getElementById('edit-image-loading');
+                const generateBtn = document.getElementById('generate-edit-image-btn');
+                const regenerateBtn = document.getElementById('regenerate-edit-image-btn');
+                
+                if (loadingEl) {
+                    loadingEl.classList.add('hidden');
+                    log('Loading hidden');
+                }
+                if (generateBtn) {
+                    generateBtn.disabled = false;
+                    log('Generate button re-enabled');
+                }
+                if (regenerateBtn) {
+                    regenerateBtn.disabled = false;
+                    log('Regenerate button re-enabled');
+                }
+                log('Image generation complete (finally block)');
+            }
+        }
+        
+        // Test event listener attachment
+        document.addEventListener('DOMContentLoaded', function() {
+            log('DOM Content Loaded');
+            
+            const generateBtn = document.getElementById('generate-edit-image-btn');
+            const regenerateBtn = document.getElementById('regenerate-edit-image-btn');
+            
+            if (generateBtn) {
+                log('Generate button found, attaching event listener');
+                generateBtn.addEventListener('click', function(e) {
+                    log('Generate button clicked!');
+                    e.preventDefault();
+                    generateImageForEditCard();
+                });
+            } else {
+                log('ERROR: Generate button not found during setup!');
+            }
+            
+            if (regenerateBtn) {
+                log('Regenerate button found, attaching event listener');
+                regenerateBtn.addEventListener('click', function(e) {
+                    log('Regenerate button clicked!');
+                    e.preventDefault();
+                    generateImageForEditCard();
+                });
+            } else {
+                log('ERROR: Regenerate button not found during setup!');
+            }
+            
+            log('Event listeners setup complete');
+        });
+        
+        // Test button existence on page load
+        log('Page loaded, checking button existence...');
+        log('Generate button exists: ' + !!document.getElementById('generate-edit-image-btn'));
+        log('Regenerate button exists: ' + !!document.getElementById('regenerate-edit-image-btn'));
+    </script>
+</body>
+</html>

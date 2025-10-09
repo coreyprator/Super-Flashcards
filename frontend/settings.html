@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Language Flashcards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="mb-6 flex justify-between items-center">
+                <h1 class="text-3xl font-bold">Settings</h1>
+                <a href="/" class="text-indigo-600 hover:text-indigo-800">← Back to Home</a>
+            </div>
+            
+            <!-- Global Instruction Language -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Default Instruction Language
+                </label>
+                <p class="text-sm text-gray-600 mb-3">
+                    Language used for AI-generated definitions, etymology, etc. Can be overridden per target language.
+                </p>
+                <select id="instructionLanguage" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <option value="en">English</option>
+                    <option value="fr">French</option>
+                    <option value="el">Greek</option>
+                    <option value="es">Spanish</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="zh">Mandarin Chinese</option>
+                </select>
+            </div>
+            
+            <!-- Example Usage -->
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h3 class="font-medium text-blue-900 mb-2">How This Works</h3>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• <strong>English instruction</strong>: Greek cards will have definitions in English</li>
+                    <li>• <strong>French instruction</strong>: Greek cards will have definitions in French</li>
+                    <li>• You can set different instruction languages per target language below</li>
+                </ul>
+            </div>
+            
+            <!-- Save Button -->
+            <div class="flex gap-4">
+                <button onclick="saveSettings()" 
+                        class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-medium">
+                    Save Preferences
+                </button>
+                <div id="saveStatus" class="flex items-center text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load current settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/users/me');
+                if (response.ok) {
+                    const user = await response.json();
+                    document.getElementById('instructionLanguage').value = user.preferred_instruction_language;
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                showStatus('Failed to load settings', 'error');
+            }
+        }
+
+        // Save settings
+        async function saveSettings() {
+            const instructionLanguage = document.getElementById('instructionLanguage').value;
+            
+            showStatus('Saving...', 'loading');
+            
+            try {
+                const response = await fetch('/api/users/me/preferences', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preferred_instruction_language: instructionLanguage
+                    })
+                });
+                
+                if (response.ok) {
+                    showStatus('Settings saved successfully!', 'success');
+                } else {
+                    showStatus('Failed to save settings', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                showStatus('Failed to save settings', 'error');
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('saveStatus');
+            const colors = {
+                loading: 'text-blue-600',
+                success: 'text-green-600',
+                error: 'text-red-600'
+            };
+            
+            statusEl.className = `flex items-center text-sm ${colors[type]}`;
+            statusEl.textContent = message;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                }, 3000);
+            }
+        }
+
+        // Load on page load
+        loadSettings();
+    </script>
+</body>
+</html>

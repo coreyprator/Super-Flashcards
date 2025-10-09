@@ -28,12 +28,24 @@ if (-not (Test-Path $mainFile)) {
     exit 1
 }
 
-# Start the uvicorn server
+# Activate virtual environment if not already activated
+if ($env:VIRTUAL_ENV -eq $null) {
+    $venvPath = Join-Path $projectRoot ".venv\Scripts\Activate.ps1"
+    if (Test-Path $venvPath) {
+        Write-Host "🔄 Activating virtual environment..." -ForegroundColor Blue
+        & $venvPath
+    } else {
+        Write-Host "⚠️  Warning: Virtual environment not found" -ForegroundColor Yellow
+    }
+}
+
+# Start the uvicorn server using python module
 try {
-    Write-Host "🔄 Starting uvicorn server..." -ForegroundColor Blue
-    uvicorn app.main:app --reload --host localhost --port 8000
+    Write-Host "🔄 Starting FastAPI server..." -ForegroundColor Blue
+    python -m uvicorn app.main:app --reload --host localhost --port 8000
 }
 catch {
     Write-Host "❌ Error starting server: $_" -ForegroundColor Red
+    Write-Host "💡 Make sure you're in the correct directory and virtual environment is activated" -ForegroundColor Yellow
     exit 1
 }

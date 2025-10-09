@@ -4,8 +4,12 @@
 # pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
 #
 
-# FastAPI and server
+# FastAPI and server - TESTED WORKING COMBINATION
+# NOTE: FastAPI 0.104.1 + Pydantic 2.4.x-2.5.x are compatible
+# DO NOT upgrade to FastAPI 0.118+ without testing compatibility
 fastapi==0.104.1
+starlette==0.27.0
+pydantic>=2.4.0,<2.6.0
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
@@ -26,7 +30,6 @@ requests==2.31.0
 
 # Additional utilities
 python-dotenv==1.0.0
-pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # Image handling (Phase 2)

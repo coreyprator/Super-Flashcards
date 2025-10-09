@@ -27,10 +27,12 @@ if not exist "app\main.py" (
     exit /b 1
 )
 
-REM Check if dependencies are installed, install if needed
-echo 🔍 Checking dependencies...
-pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt --quiet
+REM Activate virtual environment if it exists
+if exist "..\\.venv\\Scripts\\activate.bat" (
+    echo 🔄 Activating virtual environment...
+    call "..\\.venv\\Scripts\\activate.bat"
+)
 
-REM Start the uvicorn server
-echo 🔄 Starting uvicorn server...
-uvicorn app.main:app --reload --host localhost --port 8000
+REM Start the FastAPI server using python module
+echo 🔄 Starting FastAPI server...
+python -m uvicorn app.main:app --reload --host localhost --port 8000

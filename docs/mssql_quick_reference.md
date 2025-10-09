@@ -2,6 +2,46 @@
 
 Quick reference for common database operations. Use your expertise to extend these!
 
+## Python Environment Setup
+
+### Package Installation Issues
+
+If you encounter SSL/certificate errors during pip installs, use trusted host flags:
+
+```powershell
+# Standard installation
+pip install package-name
+
+# If SSL errors occur, use trusted hosts
+pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org package-name
+
+# Example: Reinstall corrupted uvicorn
+pip uninstall uvicorn -y && pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org uvicorn[standard]
+```
+
+**Common Symptoms**:
+- Package names appearing corrupted in `pip list` (e.g., "~vicorn" instead of "uvicorn")
+- SSL certificate verification errors
+- Connection timeouts to PyPI
+
+### Version Compatibility Issues
+
+**FastAPI + Pydantic Compatibility:**
+
+```bash
+# WORKING COMBINATION (Tested October 2025)
+pip install "fastapi==0.104.1" "starlette==0.27.0" "pydantic>=2.4.0,<2.6.0"
+
+# BROKEN COMBINATION (Avoid)
+# fastapi==0.118.0 + pydantic==2.11.9 
+# Error: "model_fields_schema() got an unexpected keyword argument 'extras_keys_schema'"
+```
+
+**If you get Pydantic compatibility errors:**
+1. Check versions: `pip show fastapi pydantic starlette`
+2. Downgrade FastAPI: `pip install "fastapi==0.104.1" --force-reinstall`
+3. Use requirements.txt: `pip install -r requirements.txt`
+
 ## Database Setup
 
 ```sql
