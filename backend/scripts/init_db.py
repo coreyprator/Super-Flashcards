@@ -31,6 +31,7 @@ def init_db():
     
     # Default languages
     default_languages = [
+        {"name": "English", "code": "en"},
         {"name": "French", "code": "fr"},
         {"name": "Greek", "code": "el"},
         {"name": "Spanish", "code": "es"},
@@ -51,6 +52,20 @@ def init_db():
             print(f"✓ Added {created.name} ({created.code})")
         else:
             print(f"- {existing.name} already exists")
+    
+    # Create default user
+    print("\nCreating default user...")
+    existing_user = db.query(models.User).filter(models.User.username == "default_user").first()
+    if not existing_user:
+        default_user = models.User(
+            username="default_user",
+            preferred_instruction_language="en"
+        )
+        db.add(default_user)
+        db.commit()
+        print("✓ Created default user")
+    else:
+        print("- Default user already exists")
     
     db.close()
     print("\n✓ Database initialization complete!")
