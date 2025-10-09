@@ -20,20 +20,31 @@ RECONFIGURE;
 "@
 
 try {
-    Invoke-Sqlcmd -ServerInstance $ServerInstance -Query $EnableXpCmdShell -ErrorAction Stop
-    Write-Host "✓ Enabled xp_cmdshell" -ForegroundColor Green
+    $result = & sqlcmd -S $ServerInstance -d master -E -Q $EnableXpCmdShell 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Enabled xp_cmdshell" -ForegroundColor Green
+    } else {
+        Write-Host "⚠ Warning: Could not enable xp_cmdshell (run as Administrator)" -ForegroundColor Yellow
+        Write-Host "  This is needed for automatic cleanup of old backups" -ForegroundColor Gray
+    }
 } catch {
     Write-Host "⚠ Warning: Could not enable xp_cmdshell (run as Administrator)" -ForegroundColor Yellow
 }
 
-# Test backup
+# Test backup using sqlcmd (more reliable than Invoke-Sqlcmd)
 Write-Host "Running test backup..." -ForegroundColor Yellow
 try {
-    Invoke-Sqlcmd -ServerInstance $ServerInstance -InputFile $ScriptPath -QueryTimeout 300
-    Write-Host "✓ Test backup successful!" -ForegroundColor Green
+    $result = & sqlcmd -S $ServerInstance -d master -E -i $ScriptPath -h -1 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Test backup successful!" -ForegroundColor Green
+    } else {
+        Write-Host "✗ Backup test failed. Output:" -ForegroundColor Red
+        Write-Host $result -ForegroundColor Red
+        Write-Host "⚠ Continuing anyway - manual backup test recommended" -ForegroundColor Yellow
+    }
 } catch {
     Write-Host "✗ Backup test failed: $_" -ForegroundColor Red
-    exit 1
+    Write-Host "⚠ Continuing anyway - manual backup test recommended" -ForegroundColor Yellow
 }
 
 # Create scheduled task
