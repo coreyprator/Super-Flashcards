@@ -130,6 +130,30 @@ class UserLanguageUpdate(BaseModel):
     proficiency_level: Optional[str] = None
 
 
+# Batch Processing Schemas
+class BatchProcessRequest(BaseModel):
+    csv_file_path: str
+    user_id: str = "00000000-0000-0000-0000-000000000001"  # Default user UUID for testing
+    language_id: str = "00000000-0000-0000-0000-000000000001"  # Default French language UUID
+    max_words: Optional[int] = None  # Limit for testing
+
+class BatchProcessResponse(BaseModel):
+    batch_id: str
+    status: str
+    message: str
+    total_words: int
+
+class BatchStatusResponse(BaseModel):
+    batch_id: str
+    status: str
+    total_words: int
+    processed: int
+    successful: int
+    failed: int
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    flashcards: List[dict] = []
+
 # Sync Schemas (for offline support)
 class SyncRequest(BaseModel):
     flashcards: List[FlashcardCreate]

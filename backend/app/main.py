@@ -7,7 +7,9 @@ import os
 
 from app.database import engine
 from app import models
-from app.routers import flashcards, ai_generate, languages, users, search
+from app.routers import flashcards, ai_generate, languages, users, import_flashcards
+# from app.routers import batch_processing  # Temporarily disabled for testing
+# Removed: search, document_parser (replaced with batch processing approach)
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -33,7 +35,9 @@ app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcard
 app.include_router(ai_generate.router, prefix="/api/ai", tags=["ai"])
 app.include_router(languages.router, prefix="/api/languages", tags=["languages"])
 app.include_router(users.router)
-app.include_router(search.router)
+app.include_router(import_flashcards.router, prefix="/api/import", tags=["import"])
+# app.include_router(batch_processing.router, prefix="/api/batch", tags=["batch_processing"])  # Temporarily disabled
+# Removed: search.router, document_parser.router (replaced with batch processing)
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")

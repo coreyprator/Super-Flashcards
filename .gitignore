@@ -2,6 +2,10 @@
 .env
 backend/.env
 
+# Test files
+test_import.csv
+test_import.json
+
 # Python
 __pycache__/
 *.py[cod]

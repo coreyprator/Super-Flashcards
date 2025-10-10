@@ -1,0 +1,168 @@
+# =============================================
+# Super-Flashcards Sprint 3 - Command Reference
+# Copy/paste these commands as needed
+# =============================================
+
+# =============================================
+# PHASE 1: SERVER FIX (VS AI will do this)
+# =============================================
+
+# Remove broken files
+Remove-Item backend\app\routers\search.py -ErrorAction SilentlyContinue
+Remove-Item backend\app\routers\import_tools.py -ErrorAction SilentlyContinue
+
+# Test server
+.\runui.ps1
+# Open browser: http://localhost:8000
+
+# If still broken - nuclear option
+Remove-Item -Recurse -Force .venv
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+.\runui.ps1
+
+# =============================================
+# PHASE 2: WORD EXTRACTION (You do this)
+# =============================================
+
+# Install requirement (one-time)
+pip install python-docx
+
+# Extract words from single file
+python backend\scripts\extract_words.py french_doc1.txt -o words.csv
+
+# Extract words from multiple files (combines into one list)
+python backend\scripts\extract_words.py french_doc1.txt french_doc2.txt french_doc3.txt -o all_words.csv
+
+# Extract with Greek language
+python backend\scripts\extract_words.py greek_doc.txt --language Greek -o greek_words.csv
+
+# Extract top 100 most frequent words only
+python backend\scripts\extract_words.py french_doc*.txt -o top_100.csv --max-words 100
+
+# =============================================
+# PHASE 3: BATCH IMPORT (You do this via UI)
+# =============================================
+
+# 1. Start server
+.\runui.ps1
+
+# 2. Open browser: http://localhost:8000
+# 3. Go to Import tab
+# 4. Upload curated_words.csv
+# 5. Watch progress!
+
+# =============================================
+# TESTING COMMANDS
+# =============================================
+
+# Check if server is running
+curl http://localhost:8000
+
+# Test batch upload endpoint
+curl -X POST http://localhost:8000/api/batch/upload -F "file=@curated_words.csv"
+
+# Check batch job status (replace JOB_ID with actual ID)
+curl http://localhost:8000/api/batch/status/JOB_ID
+
+# =============================================
+# VERIFICATION COMMANDS
+# =============================================
+
+# Count flashcards in database
+sqlcmd -S localhost\SQLEXPRESS -d LanguageLearning -Q "SELECT COUNT(*) FROM flashcards"
+
+# View recent flashcards
+sqlcmd -S localhost\SQLEXPRESS -d LanguageLearning -Q "SELECT TOP 10 word, language_id, created_at FROM flashcards ORDER BY created_at DESC"
+
+# Check batch import notes
+sqlcmd -S localhost\SQLEXPRESS -d LanguageLearning -Q "SELECT word, notes FROM flashcards WHERE notes LIKE '%batch%'"
+
+# =============================================
+# TROUBLESHOOTING
+# =============================================
+
+# View server logs
+# (already displayed in terminal where you ran .\runui.ps1)
+
+# Check for Python errors
+python -c "import backend.app.main"
+
+# Verify database connection
+sqlcmd -S localhost\SQLEXPRESS -d LanguageLearning -Q "SELECT @@VERSION"
+
+# List all routers registered
+# Open backend/app/main.py and look for app.include_router() calls
+
+# Check if batch import router is registered
+python -c "from backend.app.main import app; print([route.path for route in app.routes if 'batch' in route.path])"
+
+# =============================================
+# USEFUL FILE PATHS
+# =============================================
+
+# Server startup script
+.\runui.ps1
+
+# Main application
+backend\app\main.py
+
+# Word extractor
+backend\scripts\extract_words.py
+
+# Batch import router
+backend\app\routers\batch_import.py
+
+# Frontend
+frontend\index.html
+frontend\app.js
+
+# Database connection
+backend\app\database.py
+
+# =============================================
+# QUICK WORKFLOW SUMMARY
+# =============================================
+
+# 1. Export Google Docs as .txt (manual in Google Docs)
+
+# 2. Extract words
+python backend\scripts\extract_words.py *.txt -o all_words.csv
+
+# 3. Review all_words.csv in Excel, save as curated_words.csv
+
+# 4. Start server
+.\runui.ps1
+
+# 5. Open http://localhost:8000, go to Import tab
+
+# 6. Upload curated_words.csv and process
+
+# 7. Wait for completion, verify flashcards created
+
+# =============================================
+# ESTIMATED TIMES
+# =============================================
+
+# Word extraction: 2-5 minutes
+# Word review/curation: 15 minutes
+# Batch processing 100 words: ~12 minutes
+# Batch processing 500 words: ~60 minutes
+# Total automated work: 1-5 hours (computer does it)
+# Total your time: ~30 minutes
+
+# =============================================
+# SUCCESS INDICATORS
+# =============================================
+
+# ✓ Server starts without errors
+# ✓ Can access http://localhost:8000
+# ✓ Import tab shows batch import section
+# ✓ Can upload CSV file
+# ✓ Progress bar appears during processing
+# ✓ Flashcards appear in database
+# ✓ Can study new flashcards immediately
+
+Write-Host "✅ Command reference ready!" -ForegroundColor Green
+Write-Host "Copy/paste commands as needed." -ForegroundColor Cyan
