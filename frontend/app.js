@@ -566,118 +566,229 @@ function selectCard(index) {
 // ========================================
 
 function switchTab(tabName) {
+    console.log(`🔄 switchTab called with: "${tabName}"`);
+    
+    // Check if elements exist
+    const tabButton = document.getElementById(`tab-${tabName}`);
+    const contentDiv = document.getElementById(`content-${tabName}`);
+    
+    console.log(`🔍 Tab button found: ${!!tabButton}`, tabButton);
+    console.log(`🔍 Content div found: ${!!contentDiv}`, contentDiv);
+    
+    if (!tabButton) {
+        console.error(`❌ Tab button not found: tab-${tabName}`);
+        return;
+    }
+    
+    if (!contentDiv) {
+        console.error(`❌ Content div not found: content-${tabName}`);
+        return;
+    }
+    
     // Update tab buttons
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('border-b-2', 'border-indigo-600', 'text-indigo-600');
         btn.classList.add('text-gray-600');
     });
     
-    document.getElementById(`tab-${tabName}`).classList.add('border-b-2', 'border-indigo-600', 'text-indigo-600');
-    document.getElementById(`tab-${tabName}`).classList.remove('text-gray-600');
+    tabButton.classList.add('border-b-2', 'border-indigo-600', 'text-indigo-600');
+    tabButton.classList.remove('text-gray-600');
     
     // Show/hide content
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.add('hidden');
     });
     
-    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+    contentDiv.classList.remove('hidden');
+    console.log(`✅ Successfully switched to ${tabName} tab`);
 }
 
 // ========================================
-// Form Handlers
+// Form Handlers (moved to DOMContentLoaded)
 // ========================================
 
-document.getElementById('create-flashcard-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const word = document.getElementById('word-input').value;
-    const definition = document.getElementById('definition-input').value;
-    const etymology = document.getElementById('etymology-input').value;
-    const cognates = document.getElementById('cognates-input').value;
-    const relatedInput = document.getElementById('related-input').value;
-    
-    // Convert related words to JSON array
-    const relatedWords = relatedInput ? JSON.stringify(relatedInput.split(',').map(w => w.trim())) : null;
-    
-    // Include image data if available
-    const flashcardData = {
-        word_or_phrase: word,
-        definition: definition || null,
-        etymology: etymology || null,
-        english_cognates: cognates || null,
-        related_words: relatedWords
-    };
-    
-    // Add image data if generated
-    if (manualImageData) {
-        flashcardData.image_url = manualImageData.url;
-        flashcardData.image_description = manualImageData.description;
-    }
-    
-    await createFlashcard(flashcardData);
-    
-    // Clear form and reset image data
-    e.target.reset();
-    removeManualImage();
-});
+// ========================================
+// Import Functionality
+// ========================================
 
-document.getElementById('ai-generate-btn').addEventListener('click', async () => {
-    const word = document.getElementById('ai-word-input').value.trim();
-    const includeImage = document.getElementById('include-image').checked;
+// Import event listeners will be added in DOMContentLoaded
+
+function resetImportForm() {
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-progress').classList.add('hidden');
+    document.getElementById('import-results').classList.add('hidden');
+}
+
+async function downloadTemplate(format) {
+    try {
+        const response = await fetch(`${API_BASE}/import/template/${format}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Create and trigger download
+            const blob = new Blob([data.content], { type: data.content_type });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast(`📄 Downloaded ${format.toUpperCase()} template`);
+        } else {
+            throw new Error(data.detail || 'Failed to download template');
+        }
+    } catch (error) {
+        console.error('Error downloading template:', error);
+        showToast(`❌ Failed to download template: ${error.message}`, 5000);
+    }
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
     
-    if (!word) {
-        showToast('Please enter a word or phrase');
+    // Validate file type
+    const validExtensions = ['csv', 'json'];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
+        showToast('❌ Please select a CSV or JSON file', 5000);
+        event.target.value = '';
         return;
     }
     
-    await generateAIFlashcard(word, includeImage);
-    
-    // Clear input
-    document.getElementById('ai-word-input').value = '';
-});
-
-// ========================================
-// Event Listeners
-// ========================================
-
-document.getElementById('language-select').addEventListener('change', async (e) => {
-    state.currentLanguage = e.target.value;
-    
-    // Dispatch custom event for language change
-    document.dispatchEvent(new CustomEvent('languageChanged', { 
-        detail: { languageId: state.currentLanguage } 
-    }));
-    
-    if (state.currentLanguage) {
-        await loadFlashcards();
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ File too large. Maximum size is 10MB', 5000);
+        event.target.value = '';
+        return;
     }
-});
+    
+    // Show progress
+    showImportProgress();
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Update progress
+        updateImportProgress(25, 'Uploading file...');
+        
+        const response = await fetch(`${API_BASE}/import/import`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        updateImportProgress(75, 'Processing file...');
+        
+        const result = await response.json();
+        
+        updateImportProgress(100, 'Complete!');
+        
+        if (response.ok) {
+            showImportResults(result);
+            
+            // Refresh flashcards if we're on browse tab
+            if (state.currentLanguage) {
+                await loadFlashcards();
+            }
+            
+            showToast(`✅ Import complete! ${result.successful_imports} cards imported`, 5000);
+        } else {
+            throw new Error(result.detail || 'Import failed');
+        }
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        showToast(`❌ Import failed: ${error.message}`, 8000);
+        resetImportForm();
+    }
+}
 
-document.getElementById('tab-study').addEventListener('click', () => switchTab('study'));
-document.getElementById('tab-add').addEventListener('click', () => switchTab('add'));
-document.getElementById('tab-browse').addEventListener('click', () => switchTab('browse'));
+function showImportProgress() {
+    document.getElementById('import-progress').classList.remove('hidden');
+    document.getElementById('import-results').classList.add('hidden');
+}
 
-document.getElementById('next-card').addEventListener('click', nextCard);
-document.getElementById('prev-card').addEventListener('click', prevCard);
+function updateImportProgress(percentage, message) {
+    document.getElementById('import-percentage').textContent = `${percentage}%`;
+    document.getElementById('import-progress-bar').style.width = `${percentage}%`;
+    
+    if (message) {
+        document.querySelector('#import-progress .text-sm').textContent = message;
+    }
+}
 
-// Manual/AI form toggle
-document.getElementById('btn-manual').addEventListener('click', function() {
-    document.getElementById('manual-form').classList.remove('hidden');
-    document.getElementById('ai-form').classList.add('hidden');
-    this.classList.add('bg-indigo-600', 'text-white');
-    this.classList.remove('bg-gray-200', 'text-gray-700');
-    document.getElementById('btn-ai').classList.remove('bg-indigo-600', 'text-white');
-    document.getElementById('btn-ai').classList.add('bg-gray-200', 'text-gray-700');
-});
-
-document.getElementById('btn-ai').addEventListener('click', function() {
-    document.getElementById('ai-form').classList.remove('hidden');
-    document.getElementById('manual-form').classList.add('hidden');
-    this.classList.add('bg-indigo-600', 'text-white');
-    this.classList.remove('bg-gray-200', 'text-gray-700');
-    document.getElementById('btn-manual').classList.remove('bg-indigo-600', 'text-white');
-    document.getElementById('btn-manual').classList.add('bg-gray-200', 'text-gray-700');
-});
+function showImportResults(result) {
+    // Hide progress, show results
+    document.getElementById('import-progress').classList.add('hidden');
+    document.getElementById('import-results').classList.remove('hidden');
+    
+    // Update counters
+    document.getElementById('successful-count').textContent = result.successful_imports || 0;
+    document.getElementById('warning-count').textContent = result.warnings?.length || 0;
+    document.getElementById('error-count').textContent = result.errors?.length || 0;
+    
+    // Show messages
+    const messagesContainer = document.getElementById('import-messages');
+    messagesContainer.innerHTML = '';
+    
+    // Add errors
+    if (result.errors && result.errors.length > 0) {
+        result.errors.forEach(error => {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200';
+            errorDiv.textContent = `❌ ${error}`;
+            messagesContainer.appendChild(errorDiv);
+        });
+    }
+    
+    // Add warnings
+    if (result.warnings && result.warnings.length > 0) {
+        result.warnings.forEach(warning => {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'text-sm text-yellow-700 bg-yellow-50 p-2 rounded border border-yellow-200';
+            warningDiv.textContent = `⚠️ ${warning}`;
+            messagesContainer.appendChild(warningDiv);
+        });
+    }
+    
+    // Show success message if no errors/warnings
+    if ((!result.errors || result.errors.length === 0) && (!result.warnings || result.warnings.length === 0)) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'text-sm text-green-700 bg-green-50 p-2 rounded border border-green-200';
+        successDiv.textContent = `✅ ${result.message}`;
+        messagesContainer.appendChild(successDiv);
+    }
+    
+    // Show imported cards preview
+    const previewContainer = document.getElementById('imported-cards-list');
+    previewContainer.innerHTML = '';
+    
+    if (result.imported_cards && result.imported_cards.length > 0) {
+        document.getElementById('imported-cards-preview').classList.remove('hidden');
+        
+        result.imported_cards.forEach(card => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'text-xs text-gray-600 p-1 bg-gray-50 rounded';
+            cardDiv.textContent = `${card.word_or_phrase} → ${card.definition} (${card.language})`;
+            previewContainer.appendChild(cardDiv);
+        });
+        
+        if (result.successful_imports > result.imported_cards.length) {
+            const moreDiv = document.createElement('div');
+            moreDiv.className = 'text-xs text-gray-500 italic p-1';
+            moreDiv.textContent = `... and ${result.successful_imports - result.imported_cards.length} more cards`;
+            previewContainer.appendChild(moreDiv);
+        }
+    } else {
+        document.getElementById('imported-cards-preview').classList.add('hidden');
+    }
+}
 
 // Search functionality
 let searchTimeout;
@@ -688,20 +799,67 @@ document.getElementById('search-input').addEventListener('input', (e) => {
         if (query.length >= 2) {
             searchFlashcards(query);
         } else {
-            renderFlashcardList();
+            // Restore original flashcards when search is cleared
+            if (state.originalFlashcards) {
+                state.flashcards = [...state.originalFlashcards];
+                state.originalFlashcards = null;
+                renderFlashcardList();
+            }
+            // Hide search stats
+            document.getElementById('search-stats').classList.add('hidden');
         }
     }, 300);
 });
 
 async function searchFlashcards(query) {
+    const searchLoading = document.getElementById('search-loading');
+    const searchStats = document.getElementById('search-stats');
+    
     try {
-        const results = await apiRequest(`/flashcards/search?q=${encodeURIComponent(query)}&language_id=${state.currentLanguage}`);
-        const originalFlashcards = state.flashcards;
-        state.flashcards = results;
+        // Show loading indicator
+        searchLoading.classList.remove('hidden');
+        searchStats.classList.add('hidden');
+        
+        console.log('Searching for:', query);
+        const languageParam = state.currentLanguage && state.currentLanguage !== 'all' 
+            ? `&language_id=${state.currentLanguage}` 
+            : '';
+        
+        const searchUrl = `/api/search/flashcards?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
+        console.log('Search URL:', searchUrl);
+        
+        const response = await apiRequest(searchUrl);
+        console.log('Search response:', response);
+        
+        // Extract results from the search API response format
+        const searchResults = response.results || [];
+        
+        // Store original flashcards and show search results
+        if (!state.originalFlashcards) {
+            state.originalFlashcards = [...state.flashcards];
+        }
+        
+        state.flashcards = searchResults;
         renderFlashcardList();
-        state.flashcards = originalFlashcards;
+        
+        // Show search stats
+        if (response.stats) {
+            searchStats.textContent = `Found ${response.stats.total_results} results in ${response.stats.search_time_ms}ms`;
+            searchStats.classList.remove('hidden');
+        }
+        
     } catch (error) {
         console.error('Search failed:', error);
+        showToast('Search failed. Please try again.', 'error');
+        
+        // Show error in stats
+        searchStats.textContent = 'Search failed - please check if full-text search is set up';
+        searchStats.classList.remove('hidden');
+        searchStats.classList.add('text-red-500');
+        
+    } finally {
+        // Hide loading indicator
+        searchLoading.classList.add('hidden');
     }
 }
 
@@ -787,10 +945,16 @@ function showEditModal(flashcard) {
     }
     
     // Reset loading states
-    document.getElementById('edit-image-loading').classList.add('hidden');
+    const editImageLoading = document.getElementById('edit-image-loading');
+    if (editImageLoading) {
+        editImageLoading.classList.add('hidden');
+    }
     
     // Show modal
-    document.getElementById('edit-modal').classList.remove('hidden');
+    const editModal = document.getElementById('edit-modal');
+    if (editModal) {
+        editModal.classList.remove('hidden');
+    }
     
     // Attach event listeners for image generation buttons (fix for button not working)
     setupEditModalEventListeners();
@@ -1021,7 +1185,184 @@ function deleteFromEditModal() {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 DOMContentLoaded fired, initializing app...');
+    
+    // Debug: Check if all tab elements exist
+    const tabs = ['study', 'add', 'import', 'browse'];
+    tabs.forEach(tab => {
+        const button = document.getElementById(`tab-${tab}`);
+        const content = document.getElementById(`content-${tab}`);
+        console.log(`🔍 Tab "${tab}":`, {
+            button: !!button,
+            content: !!content,
+            buttonElement: button,
+            contentElement: content
+        });
+    });
+    
     loadLanguages();
+    
+    // ========================================
+    // Form Event Listeners
+    // ========================================
+    
+    // Create flashcard form
+    const createForm = document.getElementById('create-flashcard-form');
+    if (createForm) {
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const word = document.getElementById('word-input').value;
+            const definition = document.getElementById('definition-input').value;
+            const etymology = document.getElementById('etymology-input').value;
+            const cognates = document.getElementById('cognates-input').value;
+            const relatedInput = document.getElementById('related-input').value;
+            
+            // Convert related words to JSON array
+            const relatedWords = relatedInput ? JSON.stringify(relatedInput.split(',').map(w => w.trim())) : null;
+            
+            // Include image data if available
+            const flashcardData = {
+                word_or_phrase: word,
+                definition: definition || null,
+                etymology: etymology || null,
+                english_cognates: cognates || null,
+                related_words: relatedWords
+            };
+            
+            // Add image data if generated
+            if (manualImageData) {
+                flashcardData.image_url = manualImageData.url;
+                flashcardData.image_description = manualImageData.description;
+            }
+            
+            await createFlashcard(flashcardData);
+            
+            // Clear form and reset image data
+            e.target.reset();
+            removeManualImage();
+        });
+    }
+    
+    // AI generate button
+    const aiGenerateBtn = document.getElementById('ai-generate-btn');
+    if (aiGenerateBtn) {
+        aiGenerateBtn.addEventListener('click', async () => {
+            const word = document.getElementById('ai-word-input').value.trim();
+            const includeImage = document.getElementById('include-image').checked;
+            
+            if (!word) {
+                showToast('Please enter a word or phrase');
+                return;
+            }
+            
+            await generateAIFlashcard(word, includeImage);
+            
+            // Clear input
+            document.getElementById('ai-word-input').value = '';
+        });
+    }
+    
+    // Language selector
+    const languageSelect = document.getElementById('language-select');
+    if (languageSelect) {
+        languageSelect.addEventListener('change', async (e) => {
+            state.currentLanguage = e.target.value;
+            
+            // Dispatch custom event for language change
+            document.dispatchEvent(new CustomEvent('languageChanged', { 
+                detail: { languageId: state.currentLanguage } 
+            }));
+            
+            if (state.currentLanguage) {
+                await loadFlashcards();
+            }
+        });
+    }
+    
+    // Tab buttons
+    const studyTab = document.getElementById('tab-study');
+    const addTab = document.getElementById('tab-add');
+    const importTab = document.getElementById('tab-import');
+    const batchTab = document.getElementById('tab-batch');
+    const browseTab = document.getElementById('tab-browse');
+    
+    if (studyTab) {
+        studyTab.addEventListener('click', () => {
+            console.log('🔄 Switching to study tab');
+            switchTab('study');
+        });
+    }
+    
+    if (addTab) {
+        addTab.addEventListener('click', () => {
+            console.log('🔄 Switching to add tab');
+            switchTab('add');
+        });
+    }
+    
+    if (importTab) {
+        importTab.addEventListener('click', () => {
+            console.log('🔄 Switching to import tab');
+            switchTab('import');
+        });
+    }
+    
+    if (batchTab) {
+        batchTab.addEventListener('click', () => {
+            console.log('🔄 Switching to batch tab');
+            switchTab('batch');
+        });
+    }
+    
+    if (browseTab) {
+        browseTab.addEventListener('click', () => {
+            console.log('🔄 Switching to browse tab');
+            switchTab('browse');
+        });
+    }
+    
+    // Navigation buttons
+    const nextCardBtn = document.getElementById('next-card');
+    const prevCardBtn = document.getElementById('prev-card');
+    
+    if (nextCardBtn) {
+        nextCardBtn.addEventListener('click', nextCard);
+    }
+    
+    if (prevCardBtn) {
+        prevCardBtn.addEventListener('click', prevCard);
+    }
+    
+    // Manual/AI form toggle
+    const btnManual = document.getElementById('btn-manual');
+    const btnAI = document.getElementById('btn-ai');
+    
+    if (btnManual) {
+        btnManual.addEventListener('click', function() {
+            document.getElementById('manual-form').classList.remove('hidden');
+            document.getElementById('ai-form').classList.add('hidden');
+            this.classList.add('bg-indigo-600', 'text-white');
+            this.classList.remove('bg-gray-200', 'text-gray-700');
+            if (btnAI) {
+                btnAI.classList.remove('bg-indigo-600', 'text-white');
+                btnAI.classList.add('bg-gray-200', 'text-gray-700');
+            }
+        });
+    }
+    
+    if (btnAI) {
+        btnAI.addEventListener('click', function() {
+            document.getElementById('ai-form').classList.remove('hidden');
+            document.getElementById('manual-form').classList.add('hidden');
+            this.classList.add('bg-indigo-600', 'text-white');
+            this.classList.remove('bg-gray-200', 'text-gray-700');
+            if (btnManual) {
+                btnManual.classList.remove('bg-indigo-600', 'text-white');
+                btnManual.classList.add('bg-gray-200', 'text-gray-700');
+            }
+        });
+    }
     
     // Check online status on load
     if (!navigator.onLine) {
@@ -1043,41 +1384,95 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Edit modal event listeners
-    document.getElementById('edit-flashcard-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        saveEditedFlashcard();
-    });
+    const editForm = document.getElementById('edit-flashcard-form');
+    const closeEditBtn = document.getElementById('close-edit-modal');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    // Note: 'remove-image-btn' doesn't exist - using correct IDs per form
+    const removeImageBtn = null; // Will be handled per-form
     
-    document.getElementById('close-edit-modal').addEventListener('click', closeEditModal);
-    document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+    if (editForm) {
+        editForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveEditedFlashcard();
+        });
+    } else {
+        console.warn('⚠️ Edit form not found');
+    }
     
-    document.getElementById('remove-image-btn').addEventListener('click', removeImageFromFlashcard);
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener('click', closeEditModal);
+    } else {
+        console.warn('⚠️ Close edit button not found');
+    }
+    
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', closeEditModal);
+    } else {
+        console.warn('⚠️ Cancel edit button not found');
+    }
+    
+    // Note: remove-image-btn doesn't exist - image removal is handled per-form
+    // removeImageFromFlashcard is called from edit modal buttons
+    console.log('ℹ️ Image removal buttons are handled per-form (manual/edit)');
     
     // Close modal when clicking outside
-    document.getElementById('edit-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'edit-modal') {
-            closeEditModal();
-        }
-    });
+    const editModal = document.getElementById('edit-modal');
+    if (editModal) {
+        editModal.addEventListener('click', (e) => {
+            if (e.target.id === 'edit-modal') {
+                closeEditModal();
+            }
+        });
+    } else {
+        console.warn('⚠️ Edit modal not found');
+    }
     
     // Delete modal event listeners
-    document.getElementById('confirm-delete-btn').addEventListener('click', deleteFlashcard);
-    document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteModal);
-    document.getElementById('delete-from-edit-btn').addEventListener('click', deleteFromEditModal);
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const deleteFromEditBtn = document.getElementById('delete-from-edit-btn');
+    
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', deleteFlashcard);
+    } else {
+        console.warn('⚠️ Confirm delete button not found');
+    }
+    
+    if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+    } else {
+        console.warn('⚠️ Cancel delete button not found');
+    }
+    
+    if (deleteFromEditBtn) {
+        deleteFromEditBtn.addEventListener('click', deleteFromEditModal);
+    } else {
+        console.warn('⚠️ Delete from edit button not found');
+    }
     
     // Close delete modal when clicking outside
-    document.getElementById('delete-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'delete-modal') {
-            closeDeleteModal();
-        }
-    });
+    const deleteModal = document.getElementById('delete-modal');
+    if (deleteModal) {
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target.id === 'delete-modal') {
+                closeDeleteModal();
+            }
+        });
+    } else {
+        console.warn('⚠️ Delete modal not found');
+    }
     
     // Clear form button
-    document.getElementById('clear-form-btn').addEventListener('click', () => {
-        document.getElementById('create-flashcard-form').reset();
-        removeManualImage();
-        showToast('Form cleared');
-    });
+    const clearFormBtn = document.getElementById('clear-form-btn');
+    if (clearFormBtn) {
+        clearFormBtn.addEventListener('click', () => {
+            document.getElementById('create-flashcard-form').reset();
+            removeManualImage();
+            showToast('Form cleared');
+        });
+    } else {
+        console.warn('⚠️ Clear form button not found');
+    }
     
     // Image generation event listeners
     const generateManualBtn = document.getElementById('generate-manual-image-btn');
@@ -1138,4 +1533,295 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('Word input or generate button not found for manual image generation');
     }
+    
+    // Import functionality event listeners
+    console.log('🔍 Setting up import event listeners...');
+    
+    const importFileInput = document.getElementById('import-file');
+    const csvTemplateBtn = document.getElementById('download-csv-template');
+    const jsonTemplateBtn = document.getElementById('download-json-template');
+    const importAnotherBtn = document.getElementById('import-another');
+    
+    console.log('🔍 Import elements found:', {
+        importFileInput: !!importFileInput,
+        csvTemplateBtn: !!csvTemplateBtn,
+        jsonTemplateBtn: !!jsonTemplateBtn,
+        importAnotherBtn: !!importAnotherBtn
+    });
+    
+    if (importFileInput) {
+        console.log('✅ Adding file upload listener');
+        importFileInput.addEventListener('change', handleFileUpload);
+    } else {
+        console.error('❌ Import file input not found');
+    }
+    
+    if (csvTemplateBtn) {
+        console.log('✅ Adding CSV template listener');
+        csvTemplateBtn.addEventListener('click', () => {
+            console.log('🔄 CSV template button clicked');
+            downloadTemplate('csv');
+        });
+    } else {
+        console.error('❌ CSV template button not found');
+    }
+    
+    if (jsonTemplateBtn) {
+        console.log('✅ Adding JSON template listener');
+        jsonTemplateBtn.addEventListener('click', () => {
+            console.log('🔄 JSON template button clicked');
+            downloadTemplate('json');
+        });
+    } else {
+        console.error('❌ JSON template button not found');
+    }
+    
+    if (importAnotherBtn) {
+        console.log('✅ Adding import another listener');
+        importAnotherBtn.addEventListener('click', resetImportForm);
+    } else {
+        console.warn('⚠️ Import another button not found (this is expected initially)');
+    }
+
+    // Document Parser Setup
+    console.log('🔍 Setting up document parser event listeners...');
+    
+    const parserOption = document.getElementById('parser-option');
+    const directOption = document.getElementById('direct-option');
+    const documentFileInput = document.getElementById('document-file');
+    const importParsedBtn = document.getElementById('import-parsed');
+    const parseAnotherBtn = document.getElementById('parse-another');
+    
+    console.log('🔍 Parser elements found:', {
+        parserOption: !!parserOption,
+        directOption: !!directOption,
+        documentFileInput: !!documentFileInput,
+        importParsedBtn: !!importParsedBtn,
+        parseAnotherBtn: !!parseAnotherBtn
+    });
+    
+    if (parserOption) {
+        parserOption.addEventListener('click', () => {
+            console.log('🔄 Parser option selected');
+            selectImportMethod('parser');
+        });
+    }
+    
+    if (directOption) {
+        directOption.addEventListener('click', () => {
+            console.log('🔄 Direct import option selected');
+            selectImportMethod('direct');
+        });
+    }
+    
+    if (documentFileInput) {
+        documentFileInput.addEventListener('change', handleDocumentUpload);
+    }
+    
+    if (parseAnotherBtn) {
+        parseAnotherBtn.addEventListener('click', () => {
+            resetParserForm();
+            selectImportMethod('parser');
+        });
+    }
 });
+
+// Document Parser Functions
+function selectImportMethod(method) {
+    const parserOption = document.getElementById('parser-option');
+    const directOption = document.getElementById('direct-option');
+    const parserUploadSection = document.getElementById('parser-upload-section');
+    const directUploadSection = document.getElementById('direct-upload-section');
+    
+    // Reset selections
+    parserOption.classList.remove('border-blue-500', 'bg-blue-50');
+    directOption.classList.remove('border-indigo-500', 'bg-indigo-50');
+    parserUploadSection.classList.add('hidden');
+    directUploadSection.classList.add('hidden');
+    
+    if (method === 'parser') {
+        parserOption.classList.add('border-blue-500', 'bg-blue-50');
+        parserUploadSection.classList.remove('hidden');
+    } else if (method === 'direct') {
+        directOption.classList.add('border-indigo-500', 'bg-indigo-50');
+        directUploadSection.classList.remove('hidden');
+    }
+}
+
+async function handleDocumentUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    const validExtensions = ['docx', 'txt'];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
+        showToast('❌ Please select a Word document (.docx) or text file (.txt)', 5000);
+        event.target.value = '';
+        return;
+    }
+    
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+        showToast('❌ File too large. Maximum size is 10MB', 5000);
+        event.target.value = '';
+        return;
+    }
+    
+    // Show progress
+    showParserProgress();
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('language', state.currentLanguage || 'fr'); // Default to French
+        
+        const response = await fetch(`${API_BASE}/parser/parse-document`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showParserResults(result);
+            showToast(`📄 Document parsed! Found ${result.entries.length} vocabulary entries`, 5000);
+        } else {
+            throw new Error(result.detail || 'Document parsing failed');
+        }
+        
+    } catch (error) {
+        console.error('Document parsing error:', error);
+        showToast(`❌ Document parsing failed: ${error.message}`, 8000);
+        resetParserForm();
+    }
+}
+
+function showParserProgress() {
+    document.getElementById('parser-progress').classList.remove('hidden');
+    document.getElementById('parser-results').classList.add('hidden');
+}
+
+function showParserResults(result) {
+    // Hide progress, show results
+    document.getElementById('parser-progress').classList.add('hidden');
+    document.getElementById('parser-results').classList.remove('hidden');
+    
+    // Store parsed entries for later import
+    window.parsedEntries = result.entries;
+    
+    // Update counters
+    document.getElementById('parsed-count').textContent = result.entries.length;
+    const avgConfidence = result.entries.length > 0 
+        ? Math.round(result.entries.reduce((sum, entry) => sum + entry.confidence, 0) / result.entries.length)
+        : 0;
+    document.getElementById('confidence-score').textContent = `${avgConfidence}%`;
+    
+    // Show parsed entries preview
+    const entriesContainer = document.getElementById('parsed-entries-list');
+    entriesContainer.innerHTML = '';
+    
+    result.entries.slice(0, 10).forEach((entry, index) => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'p-2 bg-gray-50 rounded border text-xs';
+        
+        const confidenceColor = entry.confidence >= 80 ? 'text-green-600' : 
+                               entry.confidence >= 60 ? 'text-yellow-600' : 'text-red-600';
+        
+        entryDiv.innerHTML = `
+            <div class="flex justify-between items-start mb-1">
+                <span class="font-medium text-gray-900">${entry.word}</span>
+                <span class="${confidenceColor}">${entry.confidence}%</span>
+            </div>
+            <div class="text-gray-600">${entry.definition}</div>
+            ${entry.etymology ? `<div class="text-blue-600 text-xs mt-1">📚 ${entry.etymology}</div>` : ''}
+            ${entry.english_equivalent ? `<div class="text-green-600 text-xs">🇬🇧 ${entry.english_equivalent}</div>` : ''}
+        `;
+        entriesContainer.appendChild(entryDiv);
+    });
+    
+    if (result.entries.length > 10) {
+        const moreDiv = document.createElement('div');
+        moreDiv.className = 'text-center text-gray-500 text-xs py-2';
+        moreDiv.textContent = `... and ${result.entries.length - 10} more entries`;
+        entriesContainer.appendChild(moreDiv);
+    }
+    
+    // Set up import button
+    const importParsedBtn = document.getElementById('import-parsed');
+    if (importParsedBtn) {
+        importParsedBtn.onclick = () => importParsedEntries();
+    }
+}
+
+async function importParsedEntries() {
+    if (!window.parsedEntries || window.parsedEntries.length === 0) {
+        showToast('❌ No parsed entries to import', 3000);
+        return;
+    }
+    
+    // Show regular import progress
+    showImportProgress();
+    
+    try {
+        // Convert parsed entries to flashcard format
+        const flashcards = window.parsedEntries.map(entry => ({
+            word: entry.word,
+            definition: entry.definition,
+            language: state.currentLanguage || 'fr',
+            etymology: entry.etymology || '',
+            english_equivalent: entry.english_equivalent || '',
+            related_words: entry.related_words || '',
+            difficulty: entry.difficulty || 'medium',
+            notes: `Imported from document (${entry.confidence}% confidence)`
+        }));
+        
+        updateImportProgress(25, 'Converting parsed entries...');
+        
+        // Create JSON blob for import
+        const jsonData = JSON.stringify(flashcards, null, 2);
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const formData = new FormData();
+        formData.append('file', blob, 'parsed_entries.json');
+        
+        updateImportProgress(50, 'Uploading flashcards...');
+        
+        const response = await fetch(`${API_BASE}/import/import`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        updateImportProgress(75, 'Processing flashcards...');
+        
+        const result = await response.json();
+        
+        updateImportProgress(100, 'Complete!');
+        
+        if (response.ok) {
+            showImportResults(result);
+            
+            // Refresh flashcards if we're on browse tab
+            if (state.currentLanguage) {
+                await loadFlashcards();
+            }
+            
+            showToast(`✅ Import complete! ${result.successful_imports} cards imported from parsed document`, 5000);
+        } else {
+            throw new Error(result.detail || 'Import failed');
+        }
+        
+    } catch (error) {
+        console.error('Parsed entries import error:', error);
+        showToast(`❌ Import failed: ${error.message}`, 8000);
+        resetImportForm();
+    }
+}
+
+function resetParserForm() {
+    document.getElementById('document-file').value = '';
+    document.getElementById('parser-progress').classList.add('hidden');
+    document.getElementById('parser-results').classList.add('hidden');
+    window.parsedEntries = null;
+}

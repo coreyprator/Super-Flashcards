@@ -48,6 +48,11 @@ venv.bak/
 # OS
 .DS_Store
 .DS_Store?
+
+# Generated images (backed up by Google Drive)
+images/
+frontend/images/
+backend/images/
 ._*
 .Spotlight-V100
 .Trashes

@@ -132,6 +132,12 @@
                 <button id="tab-add" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
                     ➕ Add Card
                 </button>
+                <button id="tab-import" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
+                    📤 Import
+                </button>
+                <button id="tab-batch" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
+                    🚀 Batch
+                </button>
                 <button id="tab-browse" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
                     📖 Browse
                 </button>
@@ -324,12 +330,379 @@
                 </div>
             </div>
 
+            <!-- Import Tab Content -->
+            <div id="content-import" class="p-6 tab-content hidden">
+                <div class="space-y-6">
+                    <!-- Import Type Selection -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">📥 Choose Import Method</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Document Parser Option -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-indigo-500 transition-colors cursor-pointer" id="parser-option">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        📄
+                                    </div>
+                                    <h4 class="font-medium text-gray-900">Parse Documents</h4>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Upload Word documents (.docx) or text files to extract vocabulary entries automatically</p>
+                                <div class="text-xs text-gray-500">Supports: .docx, .txt files</div>
+                            </div>
+                            
+                            <!-- Direct Import Option -->
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-indigo-500 transition-colors cursor-pointer" id="direct-option">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                        📊
+                                    </div>
+                                    <h4 class="font-medium text-gray-900">Direct Import</h4>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Upload pre-formatted CSV or JSON files with flashcard data</p>
+                                <div class="text-xs text-gray-500">Supports: .csv, .json files</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Parser Upload Section -->
+                    <div id="parser-upload-section" class="bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors hidden">
+                        <div class="space-y-4">
+                            <svg class="mx-auto h-12 w-12 text-blue-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M9 12h6m6 0h6m-6 6v6m-6-6v6m12-6v6M9 24h30M9 32h30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div>
+                                <label for="document-file" class="cursor-pointer">
+                                    <span class="mt-2 block text-sm font-medium text-blue-900">
+                                        Upload your vocabulary document
+                                    </span>
+                                    <span class="mt-1 block text-sm text-blue-600">
+                                        Word documents (.docx) or text files up to 10MB
+                                    </span>
+                                </label>
+                                <input id="document-file" name="document-file" type="file" accept=".docx,.txt" class="sr-only">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Direct Import Upload Section -->
+                    <div id="direct-upload-section" class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors hidden">
+                        <div class="space-y-4">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div>
+                                <label for="import-file" class="cursor-pointer">
+                                    <span class="mt-2 block text-sm font-medium text-gray-900">
+                                        Click to upload your flashcards file
+                                    </span>
+                                    <span class="mt-1 block text-sm text-gray-500">
+                                        CSV or JSON files up to 10MB
+                                    </span>
+                                </label>
+                                <input id="import-file" name="import-file" type="file" accept=".csv,.json" class="sr-only">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Parser Progress -->
+                    <div id="parser-progress" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Parsing document...</span>
+                                <span id="parser-percentage" class="text-sm text-gray-500">Processing</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="parser-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parser Results -->
+                    <div id="parser-results" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">📄 Document Parsing Results</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="text-center p-3 bg-blue-50 rounded-lg">
+                                    <div id="parsed-count" class="text-2xl font-bold text-blue-600">0</div>
+                                    <div class="text-sm text-blue-700">Entries Found</div>
+                                </div>
+                                <div class="text-center p-3 bg-green-50 rounded-lg">
+                                    <div id="confidence-score" class="text-2xl font-bold text-green-600">0%</div>
+                                    <div class="text-sm text-green-700">Avg Confidence</div>
+                                </div>
+                            </div>
+
+                            <!-- Parsed Entries Preview -->
+                            <div id="parsed-entries-preview" class="mt-4">
+                                <h4 class="font-medium text-gray-900 mb-2">📝 Parsed Vocabulary Entries:</h4>
+                                <div id="parsed-entries-list" class="space-y-2 max-h-60 overflow-y-auto text-sm">
+                                    <!-- Parsed entries will be shown here -->
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+                                <button id="import-parsed" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                    ✅ Import These Entries
+                                </button>
+                                <button id="parse-another" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    📄 Parse Another Document
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Templates Section -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-blue-900 mb-2">📋 Need a template?</h3>
+                        <p class="text-blue-700 text-sm mb-3">Download a template to see the required format:</p>
+                        <div class="flex gap-2">
+                            <button id="download-csv-template" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                📄 CSV Template
+                            </button>
+                            <button id="download-json-template" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                📋 JSON Template
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Import Progress -->
+                    <div id="import-progress" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Importing flashcards...</span>
+                                <span id="import-percentage" class="text-sm text-gray-500">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="import-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import Results -->
+                    <div id="import-results" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">📊 Import Results</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div class="text-center p-3 bg-green-50 rounded-lg">
+                                    <div id="successful-count" class="text-2xl font-bold text-green-600">0</div>
+                                    <div class="text-sm text-green-700">Successful</div>
+                                </div>
+                                <div class="text-center p-3 bg-yellow-50 rounded-lg">
+                                    <div id="warning-count" class="text-2xl font-bold text-yellow-600">0</div>
+                                    <div class="text-sm text-yellow-700">Warnings</div>
+                                </div>
+                                <div class="text-center p-3 bg-red-50 rounded-lg">
+                                    <div id="error-count" class="text-2xl font-bold text-red-600">0</div>
+                                    <div class="text-sm text-red-700">Errors</div>
+                                </div>
+                            </div>
+
+                            <!-- Messages -->
+                            <div id="import-messages" class="space-y-2 max-h-60 overflow-y-auto">
+                                <!-- Messages will be populated here -->
+                            </div>
+
+                            <!-- Imported Cards Preview -->
+                            <div id="imported-cards-preview" class="mt-4">
+                                <h4 class="font-medium text-gray-900 mb-2">📝 Preview of imported cards:</h4>
+                                <div id="imported-cards-list" class="space-y-1 max-h-40 overflow-y-auto text-sm">
+                                    <!-- Preview cards will be shown here -->
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <button id="import-another" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                    Import Another File
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Format Help -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">📚 File Format Guide</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Required Fields:</h4>
+                                <ul class="text-gray-600 space-y-1">
+                                    <li>• <code class="bg-gray-200 px-1 rounded">word_or_phrase</code> - The word/phrase to learn</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">definition</code> - Translation or definition</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">language</code> - Language name (e.g., "spanish")</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Optional Fields:</h4>
+                                <ul class="text-gray-600 space-y-1">
+                                    <li>• <code class="bg-gray-200 px-1 rounded">pronunciation</code> - How to pronounce</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">etymology</code> - Word origin/history</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">memory_hint</code> - Memory aid</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">difficulty_level</code> - 1-5 (default: 1)</li>
+                                    <li>• <code class="bg-gray-200 px-1 rounded">related_words</code> - Similar words</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Processing Tab Content -->
+            <div id="content-batch" class="p-6 tab-content hidden">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">🚀 Batch Processing</h2>
+                    
+                    <!-- Status Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="total-documents">3</div>
+                            <div class="text-sm text-blue-700">Documents Processed</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-green-600" id="new-vocabulary">4,829</div>
+                            <div class="text-sm text-green-700">New Words Found</div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-purple-600" id="ready-for-processing">177</div>
+                            <div class="text-sm text-purple-700">Selected for Study</div>
+                        </div>
+                    </div>
+
+                    <!-- Processing Options -->
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">📋 Processing Options</h3>
+                        
+                        <div class="space-y-4">
+                            <!-- File Selection -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    CSV File with Selected Words
+                                </label>
+                                <div class="flex items-center space-x-4">
+                                    <input type="file" id="batch-csv-file" accept=".csv" 
+                                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                    <button id="analyze-csv" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                        📊 Analyze
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Upload a CSV file with words marked 'X' in column A for processing
+                                </p>
+                            </div>
+
+                            <!-- Batch Size -->
+                            <div>
+                                <label for="batch-size" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Batch Size (words per batch)
+                                </label>
+                                <select id="batch-size" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="5">5 words (recommended for testing)</option>
+                                    <option value="10">10 words</option>
+                                    <option value="25">25 words</option>
+                                    <option value="50">50 words</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Analysis Results -->
+                    <div id="csv-analysis" class="bg-gray-50 rounded-lg p-6 mb-6 hidden">
+                        <h4 class="font-medium text-gray-900 mb-3">📈 File Analysis</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div class="text-xl font-bold text-gray-600" id="total-words-in-csv">0</div>
+                                <div class="text-xs text-gray-500">Total Words</div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-green-600" id="selected-words-count">0</div>
+                                <div class="text-xs text-gray-500">Selected (X)</div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-blue-600" id="estimated-batches">0</div>
+                                <div class="text-xs text-gray-500">Batches</div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-purple-600" id="estimated-time">0</div>
+                                <div class="text-xs text-gray-500">Est. Minutes</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process Control -->
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">🎯 Batch Processing</h3>
+                            <div class="flex space-x-3">
+                                <button id="start-batch-processing" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                                    ▶️ Start Processing
+                                </button>
+                                <button id="pause-batch-processing" class="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 hidden">
+                                    ⏸️ Pause
+                                </button>
+                                <button id="stop-batch-processing" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hidden">
+                                    ⏹️ Stop
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                <span>Progress</span>
+                                <span id="batch-progress-text">0 / 0 words processed</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="batch-progress-bar" class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Current Status -->
+                        <div id="batch-status" class="text-sm text-gray-600 mb-4">
+                            Ready to start processing...
+                        </div>
+
+                        <!-- Processing Results -->
+                        <div id="batch-results" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center hidden">
+                            <div class="bg-green-50 rounded p-3">
+                                <div class="text-lg font-bold text-green-600" id="successful-count">0</div>
+                                <div class="text-xs text-green-700">Successful</div>
+                            </div>
+                            <div class="bg-red-50 rounded p-3">
+                                <div class="text-lg font-bold text-red-600" id="failed-count">0</div>
+                                <div class="text-xs text-red-700">Failed</div>
+                            </div>
+                            <div class="bg-blue-50 rounded p-3">
+                                <div class="text-lg font-bold text-blue-600" id="processing-time">0</div>
+                                <div class="text-xs text-blue-700">Minutes</div>
+                            </div>
+                            <div class="bg-purple-50 rounded p-3">
+                                <div class="text-lg font-bold text-purple-600" id="words-per-minute">0</div>
+                                <div class="text-xs text-purple-700">Words/Min</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processing Log -->
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <h4 class="font-medium text-gray-900 mb-3">📝 Processing Log</h4>
+                        <div id="processing-log" class="bg-gray-50 rounded p-4 h-64 overflow-y-auto text-sm font-mono">
+                            <div class="text-gray-500">Processing log will appear here...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Browse Tab Content -->
             <div id="content-browse" class="p-6 tab-content hidden">
                 <div class="mb-4">
-                    <input type="text" id="search-input" 
-                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        placeholder="🔍 Search flashcards...">
+                    <div class="relative">
+                        <input type="text" id="search-input" 
+                            class="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            placeholder="🔍 Search flashcards... (type 2+ characters)">
+                        <div id="search-loading" class="absolute right-3 top-3 hidden">
+                            <div class="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+                        </div>
+                    </div>
+                    <div id="search-stats" class="text-sm text-gray-500 mt-1 hidden"></div>
                 </div>
                 
                 <div id="flashcard-list" class="space-y-2">

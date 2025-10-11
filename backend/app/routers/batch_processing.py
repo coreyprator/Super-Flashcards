@@ -68,7 +68,7 @@ class BatchProcessor:
                     
                     logger.info(f"Processing word {i+1}/{len(selected_words)}: {french_word}")
                     
-                    # Generate translation and context using OpenAI
+                    # Generate translation and context using AI
                     translation_data = await self.generate_flashcard_content(french_word)
                     
                     if translation_data:
@@ -78,6 +78,7 @@ class BatchProcessor:
                             english_translation=translation_data['translation'],
                             context=translation_data['context'],
                             example_sentence=translation_data.get('example', ''),
+                            image_url=translation_data.get('image_url', ''),
                             user_id=user_id,
                             language_id=language_id,
                             frequency=frequency
@@ -121,68 +122,45 @@ class BatchProcessor:
             self.processing_status[batch_id]["error"] = str(e)
     
     async def generate_flashcard_content(self, french_word: str) -> Optional[Dict]:
-        """Generate English translation and context using OpenAI."""
+        """Generate flashcard content using the actual AI generation system."""
         
         try:
-            prompt = f"""
-You are a French language teacher creating flashcards. For the French word "{french_word}":
-
-1. Provide the most common English translation
-2. Write a brief context/definition (1-2 sentences)
-3. Create a simple example sentence in French with English translation
-
-Respond in JSON format:
-{{
-    "translation": "English translation",
-    "context": "Brief definition or context",
-    "example": "French example sentence | English translation"
-}}
-"""
+            # Import here to avoid circular imports
+            from app.routers.ai_generate import generate_flashcard_content
             
-            # TODO: Replace with actual OpenAI API call
-            # For now, return mock data for testing
-            mock_translations = {
-                "ailleurs": {
-                    "translation": "elsewhere, somewhere else",
-                    "context": "An adverb meaning in another place or location.",
-                    "example": "Il habite ailleurs maintenant. | He lives elsewhere now."
-                },
-                "couches": {
-                    "translation": "layers, coats",
-                    "context": "Plural noun referring to multiple layers or coats of material.",
-                    "example": "Il y a plusieurs couches de peinture. | There are several coats of paint."
-                },
-                "davantage": {
-                    "translation": "more, further",
-                    "context": "An adverb meaning to a greater degree or extent.",
-                    "example": "Nous devons étudier davantage. | We need to study more."
-                },
-                "éloges": {
-                    "translation": "praise, compliments",
-                    "context": "Plural noun referring to words of approval or admiration.",
-                    "example": "Elle a reçu des éloges pour son travail. | She received praise for her work."
-                },
-                "parfois": {
-                    "translation": "sometimes, occasionally",
-                    "context": "An adverb meaning at times or now and then.",
-                    "example": "Parfois, je vais au cinéma. | Sometimes, I go to the movies."
-                }
-            }
+            # Use the real AI generation function
+            # Get French language ID (we know it's this from context)
+            french_language_id = "9e4d5ca8-ffec-47b9-9943-5f2dd1093593"
+            default_user_id = "default-user"  # We'll use a default user for batch processing
             
-            # Return mock data for testing, or actual OpenAI response
-            if french_word in mock_translations:
-                return mock_translations[french_word]
-            else:
-                # Fallback mock response
+            # Call the real AI generation function
+            ai_result = generate_flashcard_content(
+                word_or_phrase=french_word,
+                language_code="fr", 
+                user_id=default_user_id,
+                db=self.db
+            )
+            
+            if ai_result and 'generated_content' in ai_result:
+                content = ai_result['generated_content']
                 return {
-                    "translation": f"[Translation for {french_word}]",
-                    "context": f"Context and definition for the French word '{french_word}'.",
-                    "example": f"{french_word} in a sentence. | {french_word} in a sentence (English)."
+                    "translation": content.get('definition', f"[Translation for {french_word}]"),
+                    "context": content.get('etymology', f"Etymology for {french_word}"),
+                    "example": f"Example sentence with {french_word}",
+                    "image_url": ai_result.get('image_url', None)
                 }
+            else:
+                logger.warning(f"AI generation returned no content for {french_word}")
+                return None
             
         except Exception as e:
-            logger.error(f"Error generating content for {french_word}: {str(e)}")
-            return None
+            logger.error(f"Error generating AI content for {french_word}: {str(e)}")
+            # Fallback to basic response if AI fails
+            return {
+                "translation": f"[AI generation failed for {french_word}]",
+                "context": f"Please review and update this flashcard manually.",
+                "example": f"Example needed for {french_word}"
+            }
     
     async def create_flashcard(
         self, 
@@ -192,7 +170,8 @@ Respond in JSON format:
         example_sentence: str,
         user_id: str, 
         language_id: str,
-        frequency: int = 0
+        frequency: int = 0,
+        image_url: str = ""
     ) -> Optional[Flashcard]:
         """Create a flashcard in the database."""
         
@@ -203,7 +182,8 @@ Respond in JSON format:
                 etymology=context,
                 source="batch_generated",
                 user_id=user_id,
-                language_id=language_id
+                language_id=language_id,
+                image_url=image_url if image_url else None
             )
             
             self.db.add(flashcard)
@@ -301,6 +281,54 @@ async def get_batch_status(batch_id: str):
         raise HTTPException(status_code=404, detail="Batch ID not found")
     
     return processor.processing_status[batch_id]
+
+
+@router.post("/process-batch")
+async def process_batch(
+    request: Dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Process a batch of words through AI generation."""
+    
+    words = request.get("words", [])
+    if not words:
+        raise HTTPException(status_code=400, detail="No words provided")
+    
+    # Get or create default user and language
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No users found. Please create a user first.")
+    
+    language = db.query(Language).filter(Language.code == "fr").first()
+    if not language:
+        raise HTTPException(status_code=404, detail="French language not found. Please add French language first.")
+    
+    # Convert word list to expected format
+    selected_words = [{"french_text": word, "frequency": 0} for word in words]
+    
+    # Generate batch ID
+    batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # Start processing
+    processor = BatchProcessor(db)
+    background_tasks.add_task(
+        processor.process_vocabulary_batch,
+        selected_words=selected_words,
+        user_id=str(user.id),
+        language_id=str(language.id),
+        batch_id=batch_id,
+        max_words=None
+    )
+    
+    return {
+        "batch_id": batch_id,
+        "status": "started",
+        "message": f"Started processing {len(words)} words through AI generation",
+        "words": words,
+        "user_id": str(user.id),
+        "language_id": str(language.id)
+    }
 
 
 @router.get("/test-five-words")

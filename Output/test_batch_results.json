@@ -1,0 +1,20 @@
+[
+  {
+    "word": "aboutir",
+    "status": "success",
+    "processing_time": 91.78522086143494,
+    "flashcard_id": "585a609e-df69-4f83-bddb-6e74da256e9b",
+    "definition": "In French, 'aboutir' means to end up, to lead to, or to result in. It is often used to describe the outcome of a process or an action, for example, 'Cette discussion va aboutir à une décision' (This discussion will lead to a decision).",
+    "etymology": "The word 'aboutir' comes from the Old French 'abouter', meaning 'to join' or 'to touch', which itself is derived from the prefix 'a-' (to) and 'bout' (end). The meaning evolved to signify reaching an end or a conclusion.",
+    "image_url": "/images/aboutir_61764c1b.png"
+  },
+  {
+    "word": "accorder",
+    "status": "success",
+    "processing_time": 85.47941756248474,
+    "flashcard_id": "799d7a8b-4442-4d74-8901-1c4a04a5ca75",
+    "definition": "In French, 'accorder' means to grant, to give, or to agree to something. It can also be used in the context of music, meaning to tune an instrument. For example, 'Il a accordé sa guitare avant le concert' means 'He tuned his guitar before the concert'.",
+    "etymology": "The word 'accorder' comes from the Old French 'acorder', which itself derives from the Latin 'accordare', meaning 'to bring into agreement'. This Latin term is a compound of 'ad-' (to, toward) and 'cordis' (heart), suggesting a coming together or agreement of hearts.",
+    "image_url": "/images/accorder_c552f387.png"
+  }
+]

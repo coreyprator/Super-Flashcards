@@ -1,0 +1,1556 @@
+{
+  "timestamp": "2025-10-10T12:47:55.216927",
+  "total_words": 257,
+  "successful_words": 0,
+  "failed_words": 257,
+  "processing_times": {
+    "total_time_seconds": 656.4309742450714,
+    "average_per_word": 2.052341129993186,
+    "fastest_word": 2.013226270675659,
+    "slowest_word": 2.095790386199951
+  },
+  "results": [
+    {
+      "word": "abonné",
+      "status": "failed",
+      "processing_time": 2.06052565574646,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "aborder",
+      "status": "failed",
+      "processing_time": 2.0509564876556396,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "accrue",
+      "status": "failed",
+      "processing_time": 2.025515556335449,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "accueil",
+      "status": "failed",
+      "processing_time": 2.052218198776245,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "actes",
+      "status": "failed",
+      "processing_time": 2.060885190963745,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "affaiblit",
+      "status": "failed",
+      "processing_time": 2.0275895595550537,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "angles",
+      "status": "failed",
+      "processing_time": 2.058560848236084,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "annoncer",
+      "status": "failed",
+      "processing_time": 2.0385873317718506,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "assurer",
+      "status": "failed",
+      "processing_time": 2.0397374629974365,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "astuce",
+      "status": "failed",
+      "processing_time": 2.074760913848877,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "atteindre",
+      "status": "failed",
+      "processing_time": 2.069737672805786,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "attendre",
+      "status": "failed",
+      "processing_time": 2.045480489730835,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "attire",
+      "status": "failed",
+      "processing_time": 2.0233137607574463,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "autrement",
+      "status": "failed",
+      "processing_time": 2.035426139831543,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "avenir",
+      "status": "failed",
+      "processing_time": 2.026825428009033,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bac",
+      "status": "failed",
+      "processing_time": 2.0430877208709717,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bain",
+      "status": "failed",
+      "processing_time": 2.0534656047821045,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "baisse",
+      "status": "failed",
+      "processing_time": 2.0558736324310303,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bas",
+      "status": "failed",
+      "processing_time": 2.068390130996704,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bavette",
+      "status": "failed",
+      "processing_time": 2.062411308288574,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "berceau",
+      "status": "failed",
+      "processing_time": 2.059142827987671,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "biblique",
+      "status": "failed",
+      "processing_time": 2.076702117919922,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bisous",
+      "status": "failed",
+      "processing_time": 2.04252028465271,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "blagues",
+      "status": "failed",
+      "processing_time": 2.057114839553833,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bouche",
+      "status": "failed",
+      "processing_time": 2.0632615089416504,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bouchon",
+      "status": "failed",
+      "processing_time": 2.033869743347168,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bras",
+      "status": "failed",
+      "processing_time": 2.0737428665161133,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bricolage",
+      "status": "failed",
+      "processing_time": 2.0454728603363037,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bénéfique",
+      "status": "failed",
+      "processing_time": 2.0418832302093506,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "bêtises",
+      "status": "failed",
+      "processing_time": 2.0611424446105957,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "camus",
+      "status": "failed",
+      "processing_time": 2.064114570617676,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "cas",
+      "status": "failed",
+      "processing_time": 2.0482048988342285,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "casiers",
+      "status": "failed",
+      "processing_time": 2.0524041652679443,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "celles",
+      "status": "failed",
+      "processing_time": 2.0523955821990967,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "cependant",
+      "status": "failed",
+      "processing_time": 2.075103521347046,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ceux",
+      "status": "failed",
+      "processing_time": 2.0282111167907715,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "chaleur",
+      "status": "failed",
+      "processing_time": 2.0820796489715576,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "chasser",
+      "status": "failed",
+      "processing_time": 2.0680744647979736,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "chêne",
+      "status": "failed",
+      "processing_time": 2.050114154815674,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ciblés",
+      "status": "failed",
+      "processing_time": 2.031353235244751,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "citoyenneté",
+      "status": "failed",
+      "processing_time": 2.0232644081115723,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "coincé",
+      "status": "failed",
+      "processing_time": 2.0466971397399902,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "colis",
+      "status": "failed",
+      "processing_time": 2.0537493228912354,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "colorée",
+      "status": "failed",
+      "processing_time": 2.0527994632720947,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "colère",
+      "status": "failed",
+      "processing_time": 2.0603415966033936,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "compte",
+      "status": "failed",
+      "processing_time": 2.0651559829711914,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "connerie",
+      "status": "failed",
+      "processing_time": 2.0679473876953125,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "contrairement",
+      "status": "failed",
+      "processing_time": 2.0391693115234375,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "copain",
+      "status": "failed",
+      "processing_time": 2.057807445526123,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "courants",
+      "status": "failed",
+      "processing_time": 2.058664321899414,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "covoiturage",
+      "status": "failed",
+      "processing_time": 2.060710906982422,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "coût",
+      "status": "failed",
+      "processing_time": 2.0720696449279785,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "coûteuses",
+      "status": "failed",
+      "processing_time": 2.054415702819824,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "creuser",
+      "status": "failed",
+      "processing_time": 2.052523136138916,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "creux",
+      "status": "failed",
+      "processing_time": 2.033987522125244,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "croie",
+      "status": "failed",
+      "processing_time": 2.059448480606079,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "croissance",
+      "status": "failed",
+      "processing_time": 2.0542075634002686,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "créant",
+      "status": "failed",
+      "processing_time": 2.04514479637146,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "céline",
+      "status": "failed",
+      "processing_time": 2.0534005165100098,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "cônes",
+      "status": "failed",
+      "processing_time": 2.013226270675659,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "dehors",
+      "status": "failed",
+      "processing_time": 2.0293688774108887,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "devient",
+      "status": "failed",
+      "processing_time": 2.0724895000457764,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "devis",
+      "status": "failed",
+      "processing_time": 2.0752437114715576,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "devons",
+      "status": "failed",
+      "processing_time": 2.0483415126800537,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "disparition",
+      "status": "failed",
+      "processing_time": 2.0412356853485107,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "divagation",
+      "status": "failed",
+      "processing_time": 2.040489435195923,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "divaguer",
+      "status": "failed",
+      "processing_time": 2.0332252979278564,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "doute",
+      "status": "failed",
+      "processing_time": 2.0674455165863037,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "décorum",
+      "status": "failed",
+      "processing_time": 2.050304412841797,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "décroissance",
+      "status": "failed",
+      "processing_time": 2.070685625076294,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "dégoût",
+      "status": "failed",
+      "processing_time": 2.0346949100494385,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "déménagement",
+      "status": "failed",
+      "processing_time": 2.043138027191162,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "déplacement",
+      "status": "failed",
+      "processing_time": 2.037426710128784,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "déplacements",
+      "status": "failed",
+      "processing_time": 2.0766842365264893,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "député",
+      "status": "failed",
+      "processing_time": 2.0294456481933594,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "dérange",
+      "status": "failed",
+      "processing_time": 2.075695037841797,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "désaccord",
+      "status": "failed",
+      "processing_time": 2.0682966709136963,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "détriment",
+      "status": "failed",
+      "processing_time": 2.0834035873413086,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "effet",
+      "status": "failed",
+      "processing_time": 2.045076847076416,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "empêcher",
+      "status": "failed",
+      "processing_time": 2.046518325805664,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "enjeux",
+      "status": "failed",
+      "processing_time": 2.0641372203826904,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ennuyeux",
+      "status": "failed",
+      "processing_time": 2.0435500144958496,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "envoyer",
+      "status": "failed",
+      "processing_time": 2.0827889442443848,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "erre",
+      "status": "failed",
+      "processing_time": 2.043816566467285,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "erroné",
+      "status": "failed",
+      "processing_time": 2.070650339126587,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "espérer",
+      "status": "failed",
+      "processing_time": 2.030179262161255,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "essai",
+      "status": "failed",
+      "processing_time": 2.040322780609131,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "euh",
+      "status": "failed",
+      "processing_time": 2.0356552600860596,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "excédé",
+      "status": "failed",
+      "processing_time": 2.0385589599609375,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "eût",
+      "status": "failed",
+      "processing_time": 2.052227258682251,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fallacieux",
+      "status": "failed",
+      "processing_time": 2.061680316925049,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fausse",
+      "status": "failed",
+      "processing_time": 2.0587034225463867,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fausses",
+      "status": "failed",
+      "processing_time": 2.044666290283203,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "favorise",
+      "status": "failed",
+      "processing_time": 2.0617809295654297,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "feuille",
+      "status": "failed",
+      "processing_time": 2.0711984634399414,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fil",
+      "status": "failed",
+      "processing_time": 2.0654706954956055,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fleuve",
+      "status": "failed",
+      "processing_time": 2.0757009983062744,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "flâner",
+      "status": "failed",
+      "processing_time": 2.0646567344665527,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "foudre",
+      "status": "failed",
+      "processing_time": 2.0726001262664795,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "frais",
+      "status": "failed",
+      "processing_time": 2.075349807739258,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "freiner",
+      "status": "failed",
+      "processing_time": 2.05076003074646,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fulgurant",
+      "status": "failed",
+      "processing_time": 2.040010452270508,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fuseau",
+      "status": "failed",
+      "processing_time": 2.0197672843933105,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "futile",
+      "status": "failed",
+      "processing_time": 2.0615580081939697,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "fâcher",
+      "status": "failed",
+      "processing_time": 2.035837173461914,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gamme",
+      "status": "failed",
+      "processing_time": 2.013650894165039,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "garantir",
+      "status": "failed",
+      "processing_time": 2.0781140327453613,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "garées",
+      "status": "failed",
+      "processing_time": 2.037266731262207,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gaspillage",
+      "status": "failed",
+      "processing_time": 2.0412259101867676,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gentils",
+      "status": "failed",
+      "processing_time": 2.0759057998657227,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "geste",
+      "status": "failed",
+      "processing_time": 2.0472304821014404,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gestion",
+      "status": "failed",
+      "processing_time": 2.071763038635254,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "guillaume",
+      "status": "failed",
+      "processing_time": 2.095790386199951,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gj",
+      "status": "failed",
+      "processing_time": 2.0619750022888184,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "gérer",
+      "status": "failed",
+      "processing_time": 2.072514057159424,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "haineux",
+      "status": "failed",
+      "processing_time": 2.046827554702759,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "hermeneuein",
+      "status": "failed",
+      "processing_time": 2.0824429988861084,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "hermeneutiké",
+      "status": "failed",
+      "processing_time": 2.034426212310791,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "hotte",
+      "status": "failed",
+      "processing_time": 2.042457342147827,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "housse",
+      "status": "failed",
+      "processing_time": 2.083207607269287,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "hâte",
+      "status": "failed",
+      "processing_time": 2.075943946838379,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "illustre",
+      "status": "failed",
+      "processing_time": 2.0652520656585693,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "incitant",
+      "status": "failed",
+      "processing_time": 2.053123712539673,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "incluent",
+      "status": "failed",
+      "processing_time": 2.0209333896636963,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "inclut",
+      "status": "failed",
+      "processing_time": 2.0708558559417725,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "initier",
+      "status": "failed",
+      "processing_time": 2.0283899307250977,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "inscrit",
+      "status": "failed",
+      "processing_time": 2.0613746643066406,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "isolement",
+      "status": "failed",
+      "processing_time": 2.077996015548706,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "jeter",
+      "status": "failed",
+      "processing_time": 2.0574257373809814,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "joué",
+      "status": "failed",
+      "processing_time": 2.022456169128418,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lampe",
+      "status": "failed",
+      "processing_time": 2.030721664428711,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lance",
+      "status": "failed",
+      "processing_time": 2.016737937927246,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "laudare",
+      "status": "failed",
+      "processing_time": 2.052459478378296,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "laïcité",
+      "status": "failed",
+      "processing_time": 2.042703628540039,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lien",
+      "status": "failed",
+      "processing_time": 2.017799139022827,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lieux",
+      "status": "failed",
+      "processing_time": 2.087143898010254,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "linéaire",
+      "status": "failed",
+      "processing_time": 2.0751326084136963,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "liste",
+      "status": "failed",
+      "processing_time": 2.0325326919555664,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lié",
+      "status": "failed",
+      "processing_time": 2.0316030979156494,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "locaux",
+      "status": "failed",
+      "processing_time": 2.051622152328491,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "locuteurs",
+      "status": "failed",
+      "processing_time": 2.052180051803589,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "loti",
+      "status": "failed",
+      "processing_time": 2.0558204650878906,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lotis",
+      "status": "failed",
+      "processing_time": 2.06118106842041,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "louant",
+      "status": "failed",
+      "processing_time": 2.0593090057373047,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "louez",
+      "status": "failed",
+      "processing_time": 2.0462353229522705,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "loup",
+      "status": "failed",
+      "processing_time": 2.076002836227417,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lourd",
+      "status": "failed",
+      "processing_time": 2.058082103729248,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "luxueux",
+      "status": "failed",
+      "processing_time": 2.0381853580474854,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "lève",
+      "status": "failed",
+      "processing_time": 2.0524227619171143,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "légère",
+      "status": "failed",
+      "processing_time": 2.0889644622802734,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mandaté",
+      "status": "failed",
+      "processing_time": 2.0254411697387695,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "manteau",
+      "status": "failed",
+      "processing_time": 2.0546295642852783,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "marre",
+      "status": "failed",
+      "processing_time": 2.073643445968628,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mauvais",
+      "status": "failed",
+      "processing_time": 2.0644099712371826,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mener",
+      "status": "failed",
+      "processing_time": 2.0340230464935303,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mettons",
+      "status": "failed",
+      "processing_time": 2.0538063049316406,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mnémotechnique",
+      "status": "failed",
+      "processing_time": 2.070279359817505,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "montorgueil",
+      "status": "failed",
+      "processing_time": 2.0545156002044678,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "muet",
+      "status": "failed",
+      "processing_time": 2.052476167678833,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "muettes",
+      "status": "failed",
+      "processing_time": 2.029528856277466,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "mère",
+      "status": "failed",
+      "processing_time": 2.0597872734069824,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "médecin",
+      "status": "failed",
+      "processing_time": 2.070465326309204,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "médiatiques",
+      "status": "failed",
+      "processing_time": 2.039992570877075,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "natifs",
+      "status": "failed",
+      "processing_time": 2.0738320350646973,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "naître",
+      "status": "failed",
+      "processing_time": 2.060391664505005,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "neuronal",
+      "status": "failed",
+      "processing_time": 2.034407138824463,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "nommé",
+      "status": "failed",
+      "processing_time": 2.075113534927368,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "nuages",
+      "status": "failed",
+      "processing_time": 2.04988694190979,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ombres",
+      "status": "failed",
+      "processing_time": 2.0834364891052246,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "onglet",
+      "status": "failed",
+      "processing_time": 2.0572197437286377,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "orage",
+      "status": "failed",
+      "processing_time": 2.0316200256347656,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "papoter",
+      "status": "failed",
+      "processing_time": 2.0579099655151367,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "parcours",
+      "status": "failed",
+      "processing_time": 2.04931902885437,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "perte",
+      "status": "failed",
+      "processing_time": 2.046865701675415,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "pince",
+      "status": "failed",
+      "processing_time": 2.0350801944732666,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "pièges",
+      "status": "failed",
+      "processing_time": 2.053612470626831,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "planifiée",
+      "status": "failed",
+      "processing_time": 2.0709073543548584,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "plupart",
+      "status": "failed",
+      "processing_time": 2.0458085536956787,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "pluralité",
+      "status": "failed",
+      "processing_time": 2.077568292617798,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "posséder",
+      "status": "failed",
+      "processing_time": 2.0488312244415283,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "pousse",
+      "status": "failed",
+      "processing_time": 2.0382564067840576,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "proches",
+      "status": "failed",
+      "processing_time": 2.0434257984161377,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "prétexte",
+      "status": "failed",
+      "processing_time": 2.0330817699432373,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "péniches",
+      "status": "failed",
+      "processing_time": 2.0282163619995117,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "pénurie",
+      "status": "failed",
+      "processing_time": 2.031405210494995,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ralenter",
+      "status": "failed",
+      "processing_time": 2.057262897491455,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rangée",
+      "status": "failed",
+      "processing_time": 2.0724291801452637,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "raviver",
+      "status": "failed",
+      "processing_time": 2.0352931022644043,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "remarqué",
+      "status": "failed",
+      "processing_time": 2.0278987884521484,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "remuer",
+      "status": "failed",
+      "processing_time": 2.061551332473755,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "restant",
+      "status": "failed",
+      "processing_time": 2.0906832218170166,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "resver",
+      "status": "failed",
+      "processing_time": 2.0453624725341797,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "roulent",
+      "status": "failed",
+      "processing_time": 2.059898614883423,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "roux",
+      "status": "failed",
+      "processing_time": 2.0480847358703613,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "ruse",
+      "status": "failed",
+      "processing_time": 2.0416152477264404,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "réelle",
+      "status": "failed",
+      "processing_time": 2.0681943893432617,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "réussir",
+      "status": "failed",
+      "processing_time": 2.0528135299682617,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "réveille",
+      "status": "failed",
+      "processing_time": 2.0485129356384277,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rêvasserie",
+      "status": "failed",
+      "processing_time": 2.0599069595336914,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rêver",
+      "status": "failed",
+      "processing_time": 2.0742616653442383,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rêveries",
+      "status": "failed",
+      "processing_time": 2.028191566467285,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rôde",
+      "status": "failed",
+      "processing_time": 2.077117443084717,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "rôder",
+      "status": "failed",
+      "processing_time": 2.0719518661499023,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sang",
+      "status": "failed",
+      "processing_time": 2.076275587081909,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "saoule",
+      "status": "failed",
+      "processing_time": 2.050586223602295,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "seau",
+      "status": "failed",
+      "processing_time": 2.0365922451019287,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "semblant",
+      "status": "failed",
+      "processing_time": 2.0358808040618896,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "semble",
+      "status": "failed",
+      "processing_time": 2.0445363521575928,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sinon",
+      "status": "failed",
+      "processing_time": 2.0331666469573975,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "soient",
+      "status": "failed",
+      "processing_time": 2.074449300765991,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "soins",
+      "status": "failed",
+      "processing_time": 2.0601043701171875,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sois",
+      "status": "failed",
+      "processing_time": 2.0499608516693115,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sol",
+      "status": "failed",
+      "processing_time": 2.039088249206543,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "songerie",
+      "status": "failed",
+      "processing_time": 2.0572450160980225,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sonne",
+      "status": "failed",
+      "processing_time": 2.0365653038024902,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "sophisme",
+      "status": "failed",
+      "processing_time": 2.0443599224090576,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "souhait",
+      "status": "failed",
+      "processing_time": 2.0597524642944336,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "souhaitez",
+      "status": "failed",
+      "processing_time": 2.0441389083862305,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "souhaité",
+      "status": "failed",
+      "processing_time": 2.015284776687622,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "souligne",
+      "status": "failed",
+      "processing_time": 2.045323371887207,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "souvenu",
+      "status": "failed",
+      "processing_time": 2.0417587757110596,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "soyez",
+      "status": "failed",
+      "processing_time": 2.023202657699585,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "soyons",
+      "status": "failed",
+      "processing_time": 2.050659418106079,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "stade",
+      "status": "failed",
+      "processing_time": 2.04703688621521,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "surtout",
+      "status": "failed",
+      "processing_time": 2.0580708980560303,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "suscitant",
+      "status": "failed",
+      "processing_time": 2.0646588802337646,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "suscitare",
+      "status": "failed",
+      "processing_time": 2.030860424041748,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tailler",
+      "status": "failed",
+      "processing_time": 2.0429880619049072,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tard",
+      "status": "failed",
+      "processing_time": 2.0590178966522217,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tenons",
+      "status": "failed",
+      "processing_time": 2.028590679168701,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tiens",
+      "status": "failed",
+      "processing_time": 2.0478029251098633,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tiers",
+      "status": "failed",
+      "processing_time": 2.0535404682159424,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tomber",
+      "status": "failed",
+      "processing_time": 2.050274133682251,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tombé",
+      "status": "failed",
+      "processing_time": 2.0677707195281982,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tonnerre",
+      "status": "failed",
+      "processing_time": 2.0545921325683594,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tournevis",
+      "status": "failed",
+      "processing_time": 2.029930353164673,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "toutefois",
+      "status": "failed",
+      "processing_time": 2.038435220718384,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "travers",
+      "status": "failed",
+      "processing_time": 2.0369980335235596,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "trinquer",
+      "status": "failed",
+      "processing_time": 2.0768561363220215,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "tromper",
+      "status": "failed",
+      "processing_time": 2.0599234104156494,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "urbains",
+      "status": "failed",
+      "processing_time": 2.0632545948028564,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "veau",
+      "status": "failed",
+      "processing_time": 2.0496671199798584,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "vieillissement",
+      "status": "failed",
+      "processing_time": 2.06697940826416,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "vis",
+      "status": "failed",
+      "processing_time": 2.0420053005218506,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "vulgaire",
+      "status": "failed",
+      "processing_time": 2.059194564819336,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "xixe",
+      "status": "failed",
+      "processing_time": 2.0654985904693604,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "échappé",
+      "status": "failed",
+      "processing_time": 2.047621250152588,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "écologiques",
+      "status": "failed",
+      "processing_time": 2.0762345790863037,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "écriture",
+      "status": "failed",
+      "processing_time": 2.0561351776123047,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "égare",
+      "status": "failed",
+      "processing_time": 2.0455894470214844,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "élision",
+      "status": "failed",
+      "processing_time": 2.033949136734009,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "énoncer",
+      "status": "failed",
+      "processing_time": 2.050359010696411,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "énoncé",
+      "status": "failed",
+      "processing_time": 2.0433497428894043,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "étant",
+      "status": "failed",
+      "processing_time": 2.038930654525757,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "étroitement",
+      "status": "failed",
+      "processing_time": 2.0315802097320557,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "éveiller",
+      "status": "failed",
+      "processing_time": 2.049151659011841,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "word": "évoquer",
+      "status": "failed",
+      "processing_time": 2.054452657699585,
+      "error": "HTTP 404: {\"detail\":\"Not Found\"}"
+    }
+  ]
+}
