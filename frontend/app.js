@@ -390,10 +390,10 @@ function renderFlashcard(flashcard) {
     }
     
     container.innerHTML = `
-        <div class="flashcard max-w-2xl mx-auto" onclick="flipCard()">
+        <div class="flashcard max-w-2xl mx-auto">
             <div class="flashcard-inner relative">
                 <!-- Front of card -->
-                <div class="flashcard-front bg-white rounded-xl shadow-xl p-8 min-h-[400px] cursor-pointer hover:shadow-2xl transition">
+                <div class="flashcard-front bg-white rounded-xl shadow-xl p-8 min-h-[400px] hover:shadow-2xl transition">
                     <div class="flex justify-between items-start mb-6">
                         <div class="text-sm text-gray-500">
                             ${flashcard.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}
@@ -419,9 +419,12 @@ function renderFlashcard(flashcard) {
                                  class="w-full max-w-md mx-auto rounded-lg mb-6 shadow-md">
                         ` : ''}
                         
-                        <p class="text-gray-600 italic mt-8">
-                            Click to reveal details
-                        </p>
+                        <!-- Reveal Details Button -->
+                        <div class="mt-8">
+                            <button onclick="flipCard()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-lg transition-all transform hover:scale-105">
+                                📋 Show Details
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -472,9 +475,12 @@ function renderFlashcard(flashcard) {
                             </div>
                         ` : ''}
                         
-                        <p class="text-gray-600 italic text-center mt-8">
-                            Click to flip back
-                        </p>
+                        <!-- Back to Word Button -->
+                        <div class="text-center mt-8">
+                            <button onclick="flipCard()" class="px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-gray-50 font-medium shadow-lg border-2 border-indigo-200 transition-all transform hover:scale-105">
+                                ↩️ Back to Word
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

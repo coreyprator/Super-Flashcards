@@ -32,6 +32,8 @@ class FlashcardBase(BaseModel):
     related_words: Optional[str] = None  # JSON string
     image_url: Optional[str] = None
     image_description: Optional[str] = None
+    audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
+    audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID
@@ -45,6 +47,8 @@ class FlashcardUpdate(BaseModel):
     related_words: Optional[str] = None
     image_url: Optional[str] = None
     image_description: Optional[str] = None
+    audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
+    audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
 
 class Flashcard(FlashcardBase):
     id: UUID

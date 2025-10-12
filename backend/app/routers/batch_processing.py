@@ -11,8 +11,20 @@ import json
 import asyncio
 import logging
 from pathlib import Path
-import openai
 from datetime import datetime
+
+# Try to import OpenAI with graceful fallback
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"OpenAI package not available: {e}")
+    openai = None
+    OPENAI_AVAILABLE = False
+except Exception as e:
+    logging.warning(f"Failed to import OpenAI: {e}")
+    openai = None
+    OPENAI_AVAILABLE = False
 
 from app.database import get_db
 from app.models import Flashcard, Language, User

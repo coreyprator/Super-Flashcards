@@ -7,20 +7,8 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple
 import uuid
+from openai import OpenAI
 import logging
-
-# Try to import OpenAI with graceful fallback
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"OpenAI package not available: {e}")
-    OpenAI = None
-    OPENAI_AVAILABLE = False
-except Exception as e:
-    logger.warning(f"Failed to import OpenAI: {e}")
-    OpenAI = None
-    OPENAI_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -53,23 +41,12 @@ class AudioService:
     
     def _initialize_client(self):
         """Lazy initialization of OpenAI client"""
-        if not OPENAI_AVAILABLE:
-            logger.warning("OpenAI package not available - audio generation will not work")
-            self.client = None
-            return
-            
         try:
-            # Initialize OpenAI client with explicit parameters to avoid proxy issues
-            self.client = OpenAI(
-                # The API key will be read from OPENAI_API_KEY environment variable
-                # No need to explicitly pass proxy settings
-            )
+            self.client = OpenAI()
             logger.info("OpenAI client initialized for TTS")
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI client: {e}")
-            # For development, continue without failing the entire service
-            self.client = None
-            logger.warning("OpenAI client not initialized - audio generation will not work")
+            raise
     
     def generate_word_audio(
         self,
@@ -92,10 +69,6 @@ class AudioService:
             - error_message: Error description if failed, None if successful
         """
         try:
-            # Check if client is initialized
-            if self.client is None:
-                return False, None, "OpenAI client not initialized - check API key and network connectivity"
-            
             # Select appropriate voice
             voice = TTS_VOICE_MAPPING.get(language_name, 'alloy')
             

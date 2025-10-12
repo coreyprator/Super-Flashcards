@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["audio"])
+router = APIRouter(prefix="/api/audio", tags=["audio"])
 
 # Initialize audio service
 audio_service = AudioService()
@@ -43,88 +43,59 @@ async def generate_audio(card_id: str, db: Session = Depends(get_db)):
         }
     """
     
-    logger.info(f"🔧 === GENERATE AUDIO API CALLED ===")
-    logger.info(f"🔧 Card ID: {card_id}")
-    logger.info(f"🔧 Request received at: {datetime.now().isoformat()}")
+    # Get flashcard
+    flashcard = db.query(models.Flashcard).filter(
+        models.Flashcard.id == card_id
+    ).first()
+    
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    # Get language for voice selection
+    language = db.query(models.Language).filter(
+        models.Language.id == flashcard.language_id
+    ).first()
+    
+    if not language:
+        raise HTTPException(status_code=404, detail="Language not found")
+    
+    logger.info(f"Generating audio for card {card_id}: '{flashcard.word}' ({language.name})")
+    
+    # Generate audio
+    success, audio_path, error_msg = audio_service.generate_word_audio(
+        word=flashcard.word,
+        language_name=language.name,
+        flashcard_id=str(flashcard.id)
+    )
+    
+    if not success:
+        return {
+            "success": False,
+            "card_id": str(flashcard.id),
+            "word": flashcard.word,
+            "language": language.name,
+            "error": error_msg
+        }
+    
+    # Update database
+    flashcard.audio_url = audio_path
+    flashcard.audio_generated_at = datetime.utcnow()
     
     try:
-        # Get flashcard
-        logger.info(f"🔧 Querying database for flashcard with ID: {card_id}")
-        flashcard = db.query(models.Flashcard).filter(
-            models.Flashcard.id == card_id
-        ).first()
-        
-        if not flashcard:
-            logger.error(f"❌ Flashcard not found for ID: {card_id}")
-            raise HTTPException(status_code=404, detail="Flashcard not found")
-            
-        logger.info(f"🔧 Found flashcard: word='{flashcard.word_or_phrase}', language_id='{flashcard.language_id}'")
-        
-        # Get language for voice selection
-        language = db.query(models.Language).filter(
-            models.Language.id == flashcard.language_id
-        ).first()
-        
-        if not language:
-            raise HTTPException(status_code=404, detail="Language not found")
-        
-        logger.info(f"Generating audio for card {card_id}: '{flashcard.word_or_phrase}' ({language.name})")
-        
-        # Generate audio
-        success, audio_path, error_msg = audio_service.generate_word_audio(
-            word=flashcard.word_or_phrase,
-            language_name=language.name,
-            flashcard_id=str(flashcard.id)
-        )
-        
-        if not success:
-            return {
-                "success": False,
-                "card_id": str(flashcard.id),
-                "word": flashcard.word_or_phrase,
-                "language": language.name,
-                "error": error_msg
-            }
-        
-        # Update database
-        flashcard.audio_url = audio_path
-        flashcard.audio_generated_at = datetime.utcnow()
-        
-        try:
-            db.commit()
-            logger.info(f"Database updated: {audio_path}")
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Failed to update database: {e}")
-            raise HTTPException(status_code=500, detail="Database update failed")
-        
-        logger.info(f"🔧 === AUDIO GENERATION SUCCESS ===")
-        logger.info(f"🔧 Audio URL: {audio_path}")
-        logger.info(f"🔧 Returning success response")
-        
-        return {
-            "success": True,
-            "audio_url": audio_path,
-            "card_id": str(flashcard.id),
-            "word": flashcard.word_or_phrase,
-            "language": language.name
-        }
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
-        raise
+        db.commit()
+        logger.info(f"Database updated: {audio_path}")
     except Exception as e:
-        logger.error(f"❌ === UNEXPECTED ERROR IN GENERATE AUDIO ===")
-        logger.error(f"❌ Error type: {type(e).__name__}")
-        logger.error(f"❌ Error message: {str(e)}")
-        logger.error(f"❌ Card ID: {card_id}")
-        import traceback
-        logger.error(f"❌ Traceback: {traceback.format_exc()}")
-        
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
+        db.rollback()
+        logger.error(f"Failed to update database: {e}")
+        raise HTTPException(status_code=500, detail="Database update failed")
+    
+    return {
+        "success": True,
+        "audio_url": audio_path,
+        "card_id": str(flashcard.id),
+        "word": flashcard.word,
+        "language": language.name
+    }
 
 
 @router.delete("/delete/{card_id}")

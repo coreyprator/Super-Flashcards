@@ -1,0 +1,71 @@
+<!-- frontend/index.html - Audio Controls Addition -->
+<!-- 
+    INSTRUCTIONS FOR VS CODE AI:
+    1. Add audio-player.js script to the <head> section
+    2. Add audio button to each flashcard display
+    3. Add audio status section to admin panel (optional)
+-->
+
+<!-- 1. ADD TO <head> SECTION (after other scripts) -->
+<script src="/static/audio-player.js"></script>
+
+<!-- 2. AUDIO BUTTON INTEGRATION -->
+<!-- Add this to your flashcard display template (inside each card) -->
+<!-- Replace the comment where you want the audio button to appear -->
+
+<div class="audio-controls">
+    <!-- This will be generated dynamically by JavaScript -->
+    <!-- In your flashcard rendering code, add: -->
+    <!-- 
+        const audioButton = getAudioButtonHTML(card);
+        // Insert audioButton into your card HTML
+    -->
+</div>
+
+<!-- 3. ADMIN PANEL AUDIO STATUS (OPTIONAL) -->
+<!-- Add this section to your admin/settings area -->
+
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 class="text-xl font-bold mb-4">🔊 Audio Status</h3>
+    
+    <div class="space-y-2">
+        <div class="flex justify-between items-center">
+            <span class="text-gray-600">Cards with audio:</span>
+            <span id="audio-count" class="font-bold text-blue-600">0/0</span>
+        </div>
+        
+        <div class="flex justify-between items-center">
+            <span class="text-gray-600">Completion:</span>
+            <span id="audio-percentage" class="font-bold text-green-600">0%</span>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <p class="text-sm text-gray-500 mb-2">
+            Generate audio for all flashcards at once using the batch script:
+        </p>
+        <code class="block bg-gray-100 p-2 rounded text-sm">
+            python backend/scripts/batch_audio_generator.py
+        </code>
+    </div>
+</div>
+
+<!-- 
+    EXAMPLE: How to use in your existing flashcard display
+    
+    In your JavaScript code where you render flashcards:
+    
+    function renderFlashcard(card) {
+        return `
+            <div class="flashcard">
+                <h2>${card.word}</h2>
+                <p>${card.translation}</p>
+                
+                <!-- ADD AUDIO BUTTON HERE -->
+                ${getAudioButtonHTML(card)}
+                
+                <img src="${card.image_url}" alt="${card.word}">
+            </div>
+        `;
+    }
+-->

@@ -2,7 +2,9 @@
 // Audio player functionality for Super-Flashcards Sprint 4
 // Handles audio generation, playback, and UI updates
 
-console.log("🔊 Audio player loaded");
+console.log("🎵 === AUDIO PLAYER v2.0 DEBUG VERSION LOADED ===");
+console.log("🎵 Updated audio-player.js with comprehensive debugging");
+console.log("🎵 Time:", new Date().toISOString());
 
 /**
  * Get HTML for audio button based on card state
@@ -10,16 +12,22 @@ console.log("🔊 Audio player loaded");
  * @returns {string} HTML string for audio button
  */
 function getAudioButtonHTML(card) {
+    console.log('🔧 Audio button check for card:', card.id);
+    console.log('🔧 Card audio_url:', card.audio_url);
+    console.log('🔧 Card audio_generated_at:', card.audio_generated_at);
+    
     const hasAudio = card.audio_url && card.audio_url.trim() !== '';
     const buttonId = `audio-btn-${card.id}`;
     const audioId = `audio-${card.id}`;
+    
+    console.log('🔧 hasAudio result:', hasAudio);
     
     if (hasAudio) {
         // Show play button if audio exists
         return `
             <div class="audio-controls">
-                <button id="${buttonId}" class="audio-btn play-btn" onclick="playAudio('${card.id}', '${card.audio_url}')">
-                    🔊 Play
+                <button id="${buttonId}" class="audio-btn play-btn" onclick="playAudio('${card.id}', '${card.audio_url}'); event.stopPropagation();">
+                    ▶️ Play
                 </button>
                 <audio id="${audioId}" preload="none">
                     <source src="${card.audio_url}" type="audio/mpeg">
@@ -31,8 +39,8 @@ function getAudioButtonHTML(card) {
         // Show generate button if no audio exists
         return `
             <div class="audio-controls">
-                <button id="${buttonId}" class="audio-btn generate-btn" onclick="generateAudio('${card.id}', '${card.word_or_phrase}')">
-                    🔊 Generate
+                <button id="${buttonId}" class="audio-btn generate-btn" onclick="generateAudio('${card.id}', '${card.word_or_phrase}'); event.stopPropagation();">
+                    🔊 Generate Audio
                 </button>
                 <div id="audio-status-${card.id}" class="audio-status" style="display: none;">
                     <small>Generating audio...</small>
@@ -48,13 +56,25 @@ function getAudioButtonHTML(card) {
  * @param {string} word - Word/phrase to generate audio for
  */
 async function generateAudio(cardId, word) {
+    console.log('🔧 === GENERATE AUDIO DEBUG START ===');
+    console.log('🔧 Function called with:', { cardId, word });
+    console.log('🔧 Current time:', new Date().toISOString());
+    
     const button = document.getElementById(`audio-btn-${cardId}`);
     const statusDiv = document.getElementById(`audio-status-${cardId}`);
     
-    if (!button) return;
+    console.log('🔧 Button found:', !!button);
+    console.log('🔧 Button current text:', button ? button.innerHTML : 'N/A');
+    console.log('🔧 Status div found:', !!statusDiv);
+    
+    if (!button) {
+        console.error('❌ Button not found, returning early');
+        return;
+    }
     
     try {
         // Update UI to show generating state
+        console.log('🔧 Updating UI to show generating state...');
         button.disabled = true;
         button.innerHTML = '🔄 Generating...';
         if (statusDiv) {
@@ -63,15 +83,39 @@ async function generateAudio(cardId, word) {
         }
         
         // Make API call to generate audio
-        const response = await fetch(`/api/audio/generate/${cardId}`, {
+        const url = `/api/audio/generate/${cardId}`;
+        console.log('🔧 Making request to URL:', url);
+        console.log('🔧 Request method: POST');
+        console.log('🔧 Request headers: Content-Type: application/json');
+        
+        const requestStartTime = Date.now();
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             }
         });
+        const requestDuration = Date.now() - requestStartTime;
+        
+        console.log('🔧 Response received after', requestDuration, 'ms');
+        console.log('🔧 Response status:', response.status);
+        console.log('🔧 Response statusText:', response.statusText);
+        console.log('🔧 Response ok:', response.ok);
+        console.log('🔧 Response URL:', response.url);
+        console.log('🔧 Response headers:', Object.fromEntries(response.headers));
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ ERROR RESPONSE BODY:', errorText);
+            console.error('❌ Full error details:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: url,
+                actualResponseUrl: response.url,
+                errorBody: errorText,
+                requestDuration: requestDuration
+            });
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
         }
         
         const result = await response.json();
@@ -105,11 +149,16 @@ async function generateAudio(cardId, word) {
         }
         
     } catch (error) {
-        console.error('Error generating audio:', error);
+        console.error('❌ === ERROR IN GENERATE AUDIO ===');
+        console.error('❌ Error object:', error);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error name:', error.name);
         
         // Reset button state
+        console.log('🔧 Resetting button state after error...');
         button.disabled = false;
-        button.innerHTML = '🔊 Generate';
+        button.innerHTML = '🔊 Generate Audio';
         
         if (statusDiv) {
             statusDiv.innerHTML = `<small style="color: red;">❌ Error: ${error.message}</small>`;
@@ -117,7 +166,11 @@ async function generateAudio(cardId, word) {
                 statusDiv.style.display = 'none';
             }, 3000);
         }
+        
+        console.log('🔧 === GENERATE AUDIO DEBUG END (ERROR) ===');
     }
+    
+    console.log('🔧 === GENERATE AUDIO DEBUG END (SUCCESS) ===');
 }
 
 /**
