@@ -7,8 +7,9 @@ import os
 
 from app.database import engine
 from app import models
-from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing
+from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio
 # Removed: search, document_parser (replaced with batch processing approach)
+# Added: audio (Sprint 4 - TTS functionality)
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -36,6 +37,7 @@ app.include_router(languages.router, prefix="/api/languages", tags=["languages"]
 app.include_router(users.router)
 app.include_router(import_flashcards.router, prefix="/api/import", tags=["import"])
 app.include_router(batch_processing.router, prefix="/api/batch", tags=["batch_processing"])
+app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4: Audio/TTS
 # Removed: search.router, document_parser.router (replaced with batch processing)
 
 # Serve static files (frontend)
@@ -47,6 +49,11 @@ if os.path.exists(frontend_path):
 images_path = os.path.join(os.path.dirname(__file__), "../../images")
 os.makedirs(images_path, exist_ok=True)
 app.mount("/images", StaticFiles(directory=images_path), name="images")
+
+# Serve audio files (Sprint 4: TTS)
+audio_path = os.path.join(os.path.dirname(__file__), "../../audio")
+os.makedirs(audio_path, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=audio_path), name="audio")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():

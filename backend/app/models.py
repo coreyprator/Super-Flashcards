@@ -73,6 +73,10 @@ class Flashcard(Base):
     image_url = Column(NVARCHAR(1000))  # Cloudinary URL or local path
     image_description = Column(NVARCHAR(None))  # Alt text / DALL-E prompt
     
+    # Audio (Sprint 4: TTS functionality)
+    audio_url = Column(NVARCHAR(500))  # Path to audio file
+    audio_generated_at = Column(DateTime)  # When audio was generated
+    
     # Metadata
     source = Column(NVARCHAR(50), default="manual")  # manual, ai_generated, imported
     times_reviewed = Column(Integer, default=0)

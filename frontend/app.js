@@ -408,6 +408,11 @@ function renderFlashcard(flashcard) {
                             ${flashcard.word_or_phrase}
                         </h2>
                         
+                        <!-- Audio Controls -->
+                        <div class="mb-6">
+                            ${getAudioButtonHTML(flashcard)}
+                        </div>
+                        
                         ${flashcard.image_url ? `
                             <img src="${flashcard.image_url}" 
                                  alt="${flashcard.image_description || flashcard.word_or_phrase}"
@@ -427,6 +432,10 @@ function renderFlashcard(flashcard) {
                         <div class="text-center border-b border-indigo-200 pb-4 mb-6">
                             <h2 class="text-2xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
                             <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
+                            <!-- Audio Controls -->
+                            <div class="mt-3">
+                                ${getAudioButtonHTML(flashcard)}
+                            </div>
                         </div>
                         
                         ${flashcard.definition ? `
