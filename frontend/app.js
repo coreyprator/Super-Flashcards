@@ -84,10 +84,21 @@ async function loadLanguages() {
             select.appendChild(option);
         });
         
-        // Select first language by default if available
-        if (languages.length > 0) {
-            select.value = languages[0].id;
-            state.currentLanguage = languages[0].id;
+        // Select last used language or first language by default
+        const savedLanguageId = localStorage.getItem('lastSelectedLanguage');
+        let selectedLanguage = null;
+        
+        if (savedLanguageId && languages.find(lang => lang.id === savedLanguageId)) {
+            // Use saved language if it still exists
+            selectedLanguage = savedLanguageId;
+        } else if (languages.length > 0) {
+            // Fall back to first language
+            selectedLanguage = languages[0].id;
+        }
+        
+        if (selectedLanguage) {
+            select.value = selectedLanguage;
+            state.currentLanguage = selectedLanguage;
             await loadFlashcards();
         }
     } catch (error) {
@@ -398,8 +409,15 @@ function renderFlashcard(flashcard) {
                         <div class="text-sm text-gray-500">
                             ${flashcard.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}
                         </div>
-                        <div class="text-sm text-gray-500">
-                            Reviewed ${flashcard.times_reviewed} times
+                        <div class="flex items-center gap-3">
+                            <button onclick="editCard('${flashcard.id}')" 
+                                    class="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm transition-colors" 
+                                    title="Edit this card">
+                                ✏️ Edit
+                            </button>
+                            <div class="text-sm text-gray-500">
+                                Reviewed ${flashcard.times_reviewed} times
+                            </div>
                         </div>
                     </div>
                     
@@ -412,6 +430,9 @@ function renderFlashcard(flashcard) {
                         <div class="mb-6">
                             ${getAudioButtonHTML(flashcard)}
                         </div>
+                        
+                        <!-- IPA Pronunciation Section -->
+                        ${getIPAHTML(flashcard)}
                         
                         ${flashcard.image_url ? `
                             <img src="${flashcard.image_url}" 
@@ -433,11 +454,25 @@ function renderFlashcard(flashcard) {
                     <div class="space-y-6">
                         <!-- Show the word at the top of the back -->
                         <div class="text-center border-b border-indigo-200 pb-4 mb-6">
+                            <div class="flex justify-between items-start mb-2">
+                                <div></div>
+                                <button onclick="editCard('${flashcard.id}')" 
+                                        class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors" 
+                                        title="Edit this card">
+                                    ✏️ Edit
+                                </button>
+                            </div>
                             <h2 class="text-2xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
                             <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
+                            ${flashcard.definition ? `<p class="text-lg text-indigo-800 mt-2 font-medium">${flashcard.definition}</p>` : ''}
                             <!-- Audio Controls -->
                             <div class="mt-3">
                                 ${getAudioButtonHTML(flashcard)}
+                            </div>
+                            
+                            <!-- IPA Pronunciation Section -->
+                            <div class="mt-3">
+                                ${getIPAHTML(flashcard)}
                             </div>
                         </div>
                         
@@ -496,6 +531,16 @@ function flipCard() {
     // Mark as reviewed when flipping
     if (state.flashcards[state.currentCardIndex]) {
         markAsReviewed(state.flashcards[state.currentCardIndex].id);
+    }
+}
+
+function editCard(cardId) {
+    // Find the flashcard by ID
+    const flashcard = state.flashcards.find(card => card.id === cardId);
+    if (flashcard) {
+        showEditModal(flashcard);
+    } else {
+        showToast('Card not found', 3000);
     }
 }
 
@@ -583,12 +628,28 @@ function selectCard(index) {
 function switchTab(tabName) {
     console.log(`🔄 switchTab called with: "${tabName}"`);
     
+    // Extra debugging for TTS test tab
+    if (tabName === 'tts-test') {
+        console.log('🐛 DEBUG: TTS Test tab activation started');
+        console.log('🐛 DEBUG: Looking for elements with IDs:');
+        console.log('🐛 DEBUG: - tab-tts-test');
+        console.log('🐛 DEBUG: - content-tts-test');
+    }
+    
     // Check if elements exist
     const tabButton = document.getElementById(`tab-${tabName}`);
     const contentDiv = document.getElementById(`content-${tabName}`);
     
     console.log(`🔍 Tab button found: ${!!tabButton}`, tabButton);
     console.log(`🔍 Content div found: ${!!contentDiv}`, contentDiv);
+    
+    if (tabName === 'tts-test') {
+        console.log('🐛 DEBUG: TTS Test specific element check:');
+        console.log('🐛 DEBUG: tabButton element:', tabButton);
+        console.log('🐛 DEBUG: contentDiv element:', contentDiv);
+        console.log('🐛 DEBUG: All elements with tab- prefix:', document.querySelectorAll('[id^="tab-"]'));
+        console.log('🐛 DEBUG: All elements with content- prefix:', document.querySelectorAll('[id^="content-"]'));
+    }
     
     if (!tabButton) {
         console.error(`❌ Tab button not found: tab-${tabName}`);
@@ -840,14 +901,14 @@ async function searchFlashcards(query) {
             ? `&language_id=${state.currentLanguage}` 
             : '';
         
-        const searchUrl = `/api/search/flashcards?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
+        const searchUrl = `/flashcards/search?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
         console.log('Search URL:', searchUrl);
         
         const response = await apiRequest(searchUrl);
         console.log('Search response:', response);
         
-        // Extract results from the search API response format
-        const searchResults = response.results || [];
+        // The API returns the array directly, not wrapped in a results object
+        const searchResults = Array.isArray(response) ? response : [];
         
         // Store original flashcards and show search results
         if (!state.originalFlashcards) {
@@ -858,10 +919,8 @@ async function searchFlashcards(query) {
         renderFlashcardList();
         
         // Show search stats
-        if (response.stats) {
-            searchStats.textContent = `Found ${response.stats.total_results} results in ${response.stats.search_time_ms}ms`;
-            searchStats.classList.remove('hidden');
-        }
+        searchStats.textContent = `Found ${searchResults.length} results`;
+        searchStats.classList.remove('hidden');
         
     } catch (error) {
         console.error('Search failed:', error);
@@ -1202,6 +1261,13 @@ function deleteFromEditModal() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOMContentLoaded fired, initializing app...');
     
+    // Debug: Check if TTS elements exist in DOM
+    console.log('🐛 DEBUG: Checking TTS elements in DOM...');
+    console.log('🐛 DEBUG: document.getElementById("tab-tts-test"):', document.getElementById('tab-tts-test'));
+    console.log('🐛 DEBUG: document.getElementById("content-tts-test"):', document.getElementById('content-tts-test'));
+    console.log('🐛 DEBUG: All tab buttons:', document.querySelectorAll('.tab-button'));
+    console.log('🐛 DEBUG: All tab content divs:', document.querySelectorAll('.tab-content'));
+    
     // Debug: Check if all tab elements exist
     const tabs = ['study', 'add', 'import', 'browse'];
     tabs.forEach(tab => {
@@ -1216,6 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     loadLanguages();
+    initializeBatchIPA();
     
     // ========================================
     // Form Event Listeners
@@ -1284,6 +1351,9 @@ document.addEventListener('DOMContentLoaded', () => {
         languageSelect.addEventListener('change', async (e) => {
             state.currentLanguage = e.target.value;
             
+            // Save selected language to localStorage
+            localStorage.setItem('lastSelectedLanguage', state.currentLanguage);
+            
             // Dispatch custom event for language change
             document.dispatchEvent(new CustomEvent('languageChanged', { 
                 detail: { languageId: state.currentLanguage } 
@@ -1301,6 +1371,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const importTab = document.getElementById('tab-import');
     const batchTab = document.getElementById('tab-batch');
     const browseTab = document.getElementById('tab-browse');
+    const ttsTestTab = document.getElementById('tab-tts-test');
+    
+    // Debug: Check if all tab elements are found
+    console.log('🐛 DEBUG: Tab elements found:');
+    console.log('🐛 DEBUG: studyTab:', !!studyTab);
+    console.log('🐛 DEBUG: addTab:', !!addTab);
+    console.log('🐛 DEBUG: importTab:', !!importTab);
+    console.log('🐛 DEBUG: batchTab:', !!batchTab);
+    console.log('🐛 DEBUG: browseTab:', !!browseTab);
+    console.log('🐛 DEBUG: ttsTestTab:', !!ttsTestTab);
+    console.log('🐛 DEBUG: ttsTestTab element:', ttsTestTab);
     
     if (studyTab) {
         studyTab.addEventListener('click', () => {
@@ -1335,6 +1416,17 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('🔄 Switching to browse tab');
             switchTab('browse');
         });
+    }
+    
+    if (ttsTestTab) {
+        console.log('✅ TTS Test tab found, adding event listener');
+        ttsTestTab.addEventListener('click', () => {
+            console.log('🔄 TTS Test tab clicked!');
+            console.log('🔄 Switching to TTS test tab');
+            switchTab('tts-test');
+        });
+    } else {
+        console.error('❌ TTS Test tab element not found! ID: tab-tts-test');
     }
     
     // Navigation buttons
@@ -1839,4 +1931,135 @@ function resetParserForm() {
     document.getElementById('parser-progress').classList.add('hidden');
     document.getElementById('parser-results').classList.add('hidden');
     window.parsedEntries = null;
+}
+
+// ========================================
+// Batch IPA Processing Functions
+// ========================================
+
+async function initializeBatchIPA() {
+    const batchSection = document.getElementById('batch-ipa-section');
+    const batchIpaBtn = document.getElementById('batch-generate-ipa');
+    const batchAudioBtn = document.getElementById('batch-generate-audio');
+    const batchCompleteBtn = document.getElementById('batch-generate-complete');
+    
+    // Listen for language change events
+    document.addEventListener('languageChanged', async (e) => {
+        if (e.detail.languageId) {
+            batchSection.style.display = 'block';
+            await updateBatchStatus();
+            enableBatchButtons();
+        } else {
+            batchSection.style.display = 'none';
+            disableBatchButtons();
+        }
+    });
+    
+    // Batch button event listeners
+    if (batchIpaBtn) batchIpaBtn.addEventListener('click', () => startBatchIPA('ipa'));
+    if (batchAudioBtn) batchAudioBtn.addEventListener('click', () => startBatchIPA('audio'));
+    if (batchCompleteBtn) batchCompleteBtn.addEventListener('click', () => startBatchIPA('complete'));
+}
+
+function enableBatchButtons() {
+    document.getElementById('batch-generate-ipa').disabled = false;
+    document.getElementById('batch-generate-audio').disabled = false;
+    document.getElementById('batch-generate-complete').disabled = false;
+}
+
+function disableBatchButtons() {
+    document.getElementById('batch-generate-ipa').disabled = true;
+    document.getElementById('batch-generate-audio').disabled = true;
+    document.getElementById('batch-generate-complete').disabled = true;
+}
+
+async function updateBatchStatus() {
+    if (!state.currentLanguage) return;
+    
+    try {
+        const status = await apiRequest(`/batch-ipa/batch-status/${state.currentLanguage}`);
+        const statusElement = document.getElementById('batch-status');
+        
+        if (status.success) {
+            statusElement.innerHTML = `
+                IPA: ${status.cards_with_ipa}/${status.total_cards} (${status.ipa_completion_percent}%)<br>
+                Audio: ${status.cards_with_ipa_audio}/${status.total_cards} (${status.audio_completion_percent}%)
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to get batch status:', error);
+    }
+}
+
+async function startBatchIPA(type) {
+    if (!state.currentLanguage) {
+        showToast('Please select a language first');
+        return;
+    }
+    
+    const button = document.getElementById(`batch-generate-${type}`);
+    const originalText = button.textContent;
+    
+    try {
+        button.disabled = true;
+        button.textContent = '⏳ Processing...';
+        
+        let endpoint;
+        let message;
+        
+        switch (type) {
+            case 'ipa':
+                endpoint = `/batch-ipa/batch-generate-ipa/${state.currentLanguage}`;
+                message = 'Starting batch IPA pronunciation generation...';
+                break;
+            case 'audio':
+                endpoint = `/batch-ipa/batch-generate-ipa-audio/${state.currentLanguage}`;
+                message = 'Starting batch IPA audio generation...';
+                break;
+            case 'complete':
+                endpoint = `/batch-ipa/batch-generate-complete/${state.currentLanguage}`;
+                message = 'Starting complete batch IPA processing...';
+                break;
+        }
+        
+        const response = await apiRequest(endpoint, { method: 'POST' });
+        
+        if (response.success) {
+            showToast(`✅ ${response.message}`, 5000);
+            
+            // Start polling for status updates
+            startBatchStatusPolling();
+        } else {
+            throw new Error(response.error || 'Batch processing failed');
+        }
+        
+    } catch (error) {
+        console.error('Batch IPA error:', error);
+        showToast(`❌ Batch processing failed: ${error.message}`, 5000);
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
+function startBatchStatusPolling() {
+    // Poll status every 5 seconds for 2 minutes
+    let pollCount = 0;
+    const maxPolls = 24; // 2 minutes
+    
+    const pollInterval = setInterval(async () => {
+        pollCount++;
+        
+        await updateBatchStatus();
+        
+        if (pollCount >= maxPolls) {
+            clearInterval(pollInterval);
+            showToast('Status polling stopped. Check manually for final results.', 3000);
+        }
+    }, 5000);
+    
+    // Stop polling when user leaves the page
+    window.addEventListener('beforeunload', () => {
+        clearInterval(pollInterval);
+    });
 }

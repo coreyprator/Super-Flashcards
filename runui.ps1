@@ -8,6 +8,16 @@ Write-Host "🌐 URL: http://localhost:8000" -ForegroundColor Yellow
 Write-Host "⏹️  Stop with: Ctrl+C" -ForegroundColor Red
 Write-Host ""
 
+# Record start time for performance tracking
+$startTime = Get-Date
+$startTimeUnix = [int64](($startTime.ToUniversalTime()) - (Get-Date "1970-01-01 00:00:00")).TotalSeconds
+Write-Host "⏱️  Server startup initiated at: $($startTime.ToString('HH:mm:ss.fff'))" -ForegroundColor Magenta
+Write-Host "📊 Tracking startup performance... (Look for 'Application startup complete')" -ForegroundColor Magenta
+Write-Host ""
+
+# Set environment variable for the Python app to use
+$env:STARTUP_TIME_UNIX = $startTimeUnix
+
 # Get the script directory (project root)
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendPath = Join-Path $projectRoot "backend"
