@@ -65,6 +65,9 @@ backend/images/
 audio/
 frontend/audio/
 backend/audio/
+ipa_audio/
+backend/ipa_audio/
+backend/pronunciation_tests/
 ._*
 .Spotlight-V100
 .Trashes
@@ -114,3 +117,30 @@ backups/*.bak
 backups/backup_log_*.log
 backups/backup_copy_log.txt
 backups/last_backup_status.txt
+
+# Temporary development and testing files
+backend/app/test_minimal.py
+backend/app/main_detailed_debug.py
+backend/test_*.py
+backend/batch_*.py
+backend/check_*.py
+backend/create_*.py
+backend/fix_*.py
+backend/get_*.py
+backend/import_*.py
+backend/parse_*.py
+backend/process_*.py
+backend/*_integration.py
+backend/multilingual_tts.py
+backend/cost_calculator.py
+backend/elevenlabs_integration.py
+
+# Input files used for bootstrapping (one-time use)
+Input/
+
+# Development testing HTML files (not part of main UI)
+frontend/google-vs-openai.html
+frontend/tts-test-samples.html
+
+# Virtual environment executables
+.venv/Scripts/*.exe
