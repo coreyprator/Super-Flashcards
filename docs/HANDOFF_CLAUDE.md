@@ -151,26 +151,77 @@ cd frontend && python -m http.server 3000
 
 ## 📁 **CRITICAL FILES FOR NEXT DEVELOPER**
 
-### **Core Application Files**
-- `backend/app/main.py` - Application entry and configuration
-- `frontend/app.js` - Main application logic and state
-- `frontend/audio-player.js` - Audio functionality
-- `runui.ps1` - Production startup script
+### **🔥 ESSENTIAL HANDOFF DOCUMENTS** (Must Read First)
+```
+G:\My Drive\Code\Python\Super-Flashcards\docs\HANDOFF_CLAUDE.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\SPRINT_SUMMARY.md  
+G:\My Drive\Code\Python\Super-Flashcards\docs\NEXT_SPRINT_ROADMAP.md
+G:\My Drive\Code\Python\Super-Flashcards\README.md
+```
 
-### **Key Database Files**  
-- `backend/app/models.py` - Database schema definitions
-- `backend/app/crud.py` - Database operations
-- `backend/app/schemas.py` - API data models
+### **🏗️ CORE APPLICATION FILES**
+```
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\main.py
+G:\My Drive\Code\Python\Super-Flashcards\frontend\app.js
+G:\My Drive\Code\Python\Super-Flashcards\frontend\audio-player.js
+G:\My Drive\Code\Python\Super-Flashcards\frontend\index.html
+G:\My Drive\Code\Python\Super-Flashcards\runui.ps1
+```
 
-### **Service Integration**
-- `backend/app/services/google_tts_service.py` - Audio generation
-- `backend/app/services/ai_service.py` - OpenAI GPT integration
-- `backend/app/routers/` - All API endpoints
+### **🗄️ DATABASE & API SCHEMA**  
+```
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\models.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\crud.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\schemas.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\database.py
+```
 
-### **Documentation**
-- `docs/SPRINT_SUMMARY.md` - This sprint's achievements
-- `README.md` - Project overview and setup
-- `docs/mssql_quick_reference.md` - Database operations
+### **🔌 SERVICE INTEGRATION**
+```
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\services\google_tts_service.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\services\audio_service.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\routers\flashcards.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\routers\audio.py
+```
+
+### **⚙️ SETUP & CONFIGURATION**
+```
+G:\My Drive\Code\Python\Super-Flashcards\SETUP_INSTRUCTIONS.md
+G:\My Drive\Code\Python\Super-Flashcards\backend\requirements.txt
+G:\My Drive\Code\Python\Super-Flashcards\docs\mssql_quick_reference.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\development_setup.md
+```
+
+### **📦 RECOMMENDED CLAUDE FILE PACKAGES**
+
+#### **Minimum Essential (6 files)** - For Quick Context:
+```
+G:\My Drive\Code\Python\Super-Flashcards\docs\HANDOFF_CLAUDE.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\NEXT_SPRINT_ROADMAP.md
+G:\My Drive\Code\Python\Super-Flashcards\README.md
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\main.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\models.py
+G:\My Drive\Code\Python\Super-Flashcards\frontend\app.js
+```
+
+#### **Comprehensive Package (15 files)** - For Full Development:
+```
+G:\My Drive\Code\Python\Super-Flashcards\docs\HANDOFF_CLAUDE.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\SPRINT_SUMMARY.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\NEXT_SPRINT_ROADMAP.md
+G:\My Drive\Code\Python\Super-Flashcards\README.md
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\main.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\models.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\crud.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\schemas.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\database.py
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\routers\flashcards.py
+G:\My Drive\Code\Python\Super-Flashcards\frontend\app.js
+G:\My Drive\Code\Python\Super-Flashcards\frontend\audio-player.js
+G:\My Drive\Code\Python\Super-Flashcards\frontend\index.html
+G:\My Drive\Code\Python\Super-Flashcards\runui.ps1
+G:\My Drive\Code\Python\Super-Flashcards\SETUP_INSTRUCTIONS.md
+```
 
 ---
 

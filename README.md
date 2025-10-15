@@ -169,12 +169,29 @@
 ### **Quick References**
 - [Sprint Summary](docs/SPRINT_SUMMARY.md) - Latest development achievements
 - [Handoff Guide](docs/HANDOFF_CLAUDE.md) - Development context for new contributors
+- [Next Sprint Roadmap](docs/NEXT_SPRINT_ROADMAP.md) - Feature priorities and file references
 - [Setup Instructions](SETUP_INSTRUCTIONS.md) - Detailed installation guide
 
 ### **Technical Details**
 - [API Documentation](http://localhost:8000/docs) - Interactive API explorer
 - [Database Schema](backend/app/models.py) - Complete data model
 - [Service Architecture](backend/app/services/) - AI and audio integration
+
+### **File Structure for Claude Handoff**
+For optimal Claude integration with message limits, use these file selections:
+
+**Essential Documentation (4 files):**
+```
+docs/HANDOFF_CLAUDE.md, docs/NEXT_SPRINT_ROADMAP.md, docs/SPRINT_SUMMARY.md, README.md
+```
+
+**Core Development Files (6 additional):**
+```
+backend/app/main.py, backend/app/models.py, backend/app/crud.py, 
+frontend/app.js, frontend/index.html, runui.ps1
+```
+
+**Complete Package (15 total files)** - See handoff documentation for full list.
 
 ## 🏆 Success Stories
 

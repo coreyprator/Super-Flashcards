@@ -172,18 +172,53 @@
 
 ### **Ready to Start Immediately:**
 1. **Spaced Repetition Algorithm** - Database schema ready, clear requirements
+   - **Key Files:** `backend/app/models.py`, `backend/app/crud.py`, `backend/app/schemas.py`
 2. **Progress Analytics** - Study sessions table exists, UI components identified  
+   - **Key Files:** `frontend/app.js`, `backend/app/routers/flashcards.py`
 3. **Quiz Mode** - Core flashcard system supports various question types
+   - **Key Files:** `frontend/app.js`, `frontend/index.html`
 
 ### **Requires Planning Phase:**
 1. **Mobile App Enhancement** - Need PWA strategy and notification system
+   - **Key Files:** `frontend/manifest.json`, `frontend/sw.js`
 2. **Additional Languages** - Requires TTS voice research and AI prompt testing
+   - **Key Files:** `backend/app/services/google_tts_service.py`, `backend/app/models.py`
 3. **Community Features** - Need user management and content moderation strategy
+   - **Key Files:** `backend/app/models.py`, `backend/app/routers/users.py`
 
 ### **Long-term Research Projects:**
 1. **Speech Recognition** - Technical feasibility and accuracy requirements
 2. **Advanced AI Features** - Cost analysis and prompt engineering
 3. **LMS Integration** - Market research and compatibility requirements
+
+---
+
+## 📂 **CRITICAL FILES FOR NEXT SPRINT**
+
+### **🔥 MUST-HAVE DOCUMENTATION** (Claude Message Limits)
+```
+G:\My Drive\Code\Python\Super-Flashcards\docs\HANDOFF_CLAUDE.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\NEXT_SPRINT_ROADMAP.md
+G:\My Drive\Code\Python\Super-Flashcards\docs\SPRINT_SUMMARY.md
+G:\My Drive\Code\Python\Super-Flashcards\README.md
+```
+
+### **🎯 SPACED REPETITION IMPLEMENTATION FILES**
+```
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\models.py          # Add review tracking fields
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\crud.py            # Review queue queries  
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\schemas.py         # Review response models
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\routers\flashcards.py  # Review endpoints
+G:\My Drive\Code\Python\Super-Flashcards\frontend\app.js                # Review UI logic
+```
+
+### **🏗️ CORE ARCHITECTURE FILES** (If Needed)
+```
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\main.py            # Router registration
+G:\My Drive\Code\Python\Super-Flashcards\backend\app\database.py        # Database connection
+G:\My Drive\Code\Python\Super-Flashcards\frontend\index.html            # UI structure
+G:\My Drive\Code\Python\Super-Flashcards\runui.ps1                      # Development startup
+```
 
 ---
 
