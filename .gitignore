@@ -2,6 +2,13 @@
 .env
 backend/.env
 
+# Google Cloud credentials - NEVER COMMIT
+*.json
+*credentials*.json
+*service-account*.json
+google-cloud-credentials.json
+gcloud-key.json
+
 # Test files
 test_import.csv
 test_import.json
@@ -53,6 +60,11 @@ venv.bak/
 images/
 frontend/images/
 backend/images/
+
+# Generated audio files (TTS files, regenerated as needed)
+audio/
+frontend/audio/
+backend/audio/
 ._*
 .Spotlight-V100
 .Trashes
