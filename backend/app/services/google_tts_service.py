@@ -122,6 +122,11 @@ class GoogleTTSService:
         Get optimal voice configuration for language
         """
         voice_configs = {
+            'en-US': {
+                'language_code': 'en-US',
+                'name': 'en-US-Wavenet-D',  # High-quality English male voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.MALE
+            },
             'fr-FR': {
                 'language_code': 'fr-FR',
                 'name': 'fr-FR-Wavenet-C',  # High-quality French female voice
@@ -132,11 +137,40 @@ class GoogleTTSService:
                 'name': 'el-GR-Wavenet-A',  # High-quality Greek female voice
                 'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
             },
-            # Add more languages as needed
+            'es-ES': {
+                'language_code': 'es-ES',
+                'name': 'es-ES-Wavenet-B',  # High-quality Spanish male voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.MALE
+            },
+            'de-DE': {
+                'language_code': 'de-DE',
+                'name': 'de-DE-Wavenet-B',  # High-quality German male voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.MALE
+            },
+            'it-IT': {
+                'language_code': 'it-IT',
+                'name': 'it-IT-Wavenet-A',  # High-quality Italian female voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
+            },
+            'pt-PT': {
+                'language_code': 'pt-PT',
+                'name': 'pt-PT-Wavenet-A',  # High-quality Portuguese female voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
+            },
+            'ja-JP': {
+                'language_code': 'ja-JP',
+                'name': 'ja-JP-Wavenet-A',  # High-quality Japanese female voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.FEMALE
+            },
+            'zh-CN': {
+                'language_code': 'zh-CN',
+                'name': 'cmn-CN-Wavenet-B',  # High-quality Mandarin male voice
+                'ssml_gender': texttospeech.SsmlVoiceGender.MALE
+            },
         }
         
-        # Default to French if language not found
-        return voice_configs.get(language_code, voice_configs['fr-FR'])
+        # Default to English if language not found
+        return voice_configs.get(language_code, voice_configs['en-US'])
 
 # Global service instance
 google_tts_service = GoogleTTSService()

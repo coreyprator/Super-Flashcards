@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="AI-powered language learning flashcards with offline support">
     <meta name="theme-color" content="#4F46E5">
-    <title>Language Learning Flashcards</title>
+    <title>Super Flashcards</title>
     
     <!-- Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -149,6 +149,33 @@
             color: #6B7280;
             margin-top: 0.25rem;
         }
+        
+        /* Mode toggle styles */
+        .mode-button.active {
+            background-color: #4F46E5;
+            color: white;
+        }
+        
+        .mode-button:not(.active) {
+            background-color: transparent;
+            color: #6B7280;
+        }
+        
+        .mode-button:not(.active):hover {
+            color: #374151;
+        }
+        
+        /* Dropdown menu animation */
+        .dropdown-enter {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+        }
+        
+        .dropdown-enter-active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            transition: all 150ms ease-out;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -166,42 +193,33 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900 mb-2">
-                        🌍 Language Learning
+                        � Super Flashcards
                     </h1>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
+                <!-- Language Selector in Header -->
+                <div class="ml-6 flex items-center">
+                    <label for="language-select" class="sr-only">Select Language</label>
+                    <select id="language-select" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                        <option value="">Loading languages...</option>
+                    </select>
+                </div>
                 <div class="flex items-center gap-4">
-                    <!-- Sync Status -->
-                    <div class="text-right">
-                        <div id="sync-status" class="sync-status offline">
-                            🔴 Offline
-                        </div>
-                        <div id="last-sync-time" class="text-xs text-gray-500 mt-1">
-                            Never synced
-                        </div>
+                    <!-- Minimalist Online Indicator -->
+                    <div class="flex items-center" title="Last sync: Never">
+                        <span id="online-dot" class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2" aria-label="Offline"></span>
                     </div>
-                    <!-- Manual Sync Button -->
-                    <button id="sync-button" class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-                        🔄 Sync
-                    </button>
-                    <a href="/static/settings.html" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                        ⚙️ Settings
-                    </a>
                 </div>
             </div>
         </header>
 
         <!-- Language Selector -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
-            <label for="language-select" class="block text-sm font-medium text-gray-700 mb-2">
-                Select Language
-            </label>
-            <select id="language-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                <option value="">Loading languages...</option>
-            </select>
+            <!-- Language selector moved to header -->
             
-            <!-- Batch IPA Processing Section -->
-            <div id="batch-ipa-section" class="mt-4 pt-4 border-t border-gray-200" style="display: none;">
+            <!-- Batch IPA Processing Section - HIDDEN: Use hamburger menu "Batch Processing" instead -->
+            <!-- This section is kept for backward compatibility but should not be shown to users -->
+            <div id="batch-ipa-section" class="mt-4 pt-4 border-t border-gray-200" style="display: none !important;">
                 <div class="flex items-center justify-between mb-3">
                     <div>
                         <h4 class="text-sm font-semibold text-blue-900">IPA Batch Processing</h4>
@@ -229,63 +247,137 @@
             </div>
         </div>
 
-        <!-- Tab Navigation -->
+        <!-- Main Navigation -->
         <div class="bg-white rounded-lg shadow-md mb-6 fade-in">
-            <div class="flex border-b">
-                <button id="tab-study" class="tab-button flex-1 px-6 py-3 font-medium text-center border-b-2 border-indigo-600 text-indigo-600">
-                    📚 Study
-                </button>
-                <button id="tab-add" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
+            <div class="flex items-center justify-between p-4">
+                <!-- Mode Toggle -->
+                <div class="flex items-center bg-gray-100 rounded-lg p-1">
+                    <button id="mode-study" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white">
+                        📚 Study
+                    </button>
+                    <button id="mode-browse" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
+                        📖 Browse
+                    </button>
+                </div>
+                
+                <!-- Primary Action -->
+                <button id="add-card-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm">
                     ➕ Add Card
                 </button>
-                <button id="tab-import" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
-                    📤 Import
-                </button>
-                <button id="tab-batch" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
-                    🚀 Batch
-                </button>
-                <button id="tab-browse" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
-                    📖 Browse
-                </button>
-                <button id="tab-tts-test" class="tab-button flex-1 px-6 py-3 font-medium text-center text-gray-600 hover:text-gray-900">
-                    🔊 TTS Test
-                </button>
+                
+                <!-- Hamburger Menu -->
+                <div class="relative">
+                    <button id="menu-toggle" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div id="dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border">
+                        <button id="menu-sync" class="w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-50 flex items-center gap-2">
+                            🔄 Sync Now
+                        </button>
+                        <button id="menu-import" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                            � Import Cards
+                        </button>
+                        <button id="menu-batch" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 border-t">
+                            � Batch Operations
+                        </button>
+                        <button id="menu-settings" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 border-t">
+                            ⚙️ Settings
+                        </button>
+                        <div class="border-t my-2"></div>
+                        <div class="px-4 py-2">
+                            <div class="text-xs font-semibold text-gray-500 mb-1">Sync Status</div>
+                            <div class="flex flex-col gap-1 mb-2">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span>Local Cards</span>
+                                    <span id="local-flashcards-count-menu" class="font-mono">0</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span>Pending Sync</span>
+                                    <span id="pending-sync-count-menu" class="font-mono">0</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span>Network</span>
+                                    <span id="network-status-menu" class="font-mono">🟢</span>
+                                </div>
+                            </div>
+                            <div class="text-xs font-semibold text-gray-500 mb-1 mt-2">Debug Console</div>
+                            <button id="clear-db-btn-menu" class="w-full px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs mb-2">🗑️ Clear Local DB</button>
+                            <div id="debug-log-menu" class="p-2 bg-gray-800 text-green-400 rounded text-xs font-mono h-20 overflow-y-auto">Debug log will appear here...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Study Tab Content -->
-            <div id="content-study" class="p-6 tab-content">
-                <div id="flashcard-container">
-                    <!-- Flashcard will be inserted here -->
-                    <div class="text-center text-gray-500 py-12">
-                        <p class="text-lg mb-4">Select a language to start studying</p>
-                        <p class="text-sm">Or add your first flashcard using the "Add Card" tab</p>
+            <!-- Main Content Area -->
+            <div id="main-content" class="p-6">
+                <!-- Study Mode -->
+                <div id="study-mode" class="mode-content">
+                    <div id="flashcard-container">
+                        <!-- Flashcard will be inserted here -->
+                        <div class="text-center text-gray-500 py-12">
+                            <p class="text-lg mb-4">Select a language to start studying</p>
+                            <p class="text-sm">Use the "Add Card" button to create your first flashcard</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Navigation Controls (legacy - now on cards) -->
+                    <div id="study-controls" class="mt-6 flex justify-between items-center hidden">
+                        <button id="prev-card" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                            ← Previous
+                        </button>
+                        <div class="text-sm text-gray-600">
+                            <span id="card-counter">1 / 10</span>
+                        </div>
+                        <button id="next-card" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                            Next →
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Navigation Controls -->
-                <div id="study-controls" class="mt-6 flex justify-between items-center hidden">
-                    <button id="prev-card" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                        ← Previous
-                    </button>
-                    <div class="text-sm text-gray-600">
-                        <span id="card-counter">1 / 10</span>
+                <!-- Browse Mode -->
+                <div id="browse-mode" class="mode-content hidden">
+                    <!-- Search and Filters -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <div class="mb-4">
+                            <input type="text" id="search-input" placeholder="Start typing to search flashcards..." 
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        
+                        <!-- Results info -->
+                        <div id="search-loading" class="hidden text-center py-2">
+                            <div class="spinner mx-auto"></div>
+                            <p class="text-sm text-gray-600 mt-2">Searching...</p>
+                        </div>
+                        <div id="search-stats" class="text-sm text-gray-600 hidden">
+                            Found <span id="results-count">0</span> results
+                        </div>
                     </div>
-                    <button id="next-card" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                        Next →
-                    </button>
+                    
+                    <!-- Cards List -->
+                    <div id="cards-list" class="space-y-4">
+                        <!-- Cards will be listed here -->
+                        <div class="text-center text-gray-500 py-8">
+                            <p class="text-lg mb-2">No cards to display</p>
+                            <p class="text-sm">Select a language to see your flashcards</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Add Card Tab Content -->
-            <div id="content-add" class="p-6 tab-content hidden">
+            <!-- Add Card Content -->
+            <div id="content-add" class="p-6 hidden">
                 <div class="space-y-4">
-                    <!-- Manual or AI Toggle -->
+                    <!-- AI or Manual Toggle (AI first as default) -->
                     <div class="flex space-x-2 mb-4">
-                        <button id="btn-manual" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg transition">
-                            ✍️ Manual Entry
-                        </button>
-                        <button id="btn-ai" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg transition">
+                        <button id="btn-ai" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg transition">
                             🤖 AI Generate
+                        </button>
+                        <button id="btn-manual" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg transition">
+                            ✍️ Manual Entry
                         </button>
                     </div>
 
@@ -439,8 +531,8 @@
                 </div>
             </div>
 
-            <!-- Import Tab Content -->
-            <div id="content-import" class="p-6 tab-content hidden">
+            <!-- Import Content (Hamburger Menu) -->
+            <div id="content-import" class="p-6 hidden">
                 <div class="space-y-6">
                     <!-- Import Type Selection -->
                     <div class="bg-white border border-gray-200 rounded-lg p-4">
@@ -655,8 +747,8 @@
                 </div>
             </div>
 
-            <!-- Batch Processing Tab Content -->
-            <div id="content-batch" class="p-6 tab-content hidden">
+            <!-- Batch Processing Content (Hamburger Menu) -->
+            <div id="content-batch" class="p-6 hidden">
                 <div class="max-w-4xl mx-auto">
                     <h2 class="text-2xl font-bold text-gray-900 mb-6">🚀 Batch Processing</h2>
                     
@@ -800,34 +892,7 @@
                 </div>
             </div>
 
-            <!-- Browse Tab Content -->
-            <div id="content-browse" class="p-6 tab-content hidden">
-                <div class="mb-4">
-                    <div class="relative">
-                        <input type="text" id="search-input" 
-                            class="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                            placeholder="🔍 Search flashcards... (type 2+ characters)">
-                        <div id="search-loading" class="absolute right-3 top-3 hidden">
-                            <div class="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
-                        </div>
-                    </div>
-                    <div id="search-stats" class="text-sm text-gray-500 mt-1 hidden"></div>
-                </div>
-                
-                <div id="flashcard-list" class="space-y-2">
-                    <p class="text-center text-gray-500 py-8">No flashcards yet</p>
-                </div>
-            </div>
 
-            <!-- TTS Test Tab Content -->
-            <div id="content-tts-test" class="p-6 tab-content hidden">
-                <div class="bg-white rounded-lg border-2 border-gray-200" style="height: calc(100vh - 200px);">
-                    <iframe src="tts-testing.html" 
-                            class="w-full h-full border-0 rounded-lg"
-                            title="TTS Testing Interface">
-                    </iframe>
-                </div>
-            </div>
         </div>
 
         <!-- Loading Overlay -->
@@ -954,6 +1019,24 @@
                         </p>
                     </div>
                     
+                    <!-- Audio Section -->
+                    <div class="border-t pt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Audio Pronunciation
+                                <span class="text-xs text-gray-500">(Optional)</span>
+                            </label>
+                            <button type="button" id="regenerate-edit-audio-btn" 
+                                class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                🔊 Regenerate Audio
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Click to regenerate the pronunciation audio with the correct language.
+                        </p>
+                        <div id="edit-audio-status" class="mt-2 text-sm text-gray-600 hidden"></div>
+                    </div>
+                    
                     <div class="flex space-x-2 pt-4">
                         <button type="submit" class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
                             Save Changes
@@ -970,55 +1053,17 @@
         </div>
         
         <!-- Sprint 5: Sync Status Footer -->
-        <footer class="mt-12 bg-white rounded-lg shadow-md p-6 fade-in">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Sync Status</h3>
-            <div class="sync-stats">
-                <div class="sync-stat">
-                    <div id="local-flashcards-count" class="sync-stat-value">0</div>
-                    <div class="sync-stat-label">Local Cards</div>
-                </div>
-                <div class="sync-stat">
-                    <div id="pending-sync-count" class="sync-stat-value">0</div>
-                    <div class="sync-stat-label">Pending Sync</div>
-                </div>
-                <div class="sync-stat">
-                    <div id="network-status" class="sync-stat-value">🔴</div>
-                    <div class="sync-stat-label">Network</div>
-                </div>
-            </div>
-            
-            <!-- Debug Panel (Development Only) -->
-            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h4 class="font-medium text-gray-700 mb-2">🔧 Debug Console</h4>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="test-offline-btn" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm">
-                        📚 Add Sample Cards
-                    </button>
-                    <button id="test-sync-btn" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-                        🔄 Test Sync Queue
-                    </button>
-                    <button id="simulate-airplane-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
-                        ✈️ Simulate Offline
-                    </button>
-                    <button id="clear-db-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                        🗑️ Clear Local DB
-                    </button>
-                </div>
-                <div id="debug-log" class="mt-3 p-3 bg-gray-800 text-green-400 rounded text-xs font-mono h-32 overflow-y-auto">
-                    Debug log will appear here...
-                </div>
-            </div>
-        </footer>
+        <!-- Footer removed: Sync status and debug tools are now in the hamburger menu -->
     </div>
 
     <!-- Sprint 4: Audio Player -->
-    <script src="/audio-player.js?v=2.3"></script>
+    <script src="/audio-player.js?v=2.4"></script>
     
     <!-- Sprint 5: Offline Sync Modules -->
-    <script src="/db.js?v=5.1"></script>
+    <script src="/db.js?v=5.2"></script>
     <script src="/sync.js?v=5.1"></script>
     <script src="/api-client.js?v=5.1"></script>
     
-    <script src="/app.js?v=2.3"></script>
+    <script src="/app.js?v=2.5"></script>
 </body>
 </html>

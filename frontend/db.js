@@ -10,7 +10,7 @@
  */
 
 const DB_NAME = 'SuperFlashcardsDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Object store names
 const STORES = {
@@ -18,7 +18,8 @@ const STORES = {
     LANGUAGES: 'languages',
     PREFERENCES: 'preferences',
     SYNC_QUEUE: 'syncQueue',
-    METADATA: 'metadata'
+    METADATA: 'metadata',
+    AUDIO_CACHE: 'audioCache'
 };
 
 class OfflineDatabase {
@@ -98,6 +99,14 @@ class OfflineDatabase {
                 if (!db.objectStoreNames.contains(STORES.METADATA)) {
                     db.createObjectStore(STORES.METADATA, { keyPath: 'key' });
                     console.log('  ✓ Created metadata store');
+                }
+                
+                // Audio cache store
+                if (!db.objectStoreNames.contains(STORES.AUDIO_CACHE)) {
+                    const audioStore = db.createObjectStore(STORES.AUDIO_CACHE, { keyPath: 'url' });
+                    audioStore.createIndex('flashcard_id', 'flashcard_id', { unique: false });
+                    audioStore.createIndex('cached_at', 'cached_at', { unique: false });
+                    console.log('  ✓ Created audio cache store');
                 }
                 
                 console.log('✅ IndexedDB schema upgrade complete');
@@ -666,6 +675,160 @@ class OfflineDatabase {
             tx.onerror = () => {
                 console.error('❌ Error clearing data:', tx.error);
                 reject(tx.error);
+            };
+        });
+    }
+    
+    // ============================================================================
+    // AUDIO CACHE OPERATIONS
+    // ============================================================================
+    
+    /**
+     * Cache audio blob for offline playback
+     * @param {String} url - Original audio URL
+     * @param {Blob} audioBlob - Audio file as blob
+     * @param {String} flashcard_id - Associated flashcard ID
+     * @returns {Promise<Object>} Cached audio object
+     */
+    async cacheAudio(url, audioBlob, flashcard_id) {
+        await this.ensureInitialized();
+        
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.AUDIO_CACHE], 'readwrite');
+            const store = tx.objectStore(STORES.AUDIO_CACHE);
+            
+            const audioData = {
+                url: url,
+                blob: audioBlob,
+                flashcard_id: flashcard_id,
+                cached_at: new Date().toISOString(),
+                size_bytes: audioBlob.size
+            };
+            
+            const request = store.put(audioData);
+            
+            request.onsuccess = () => {
+                console.log(`🔊 Cached audio for ${url} (${audioBlob.size} bytes)`);
+                resolve(audioData);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error caching audio:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+    
+    /**
+     * Get cached audio blob
+     * @param {String} url - Audio URL to retrieve
+     * @returns {Promise<Blob|null>} Audio blob or null if not cached
+     */
+    async getCachedAudio(url) {
+        await this.ensureInitialized();
+        
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.AUDIO_CACHE], 'readonly');
+            const store = tx.objectStore(STORES.AUDIO_CACHE);
+            const request = store.get(url);
+            
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result && result.blob) {
+                    console.log(`🔊 Retrieved cached audio for ${url}`);
+                    resolve(result.blob);
+                } else {
+                    resolve(null);
+                }
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error retrieving cached audio:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+    
+    /**
+     * Check if audio is cached
+     * @param {String} url - Audio URL to check
+     * @returns {Promise<Boolean>} True if cached, false otherwise
+     */
+    async isAudioCached(url) {
+        const cachedBlob = await this.getCachedAudio(url);
+        return cachedBlob !== null;
+    }
+    
+    /**
+     * Remove cached audio
+     * @param {String} url - Audio URL to remove from cache
+     * @returns {Promise<Boolean>} True if removed, false if not found
+     */
+    async removeCachedAudio(url) {
+        await this.ensureInitialized();
+        
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.AUDIO_CACHE], 'readwrite');
+            const store = tx.objectStore(STORES.AUDIO_CACHE);
+            const request = store.delete(url);
+            
+            request.onsuccess = () => {
+                console.log(`🗑️ Removed cached audio for ${url}`);
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error removing cached audio:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+    
+    /**
+     * Get all cached audio entries
+     * @returns {Promise<Array>} Array of cached audio objects
+     */
+    async getAllCachedAudio() {
+        await this.ensureInitialized();
+        
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.AUDIO_CACHE], 'readonly');
+            const store = tx.objectStore(STORES.AUDIO_CACHE);
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                const audioCache = request.result;
+                console.log(`🔊 Retrieved ${audioCache.length} cached audio files`);
+                resolve(audioCache);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error retrieving cached audio:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+    
+    /**
+     * Clear all cached audio (useful for cleanup)
+     * @returns {Promise<Boolean>} True if cleared successfully
+     */
+    async clearAudioCache() {
+        await this.ensureInitialized();
+        
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.AUDIO_CACHE], 'readwrite');
+            const store = tx.objectStore(STORES.AUDIO_CACHE);
+            const request = store.clear();
+            
+            request.onsuccess = () => {
+                console.log('🧹 Cleared all cached audio');
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('❌ Error clearing audio cache:', request.error);
+                reject(request.error);
             };
         });
     }

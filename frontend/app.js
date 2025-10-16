@@ -9,6 +9,26 @@ const API_BASE = window.location.origin.includes('localhost')
     ? 'http://localhost:8000/api' 
     : '/api';
 
+// Backend Base URL for static assets (images, audio)
+// Handle both localhost and cross-device access (like iPhone → laptop)
+const BACKEND_BASE = (() => {
+    const origin = window.location.origin;
+    
+    if (origin.includes('localhost')) {
+        // Local development
+        return 'http://localhost:8000';
+    } else if (origin.includes(':3000')) {
+        // Cross-device access (iPhone → laptop) - replace port 3000 with 8000
+        return origin.replace(':3000', ':8000');
+    } else {
+        // Production or other cases
+        return '';
+    }
+})();
+
+console.log(`🌐 Frontend origin: ${window.location.origin}`);
+console.log(`🌐 Backend base: ${BACKEND_BASE}`);
+
 // Application State
 let state = {
     currentLanguage: null,
@@ -23,6 +43,131 @@ let state = {
 // ========================================
 // Utility Functions
 // ========================================
+
+/**
+ * Fix relative URLs to point to correct backend server
+ * @param {String} url - URL to fix (may be relative or absolute)
+ * @returns {String} Absolute URL pointing to backend
+ */
+function fixAssetUrl(url) {
+    if (!url) return url;
+    
+    // If already absolute URL, return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        console.log(`🔗 URL already absolute: ${url}`);
+        return url;
+    }
+    
+    // If relative URL starting with /, prepend backend base
+    if (url.startsWith('/')) {
+        const fixedUrl = BACKEND_BASE + url;
+        console.log(`🔗 Fixed URL: ${url} → ${fixedUrl}`);
+        return fixedUrl;
+    }
+    
+    // Otherwise, return as-is
+    console.log(`🔗 URL unchanged: ${url}`);
+    return url;
+}
+
+/**
+ * Enhanced audio player with caching support
+ */
+class CachedAudioPlayer {
+    constructor() {
+        this.currentAudio = null;
+        this.cache = new Map(); // In-memory cache for blob URLs
+    }
+    
+    /**
+     * Play audio with caching support
+     * @param {String} audioUrl - URL of audio to play
+     * @param {String} flashcardId - Associated flashcard ID for caching
+     */
+    async playAudio(audioUrl, flashcardId = null) {
+        try {
+            const fixedUrl = fixAssetUrl(audioUrl);
+            console.log(`🔊 Playing audio: ${fixedUrl}`);
+            
+            // Check if we have cached audio first
+            let audioBlob = null;
+            if (offlineDB) {
+                audioBlob = await offlineDB.getCachedAudio(fixedUrl);
+            }
+            
+            let playableUrl = fixedUrl;
+            
+            if (audioBlob) {
+                // Use cached audio
+                console.log(`🔊 Using cached audio for ${fixedUrl}`);
+                if (this.cache.has(fixedUrl)) {
+                    playableUrl = this.cache.get(fixedUrl);
+                } else {
+                    playableUrl = URL.createObjectURL(audioBlob);
+                    this.cache.set(fixedUrl, playableUrl);
+                }
+            } else if (navigator.onLine) {
+                // Try to cache audio for future offline use
+                this.cacheAudioInBackground(fixedUrl, flashcardId);
+            }
+            
+            // Stop current audio if playing
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+            }
+            
+            // Create and play audio
+            this.currentAudio = new Audio(playableUrl);
+            await this.currentAudio.play();
+            
+        } catch (error) {
+            console.error('❌ Error playing audio:', error);
+            showToast('Audio playback failed');
+        }
+    }
+    
+    /**
+     * Cache audio in background for offline use
+     * @param {String} audioUrl - URL to cache
+     * @param {String} flashcardId - Associated flashcard ID
+     */
+    async cacheAudioInBackground(audioUrl, flashcardId) {
+        try {
+            // Don't cache if already cached
+            if (offlineDB && await offlineDB.isAudioCached(audioUrl)) {
+                return;
+            }
+            
+            console.log(`🔄 Caching audio in background: ${audioUrl}`);
+            
+            const response = await fetch(audioUrl);
+            if (response.ok) {
+                const audioBlob = await response.blob();
+                
+                if (offlineDB) {
+                    await offlineDB.cacheAudio(audioUrl, audioBlob, flashcardId);
+                    console.log(`✅ Audio cached successfully: ${audioUrl}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Failed to cache audio (non-critical):', error);
+        }
+    }
+    
+    /**
+     * Cleanup blob URLs to prevent memory leaks
+     */
+    cleanup() {
+        for (const blobUrl of this.cache.values()) {
+            URL.revokeObjectURL(blobUrl);
+        }
+        this.cache.clear();
+    }
+}
+
+// Global cached audio player instance
+const audioPlayer = new CachedAudioPlayer();
 
 function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast');
@@ -237,17 +382,41 @@ async function createFlashcard(data) {
             });
         }
         
+        console.log('✅ Manual flashcard created:', flashcard);
+        console.log('📷 Image URL:', flashcard?.image_url);
+        console.log('🔊 Audio URL:', flashcard?.audio_url);
+        
+        // TODO: Add better error handling with user-friendly messages
+        // Don't expose technical errors to users
+        
         showToast('✅ Flashcard created successfully!');
+        
+        // Reload flashcards first so the new card is in state.flashcards
         await loadFlashcards();
         
-        // Switch to study tab
-        switchTab('study');
+        // Generate audio for the new flashcard AFTER it's loaded into state
+        if (flashcard && flashcard.id) {
+            try {
+                console.log('🔊 Starting audio generation for:', flashcard.id);
+                await generateAudioForCard(flashcard.id);
+            } catch (audioError) {
+                console.error('Audio generation failed:', audioError);
+                // Don't fail the whole operation if audio fails
+                // TODO: Show user-friendly error message
+            }
+        }
+        
+        // Switch back to main content to show the new card
+        backToMain();
+        switchToStudyMode();
         hideLoading();
         
         return flashcard;
     } catch (error) {
         hideLoading();
+        // TODO: Improve error messages - don't expose technical details
         showToast('Failed to create flashcard');
+        console.error('Create flashcard error:', error);
         throw error;
     }
 }
@@ -260,6 +429,17 @@ async function generateAIFlashcard(word, includeImage = true) {
     
     try {
         showLoading();
+        
+        // Show a more informative message for AI generation
+        const loadingMessage = document.querySelector('#loading-overlay p');
+        if (loadingMessage) {
+            loadingMessage.innerHTML = `
+                <span class="block mb-2">Generating AI flashcard...</span>
+                <span class="text-sm text-gray-600">This will take a few minutes</span>
+                <span class="text-xs text-gray-500 mt-1 block">(Creating definition, etymology, image, and audio)</span>
+            `;
+        }
+        
         const flashcard = await apiRequest('/ai/generate', {
             method: 'POST',
             body: JSON.stringify({
@@ -269,17 +449,80 @@ async function generateAIFlashcard(word, includeImage = true) {
             })
         });
         
+        console.log('✅ AI flashcard received:', flashcard);
+        console.log('📷 Image URL:', flashcard?.image_url);
+        console.log('🔊 Audio URL:', flashcard?.audio_url);
+        
+        // TODO: Add better error handling with user-friendly messages
+        // Don't expose technical errors to users
+        
         hideLoading();
         showToast('✅ AI Flashcard generated successfully!');
+        
+        // Reload flashcards first so the new card is in state.flashcards
         await loadFlashcards();
-        switchTab('study');
+        
+        // Generate audio for the new flashcard AFTER it's loaded into state
+        if (flashcard && flashcard.id) {
+            try {
+                console.log('🔊 Starting audio generation for:', flashcard.id);
+                await generateAudioForCard(flashcard.id);
+            } catch (audioError) {
+                console.error('Audio generation failed:', audioError);
+                // Don't fail the whole operation if audio fails
+                // TODO: Show user-friendly error message
+            }
+        }
+        
+        // Switch back to main content to show the new card
+        backToMain();
+        switchToStudyMode();
         
         return flashcard;
     } catch (error) {
         hideLoading();
+        // TODO: Improve error messages - don't expose technical details
         showToast('AI generation failed. Check your API key.');
+        console.error('AI generation error:', error);
         throw error;
     }
+}
+
+/**
+ * Helper function to generate audio for a flashcard
+ * @param {string} flashcardId - The flashcard ID
+ */
+async function generateAudioForCard(flashcardId) {
+    console.log('🔊 generateAudioForCard called with ID:', flashcardId);
+    console.log('🔊 Current flashcards in state:', state.flashcards.length);
+    
+    // Get the flashcard to get the word/phrase
+    const flashcard = state.flashcards.find(card => card.id === flashcardId);
+    if (!flashcard) {
+        console.warn('⚠️ Flashcard not found in state.flashcards for audio generation:', flashcardId);
+        console.warn('Available IDs:', state.flashcards.map(c => c.id));
+        return;
+    }
+    
+    console.log('🔊 Found flashcard:', flashcard.word_or_phrase);
+    
+    // Call the global generateAudio function from audio-player.js
+    if (typeof generateAudio === 'function') {
+        console.log('🔊 Calling generateAudio...');
+        await generateAudio(flashcardId, flashcard.word_or_phrase);
+        console.log('🔊 generateAudio completed');
+    } else {
+        console.error('❌ generateAudio function not available');
+    }
+}
+
+/**
+ * Switch to study mode (not Browse mode)
+ * This ensures we show the study view with the new card
+ */
+function switchToStudyMode() {
+    // Make sure we're in Study mode (not Browse mode)
+    switchMode('study');
 }
 
 async function markAsReviewed(flashcardId) {
@@ -359,7 +602,7 @@ async function generateImageForManualCard() {
             const previewContainer = document.getElementById('manual-image-preview');
             
             if (previewImg && previewContainer) {
-                previewImg.src = response.image_url;
+                previewImg.src = fixAssetUrl(response.image_url);
                 if (previewDesc) {
                     previewDesc.textContent = response.image_description || 'Generated image';
                 }
@@ -435,7 +678,7 @@ async function generateImageForEditCard() {
             const previewImg = document.getElementById('edit-image-preview');
             const previewDesc = document.getElementById('edit-image-description');
             
-            previewImg.src = response.image_url;
+            previewImg.src = fixAssetUrl(response.image_url);
             previewDesc.textContent = response.image_description || 'Generated image';
             
             document.getElementById('edit-image-section').classList.remove('hidden');
@@ -518,7 +761,7 @@ function renderFlashcard(flashcard) {
                         ${getIPAHTML(flashcard)}
                         
                         ${flashcard.image_url ? `
-                            <img src="${flashcard.image_url}" 
+                            <img src="${fixAssetUrl(flashcard.image_url)}" 
                                  alt="${flashcard.image_description || flashcard.word_or_phrase}"
                                  class="w-full max-w-md mx-auto rounded-lg mb-6 shadow-md">
                         ` : ''}
@@ -527,6 +770,23 @@ function renderFlashcard(flashcard) {
                         <div class="mt-8">
                             <button onclick="flipCard()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-lg transition-all transform hover:scale-105">
                                 📋 Show Details
+                            </button>
+                        </div>
+                        
+                        <!-- Mobile Navigation -->
+                        <div class="mt-6 flex justify-center items-center gap-4">
+                            <button onclick="previousCard(); event.stopPropagation();" 
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50" 
+                                    ${state.currentCardIndex === 0 ? 'disabled' : ''}>
+                                ← Previous
+                            </button>
+                            <span class="text-sm text-gray-500 px-3">
+                                ${state.currentCardIndex + 1} of ${state.flashcards.length}
+                            </span>
+                            <button onclick="nextCard(); event.stopPropagation();" 
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                                    ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
+                                Next →
                             </button>
                         </div>
                     </div>
@@ -599,11 +859,31 @@ function renderFlashcard(flashcard) {
                                 ↩️ Back to Word
                             </button>
                         </div>
+                        
+                        <!-- Mobile Navigation -->
+                        <div class="mt-6 flex justify-center items-center gap-4">
+                            <button onclick="previousCard(); event.stopPropagation();" 
+                                    class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50" 
+                                    ${state.currentCardIndex === 0 ? 'disabled' : ''}>
+                                ← Previous
+                            </button>
+                            <span class="text-sm text-indigo-600 px-3 font-medium">
+                                ${state.currentCardIndex + 1} of ${state.flashcards.length}
+                            </span>
+                            <button onclick="nextCard(); event.stopPropagation();" 
+                                    class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50"
+                                    ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
+                                Next →
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     `;
+    
+    // Add touch/swipe support for mobile navigation
+    addSwipeSupport();
 }
 
 function flipCard() {
@@ -660,8 +940,58 @@ function prevCard() {
     }
 }
 
+// Alias for mobile navigation
+function previousCard() {
+    prevCard();
+}
+
+/**
+ * Add swipe support for mobile navigation
+ */
+function addSwipeSupport() {
+    const card = document.querySelector('.flashcard');
+    if (!card) return;
+    
+    let startX = 0;
+    let startY = 0;
+    let endX = 0;
+    let endY = 0;
+    
+    card.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    card.addEventListener('touchend', (e) => {
+        endX = e.changedTouches[0].clientX;
+        endY = e.changedTouches[0].clientY;
+        
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
+        const minSwipeDistance = 50;
+        
+        // Only process horizontal swipes (ignore mostly vertical scrolling)
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+            if (deltaX > 0) {
+                // Swipe right - go to previous card
+                previousCard();
+            } else {
+                // Swipe left - go to next card
+                nextCard();
+            }
+        }
+    }, { passive: true });
+    
+    console.log('📱 Touch swipe navigation enabled');
+}
+
 function renderFlashcardList() {
-    const listContainer = document.getElementById('flashcard-list');
+    const listContainer = document.getElementById('cards-list');
+    
+    if (!listContainer) {
+        console.warn('Cards list container not found');
+        return;
+    }
     
     if (state.flashcards.length === 0) {
         listContainer.innerHTML = '<p class="text-center text-gray-500 py-8">No flashcards yet</p>';
@@ -1113,7 +1443,7 @@ function showEditModal(flashcard) {
     // Show/hide image section and set up image data
     if (flashcard.image_url) {
         document.getElementById('edit-image-section').classList.remove('hidden');
-        document.getElementById('edit-image-preview').src = flashcard.image_url;
+        document.getElementById('edit-image-preview').src = fixAssetUrl(flashcard.image_url);
         document.getElementById('edit-image-description').textContent = flashcard.image_description || 'Existing image';
         document.getElementById('regenerate-edit-image-btn').classList.remove('hidden');
         
@@ -1308,19 +1638,23 @@ async function deleteFlashcard() {
     
     try {
         showLoading();
-        await apiRequest(`/flashcards/${flashcardToDelete.id}`, {
-            method: 'DELETE'
-        });
+        
+        // Sprint 5: Use offline-first API client
+        if (apiClient) {
+            await apiClient.deleteFlashcard(flashcardToDelete.id);
+        } else {
+            // Fallback to old API
+            await apiRequest(`/flashcards/${flashcardToDelete.id}`, {
+                method: 'DELETE'
+            });
+        }
         
         hideLoading();
         showToast('Flashcard deleted');
         closeDeleteModal();
         
-        // Remove the card from local state immediately
-        const deletedCardIndex = state.flashcards.findIndex(card => card.id === flashcardToDelete.id);
-        if (deletedCardIndex !== -1) {
-            state.flashcards.splice(deletedCardIndex, 1);
-        }
+        // Reload flashcards from server/IndexedDB to ensure sync
+        await loadFlashcards();
         
         // Update browse list immediately
         renderFlashcardList();
@@ -1331,19 +1665,14 @@ async function deleteFlashcard() {
             document.getElementById('flashcard-container').innerHTML = `
                 <div class="text-center text-gray-500 py-12">
                     <p class="text-lg mb-4">No flashcards yet for this language</p>
-                    <p class="text-sm">Add your first flashcard using the "Add Card" tab</p>
+                    <p class="text-sm">Add your first flashcard using the "Add Card" button</p>
                 </div>
             `;
             document.getElementById('study-controls').classList.add('hidden');
             state.currentCardIndex = 0;
         } else {
-            // If we deleted the current study card, adjust the index
-            if (deletedCardIndex !== -1 && deletedCardIndex <= state.currentCardIndex) {
-                if (state.currentCardIndex >= state.flashcards.length) {
-                    state.currentCardIndex = Math.max(0, state.flashcards.length - 1);
-                }
-            }
-            // Update the study view with the current card
+            // Navigate to first card or adjust current index
+            state.currentCardIndex = Math.min(state.currentCardIndex, state.flashcards.length - 1);
             if (state.flashcards[state.currentCardIndex]) {
                 renderFlashcard(state.flashcards[state.currentCardIndex]);
                 updateCardCounter();
@@ -1352,6 +1681,7 @@ async function deleteFlashcard() {
         
     } catch (error) {
         hideLoading();
+        // TODO: Add user-friendly error message
         showToast('Failed to delete flashcard', 'error');
         console.error('Delete error:', error);
     }
@@ -1393,8 +1723,7 @@ async function initializeOfflineFirst() {
         // Setup sync button
         setupSyncButton();
         
-        // Setup debug buttons
-        setupDebugButtons();
+    // (No debug buttons to set up here; handled after DOMContentLoaded)
         
         // Update UI with initial status
         updateSyncStatus();
@@ -1442,34 +1771,36 @@ async function updateSyncStatus() {
         try {
             const status = await syncManager.getSyncStatus();
             state.syncStatus = status.online ? 'online' : 'offline';
-            
-        // Update offline indicator
-        const offlineIndicator = document.getElementById('offline-indicator');
-        if (offlineIndicator) {
-            // Use browser's navigator.onLine for accurate status
-            const actuallyOnline = navigator.onLine && status.online;
-            if (!actuallyOnline) {
-                offlineIndicator.classList.remove('hidden');
-            } else {
-                offlineIndicator.classList.add('hidden');
+            // Update hamburger menu sync stats
+            const localCountMenu = document.getElementById('local-flashcards-count-menu');
+            const pendingCountMenu = document.getElementById('pending-sync-count-menu');
+            const networkStatusMenu = document.getElementById('network-status-menu');
+            if (localCountMenu && status.stats) {
+                localCountMenu.textContent = status.stats.flashcardsCount || 0;
             }
-        }            // Update sync stats
-            const localCount = document.getElementById('local-flashcards-count');
-            const pendingCount = document.getElementById('pending-sync-count');
-            const networkStatus = document.getElementById('network-status');
-            
-            if (localCount && status.stats) {
-                localCount.textContent = status.stats.flashcardsCount || 0;
+            if (pendingCountMenu) {
+                pendingCountMenu.textContent = status.pendingOperations || 0;
             }
-            
-            if (pendingCount) {
-                pendingCount.textContent = status.pendingOperations || 0;
+            if (networkStatusMenu) {
+                networkStatusMenu.textContent = status.online ? '🟢' : '🔴';
+                networkStatusMenu.className = status.online ? 'font-mono text-green-500' : 'font-mono text-red-500';
             }
-            
-            if (networkStatus) {
-                networkStatus.textContent = status.online ? '🟢' : '🔴';
+            // Update minimalist online indicator dot and alt text
+            const onlineDot = document.getElementById('online-dot');
+            if (onlineDot) {
+                if (status.online) {
+                    onlineDot.classList.remove('bg-red-500');
+                    onlineDot.classList.add('bg-green-500');
+                    onlineDot.setAttribute('aria-label', 'Online');
+                } else {
+                    onlineDot.classList.remove('bg-green-500');
+                    onlineDot.classList.add('bg-red-500');
+                    onlineDot.setAttribute('aria-label', 'Offline');
+                }
+                // Alt text for last sync
+                let lastSync = status.lastSyncTime ? new Date(status.lastSyncTime).toLocaleString() : 'Never';
+                onlineDot.parentElement.title = `Last sync: ${lastSync}`;
             }
-            
         } catch (error) {
             console.error('Failed to update sync status:', error);
         }
@@ -1576,21 +1907,16 @@ function setupDebugButtons() {
         });
     }
     
-    // Clear Local DB
-    const clearDbBtn = document.getElementById('clear-db-btn');
-    if (clearDbBtn) {
-        clearDbBtn.addEventListener('click', async () => {
+    // Clear Local DB (menu)
+    const clearDbBtnMenu = document.getElementById('clear-db-btn-menu');
+    if (clearDbBtnMenu) {
+        clearDbBtnMenu.addEventListener('click', async () => {
             if (confirm('Clear all local data? This cannot be undone!')) {
                 debugLog('🗑️ Clearing local database...');
-                
                 try {
-                    // Clear all stores
                     await offlineDB.clear();
                     debugLog('✅ Local database cleared');
-                    
-                    // Reload page to reinitialize
                     location.reload();
-                    
                 } catch (error) {
                     debugLog(`❌ Clear failed: ${error.message}`);
                 }
@@ -1646,12 +1972,12 @@ function setupDebugButtons() {
  * Debug logging to on-screen console
  */
 function debugLog(message) {
-    const debugLogElement = document.getElementById('debug-log');
-    if (debugLogElement) {
+    const debugLogMenu = document.getElementById('debug-log-menu');
+    if (debugLogMenu) {
         const timestamp = new Date().toLocaleTimeString();
         const logLine = `[${timestamp}] ${message}\n`;
-        debugLogElement.textContent += logLine;
-        debugLogElement.scrollTop = debugLogElement.scrollHeight;
+        debugLogMenu.textContent += logLine;
+        debugLogMenu.scrollTop = debugLogMenu.scrollHeight;
     }
     console.log(`[DEBUG] ${message}`);
 }
@@ -1665,6 +1991,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Sprint 5: Initialize offline-first architecture
     await initializeOfflineFirst();
+    
+    // Initialize new UI (mode toggle & hamburger menu)
+    initializeNewUI();
+    // Setup debug panel (menu)
+    setupDebugButtons();
     
     // Debug: Check if TTS elements exist in DOM
     console.log('🐛 DEBUG: Checking TTS elements in DOM...');
@@ -1921,6 +2252,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         cancelEditBtn.addEventListener('click', closeEditModal);
     } else {
         console.warn('⚠️ Cancel edit button not found');
+    }
+    
+    // Regenerate audio button in edit modal
+    const regenerateEditAudioBtn = document.getElementById('regenerate-edit-audio-btn');
+    if (regenerateEditAudioBtn) {
+        regenerateEditAudioBtn.addEventListener('click', async () => {
+            const cardId = document.getElementById('edit-flashcard-id').value;
+            const word = document.getElementById('edit-word').value;
+            const statusDiv = document.getElementById('edit-audio-status');
+            
+            if (!cardId || !word) {
+                showToast('Please enter a word first');
+                return;
+            }
+            
+            try {
+                // Show status
+                statusDiv.textContent = 'Generating audio...';
+                statusDiv.classList.remove('hidden');
+                regenerateEditAudioBtn.disabled = true;
+                regenerateEditAudioBtn.textContent = '🔄 Generating...';
+                
+                // Generate audio
+                await generateAudio(cardId, word);
+                
+                // Success
+                statusDiv.textContent = '✅ Audio regenerated successfully!';
+                setTimeout(() => {
+                    statusDiv.classList.add('hidden');
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Failed to regenerate audio:', error);
+                statusDiv.textContent = '❌ Failed to regenerate audio';
+                showToast('Failed to regenerate audio');
+            } finally {
+                regenerateEditAudioBtn.disabled = false;
+                regenerateEditAudioBtn.textContent = '🔊 Regenerate Audio';
+            }
+        });
+    } else {
+        console.warn('⚠️ Regenerate edit audio button not found');
     }
     
     // Note: remove-image-btn doesn't exist - image removal is handled per-form
@@ -2343,12 +2716,23 @@ function resetParserForm() {
 // ========================================
 
 async function initializeBatchIPA() {
+    // NOTE: Batch IPA section is now hidden from main view
+    // It's accessible through hamburger menu "Batch Processing" instead
+    // This initialization is kept for backward compatibility but disabled
+    
     const batchSection = document.getElementById('batch-ipa-section');
     const batchIpaBtn = document.getElementById('batch-generate-ipa');
     const batchAudioBtn = document.getElementById('batch-generate-audio');
     const batchCompleteBtn = document.getElementById('batch-generate-complete');
     
-    // Listen for language change events
+    // Ensure the section stays hidden (audio is now auto-generated on card creation)
+    if (batchSection) {
+        batchSection.style.display = 'none';
+    }
+    
+    // DISABLED: Don't show batch section on language change
+    // Audio is now generated automatically when cards are created
+    /*
     document.addEventListener('languageChanged', async (e) => {
         if (e.detail.languageId) {
             batchSection.style.display = 'block';
@@ -2359,8 +2743,9 @@ async function initializeBatchIPA() {
             disableBatchButtons();
         }
     });
+    */
     
-    // Batch button event listeners
+    // Batch button event listeners (kept for batch processing page)
     if (batchIpaBtn) batchIpaBtn.addEventListener('click', () => startBatchIPA('ipa'));
     if (batchAudioBtn) batchAudioBtn.addEventListener('click', () => startBatchIPA('audio'));
     if (batchCompleteBtn) batchCompleteBtn.addEventListener('click', () => startBatchIPA('complete'));
@@ -2467,4 +2852,322 @@ function startBatchStatusPolling() {
     window.addEventListener('beforeunload', () => {
         clearInterval(pollInterval);
     });
+}
+
+// ========================================
+// NEW UI: Mode Toggle & Hamburger Menu
+// ========================================
+
+/**
+ * Toggle between Study and Browse modes
+ * @param {String} mode - 'study' or 'browse'
+ */
+function switchMode(mode) {
+    console.log(`🔄 Switching to ${mode} mode`);
+    
+    // Update button states
+    const studyBtn = document.getElementById('mode-study');
+    const browseBtn = document.getElementById('mode-browse');
+    
+    if (mode === 'study') {
+        studyBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+        studyBtn.classList.remove('text-gray-600');
+        browseBtn.classList.remove('active', 'bg-indigo-600', 'text-white');
+        browseBtn.classList.add('text-gray-600');
+        
+        // Show study mode content
+        document.getElementById('study-mode').classList.remove('hidden');
+        document.getElementById('browse-mode').classList.add('hidden');
+        
+        // Load current card if available
+        if (state.flashcards.length > 0) {
+            renderFlashcard(state.flashcards[state.currentCardIndex]);
+        }
+        
+    } else if (mode === 'browse') {
+        browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+        browseBtn.classList.remove('text-gray-600');
+        studyBtn.classList.remove('active', 'bg-indigo-600', 'text-white');
+        studyBtn.classList.add('text-gray-600');
+        
+        // Show browse mode content
+        document.getElementById('browse-mode').classList.remove('hidden');
+        document.getElementById('study-mode').classList.add('hidden');
+        
+        // Load cards list
+        loadCardsList();
+    }
+    
+    state.currentMode = mode;
+}
+
+/**
+ * Load cards list for browse mode
+ */
+function loadCardsList() {
+    const cardsList = document.getElementById('cards-list');
+    
+    if (state.flashcards.length === 0) {
+        cardsList.innerHTML = `
+            <div class="text-center text-gray-500 py-8">
+                <p class="text-lg mb-2">No cards to display</p>
+                <p class="text-sm">Select a language to see your flashcards</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Display cards as a list
+    cardsList.innerHTML = state.flashcards.map((card, index) => `
+        <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow cursor-pointer"
+             onclick="selectCard(${index})">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-lg mb-2">${card.word_or_phrase}</h3>
+                    ${card.definition ? `<p class="text-gray-600 text-sm mb-2">${card.definition}</p>` : ''}
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                        <span>${card.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}</span>
+                        <span>•</span>
+                        <span>Reviewed ${card.times_reviewed} times</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 ml-4">
+                    ${card.audio_url ? `
+                        <button onclick="playAudio('${card.id}', '${card.audio_url}'); event.stopPropagation();" 
+                                class="p-2 text-indigo-600 hover:bg-indigo-50 rounded">
+                            🔊
+                        </button>
+                    ` : ''}
+                    <button onclick="editCard('${card.id}'); event.stopPropagation();" 
+                            class="p-2 text-gray-600 hover:bg-gray-50 rounded">
+                        ✏️
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Select a card from browse mode and switch to study mode
+ * @param {Number} index - Card index
+ */
+function selectCard(index) {
+    state.currentCardIndex = index;
+    switchMode('study');
+}
+
+/**
+ * Toggle hamburger menu dropdown
+ */
+function toggleMenu() {
+    const dropdown = document.getElementById('dropdown-menu');
+    const isHidden = dropdown.classList.contains('hidden');
+    
+    if (isHidden) {
+        dropdown.classList.remove('hidden');
+        dropdown.classList.add('dropdown-enter');
+        setTimeout(() => {
+            dropdown.classList.add('dropdown-enter-active');
+        }, 10);
+    } else {
+        dropdown.classList.add('hidden');
+        dropdown.classList.remove('dropdown-enter', 'dropdown-enter-active');
+    }
+}
+
+/**
+ * Show specific content area (for hamburger menu items)
+ * @param {String} contentId - ID of content to show
+ */
+function showContent(contentId) {
+    // Hide main content
+    document.getElementById('main-content').classList.add('hidden');
+    
+    // Hide other content areas
+    ['content-add', 'content-import', 'content-batch'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+    
+    // Show requested content
+    document.getElementById(contentId).classList.remove('hidden');
+    
+    // Close dropdown menu
+    document.getElementById('dropdown-menu').classList.add('hidden');
+}
+
+/**
+ * Go back to main content from any sub-content
+ */
+function backToMain() {
+    // Hide all content areas
+    ['content-add', 'content-import', 'content-batch'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+    
+    // Show main content
+    document.getElementById('main-content').classList.remove('hidden');
+}
+
+/**
+ * Initialize new UI event listeners
+ */
+function initializeNewUI() {
+    // Hamburger menu Sync button
+    document.getElementById('menu-sync')?.addEventListener('click', async () => {
+        const btn = document.getElementById('menu-sync');
+        btn.disabled = true;
+        btn.textContent = '🔄 Syncing...';
+        try {
+            await apiClient.forceSync();
+            showToast('Sync completed successfully!');
+        } catch (error) {
+            showToast('Sync failed - will retry automatically', 5000);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔄 Sync Now';
+        }
+    });
+    console.log('🎨 Initializing new UI...');
+    
+    // Mode toggle buttons
+    document.getElementById('mode-study')?.addEventListener('click', () => switchMode('study'));
+    document.getElementById('mode-browse')?.addEventListener('click', () => switchMode('browse'));
+    
+    // Primary action button
+    document.getElementById('add-card-btn')?.addEventListener('click', () => {
+        showContent('content-add');
+        // Default to AI form (make sure it's visible)
+        setTimeout(() => {
+            const aiForm = document.getElementById('ai-form');
+            const manualForm = document.getElementById('manual-form');
+            const btnAI = document.getElementById('btn-ai');
+            const btnManual = document.getElementById('btn-manual');
+            
+            if (aiForm && manualForm && btnAI && btnManual) {
+                aiForm.classList.remove('hidden');
+                manualForm.classList.add('hidden');
+                btnAI.classList.add('bg-indigo-600', 'text-white');
+                btnAI.classList.remove('bg-gray-200', 'text-gray-700');
+                btnManual.classList.remove('bg-indigo-600', 'text-white');
+                btnManual.classList.add('bg-gray-200', 'text-gray-700');
+            }
+        }, 50);
+    });
+    
+    // Hamburger menu
+    document.getElementById('menu-toggle')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+    });
+    document.getElementById('menu-import')?.addEventListener('click', () => showContent('content-import'));
+    document.getElementById('menu-batch')?.addEventListener('click', () => showContent('content-batch'));
+    document.getElementById('menu-settings')?.addEventListener('click', async () => {
+        // Try to fetch the settings page, show alert if not found
+        try {
+            const resp = await fetch('/static/settings.html', { method: 'HEAD' });
+            if (resp.ok) {
+                window.location.href = '/static/settings.html';
+            } else {
+                alert('Settings coming soon!');
+            }
+        } catch (e) {
+            alert('Settings coming soon!');
+        }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('dropdown-menu');
+        const menuToggle = document.getElementById('menu-toggle');
+        
+        if (!dropdown?.contains(e.target) && !menuToggle?.contains(e.target)) {
+            dropdown?.classList.add('hidden');
+        }
+    });
+    
+    // Real-time search functionality in browse mode
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        let searchTimeout;
+        // Real-time search with debouncing
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            if (searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (query.length === 0) {
+                    loadCardsList();
+                } else {
+                    performSearch(query);
+                }
+            }, 300);
+        });
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (searchTimeout) clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                if (query.length === 0) {
+                    loadCardsList();
+                } else {
+                    performSearch(query);
+                }
+            }
+        });
+    }
+
+    // Make Next/Previous card buttons robust
+    document.getElementById('next-card')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        nextCard();
+    });
+    document.getElementById('prev-card')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        prevCard();
+    });
+    
+    // Initialize in study mode
+    switchMode('study');
+    
+    console.log('✅ New UI initialized');
+}
+
+/**
+ * Perform search and update browse mode results  
+ * @param {String} query - Search query
+ */
+async function performSearch(query) {
+    console.log('🔍 Searching for:', query);
+    
+    const searchStats = document.getElementById('search-stats');
+    
+    try {
+        // Use existing search functionality
+        let searchResults = [];
+        
+        if (apiClient) {
+            const languageId = state.currentLanguage && state.currentLanguage !== 'all' 
+                ? state.currentLanguage 
+                : null;
+            searchResults = await apiClient.searchFlashcards(query, languageId);
+        }
+        
+        // Update results
+        state.flashcards = searchResults;
+        loadCardsList();
+        
+        // Update stats - show count for any result (including 0)
+        const count = searchResults.length;
+        const plural = count === 1 ? 'result' : 'results';
+    searchStats.innerHTML = `Found <span class="font-medium">${count}</span> ${plural} for "${query}"`;
+    searchStats.classList.remove('hidden');
+    searchStats.classList.remove('text-red-500', 'text-green-500', 'text-blue-500');
+    searchStats.classList.add('text-gray-600');
+        
+    } catch (error) {
+        console.error('Search failed:', error);
+        // Silently fail - just keep previous results
+        // No error messages shown to user for smoother experience
+    }
 }

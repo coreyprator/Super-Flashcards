@@ -2,9 +2,24 @@
 // Audio player functionality for Super-Flashcards Sprint 4
 // Handles audio generation, playback, and UI updates
 
-console.log("🎵 === AUDIO PLAYER v2.2 with IPA SUPPORT LOADED ===");
-console.log("🎵 Added IPA pronunciation functionality");
-console.log("🎵 Time:", new Date().toISOString());
+/**
+ * Get the backend base URL for API calls
+ */
+function getBackendBase() {
+    const origin = window.location.origin;
+    
+    if (origin.includes('localhost')) {
+        return 'http://localhost:8000';
+    } else if (origin.includes(':3000')) {
+        return origin.replace(':3000', ':8000');
+    } else {
+        return '';
+    }
+}
+
+console.log('🎵 === AUDIO PLAYER v2.2 with IPA SUPPORT LOADED ===');
+console.log('🎵 Added IPA pronunciation functionality');
+console.log('🎵 Time:', new Date().toISOString());
 
 /**
  * Get HTML for audio button based on card state
@@ -29,13 +44,8 @@ function getAudioButtonHTML(card) {
                 <button id="${buttonId}" class="audio-btn play-btn" onclick="playAudio('${card.id}', '${card.audio_url}'); event.stopPropagation();">
                     ▶️ Play
                 </button>
-                <button class="audio-btn regenerate-btn text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200" 
-                        onclick="generateAudio('${card.id}', '${card.word_or_phrase}'); event.stopPropagation();" 
-                        title="Regenerate audio with fresh Google TTS">
-                    🔄
-                </button>
                 <audio id="${audioId}" preload="none">
-                    <source src="${card.audio_url}" type="audio/mpeg">
+                    <source src="${typeof fixAssetUrl !== 'undefined' ? fixAssetUrl(card.audio_url) : card.audio_url}" type="audio/mpeg">
                     Your browser does not support the audio element.
                 </audio>
             </div>
@@ -88,7 +98,8 @@ async function generateAudio(cardId, word) {
         }
         
         // Make API call to generate audio
-        const url = `/api/audio/generate/${cardId}`;
+        const backendBase = getBackendBase();
+        const url = `${backendBase}/api/audio/generate/${cardId}`;
         console.log('🔧 Making request to URL:', url);
         console.log('🔧 Request method: POST');
         console.log('🔧 Request headers: Content-Type: application/json');
@@ -220,7 +231,8 @@ async function generateIPA(cardId) {
     console.log('🔤 Generating IPA for card:', cardId);
     
     try {
-        const response = await fetch(`/api/ipa/generate-ipa/${cardId}`, {
+        const backendBase = getBackendBase();
+        const response = await fetch(`${backendBase}/api/ipa/generate-ipa/${cardId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -270,7 +282,8 @@ async function generateIPAAudio(cardId) {
     console.log('🔊 Generating IPA audio for card:', cardId);
     
     try {
-        const response = await fetch(`/api/ipa/generate-ipa-audio/${cardId}`, {
+        const backendBase = getBackendBase();
+        const response = await fetch(`${backendBase}/api/ipa/generate-ipa-audio/${cardId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -383,20 +396,14 @@ function playIPAAudio(cardId, audioUrl) {
 }
 
 /**
- * Play audio for a flashcard
+ * Play audio for a flashcard with caching support
  * @param {string} cardId - Flashcard ID
  * @param {string} audioUrl - URL to audio file
  */
-function playAudio(cardId, audioUrl) {
+async function playAudio(cardId, audioUrl) {
     console.log('🔊 Playing audio for card:', cardId, 'URL:', audioUrl);
     
-    const audioElement = document.getElementById(`audio-${cardId}`);
     const button = document.getElementById(`audio-btn-${cardId}`);
-    
-    if (!audioElement) {
-        console.error(`Audio element not found for card ${cardId}`);
-        return;
-    }
     
     try {
         // Update button state
@@ -405,64 +412,66 @@ function playAudio(cardId, audioUrl) {
             button.disabled = true;
         }
         
-        // Check if audio is already loaded to avoid delays
-        if (audioElement.readyState >= 2) {
-            // Audio is loaded, play immediately
-            audioElement.play().then(() => {
-                console.log(`Playing loaded audio for card ${cardId}`);
-            }).catch((error) => {
-                console.error('Error playing audio:', error);
-                if (button) {
-                    button.innerHTML = '❌ Error';
-                    setTimeout(() => {
-                        button.innerHTML = '▶️ Play';
-                        button.disabled = false;
-                    }, 2000);
-                }
-            });
-        } else {
-            // Audio not loaded, load and play
-            audioElement.load();
-            audioElement.play().then(() => {
-                console.log(`Playing audio for card ${cardId}`);
-            }).catch((error) => {
-                console.error('Error playing audio:', error);
-                if (button) {
-                    button.innerHTML = '❌ Error';
-                    setTimeout(() => {
-                        button.innerHTML = '▶️ Play';
-                        button.disabled = false;
-                    }, 2000);
-                }
-            });
-        }
-        
-        // Reset button when audio ends
-        audioElement.onended = () => {
+        // Use cached audio player if available (Sprint 5 Phase 2)
+        if (typeof audioPlayer !== 'undefined' && audioPlayer.playAudio) {
+            await audioPlayer.playAudio(audioUrl, cardId);
+            
+            // Reset button after playback
             if (button) {
                 button.innerHTML = '▶️ Play';
                 button.disabled = false;
             }
-        };
-        
-        // Reset button on error
-        audioElement.onerror = () => {
-            console.error('Audio error for card:', cardId);
-            if (button) {
-                button.innerHTML = '❌ Error';
-                setTimeout(() => {
+        } else {
+            // Fallback to legacy audio element method
+            const audioElement = document.getElementById(`audio-${cardId}`);
+            if (!audioElement) {
+                console.error(`Audio element not found for card ${cardId}`);
+                if (button) {
+                    button.innerHTML = '❌ Error';
+                    button.disabled = false;
+                }
+                return;
+            }
+            
+            // Check if audio is already loaded to avoid delays
+            if (audioElement.readyState >= 2) {
+                // Audio is loaded, play immediately
+                await audioElement.play();
+                console.log(`Playing loaded audio for card ${cardId}`);
+            } else {
+                // Audio not loaded, load and play
+                audioElement.load();
+                await audioElement.play();
+                console.log(`Playing audio for card ${cardId}`);
+            }
+            
+            // Reset button when audio ends
+            audioElement.onended = () => {
+                if (button) {
                     button.innerHTML = '▶️ Play';
                     button.disabled = false;
-                }, 2000);
-            }
-        };
+                }
+            };
+            
+            // Reset button on error
+            audioElement.onerror = () => {
+                console.error('Audio error for card:', cardId);
+                if (button) {
+                    button.innerHTML = '❌ Error';
+                    setTimeout(() => {
+                        button.innerHTML = '▶️ Play';
+                        button.disabled = false;
+                    }, 2000);
+                }
+            };
+        }
         
     } catch (error) {
         console.error('Error playing audio:', error);
         if (button) {
             button.innerHTML = '❌ Error';
             setTimeout(() => {
-                button.innerHTML = '🔊 Play';
+                button.innerHTML = '▶️ Play';
                 button.disabled = false;
             }, 2000);
         }
@@ -475,7 +484,8 @@ function playAudio(cardId, audioUrl) {
  */
 async function checkAudioStatus() {
     try {
-        const response = await fetch('/api/audio/status');
+        const backendBase = getBackendBase();
+        const response = await fetch(`${backendBase}/api/audio/status`);
         if (response.ok) {
             const status = await response.json();
             console.log('Audio status:', status);

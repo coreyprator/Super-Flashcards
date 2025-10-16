@@ -54,12 +54,12 @@ app.add_middleware(
 
 # Include routers
 app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcards"])
-app.include_router(ai_generate.router, prefix="/api", tags=["ai-generate"])  # Sprint 2
+app.include_router(ai_generate.router, prefix="/api/ai", tags=["ai-generate"])  # Sprint 2
 app.include_router(languages.router, prefix="/api/languages", tags=["languages"])  # Sprint 3
 app.include_router(users.router, prefix="/api/users", tags=["users"])  # User management
 app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # Import functionality
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
-app.include_router(audio.router, prefix="/api", tags=["audio"])  # Sprint 4 - TTS functionality
+app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
 # Removed: search.router, document_parser.router (replaced with batch processing)
 
 # Serve static files (frontend)

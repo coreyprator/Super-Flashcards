@@ -32,8 +32,8 @@ class ApiClient {
             
             // Development: localhost or local IP
             if (hostname === 'localhost' || hostname.startsWith('127.0.0.1') || hostname.startsWith('192.168.') || hostname.startsWith('172.')) {
-                // Use port 8080 for backend API
-                return `${protocol}//${hostname}:8080`;
+                // Use port 8000 for backend API
+                return `${protocol}//${hostname}:8000`;
             }
             
             // Production: same origin
@@ -41,7 +41,7 @@ class ApiClient {
         }
         
         // Fallback
-        return 'http://localhost:8080';
+        return 'http://localhost:8000';
     }
     
     /**
