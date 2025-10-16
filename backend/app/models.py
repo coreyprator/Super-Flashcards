@@ -77,6 +77,11 @@ class Flashcard(Base):
     audio_url = Column(NVARCHAR(500))  # Path to audio file
     audio_generated_at = Column(DateTime)  # When audio was generated
     
+    # IPA Pronunciation (Mini-Sprint: Pronunciation Enhancement)
+    ipa_pronunciation = Column(NVARCHAR(500))  # International Phonetic Alphabet
+    ipa_audio_url = Column(NVARCHAR(500))  # TTS from IPA pronunciation
+    ipa_generated_at = Column(DateTime)  # When IPA audio was generated
+    
     # Metadata
     source = Column(NVARCHAR(50), default="manual")  # manual, ai_generated, imported
     times_reviewed = Column(Integer, default=0)

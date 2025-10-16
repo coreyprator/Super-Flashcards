@@ -8,16 +8,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 from app import models
-from app.services.audio_service import AudioService
+from app.services.service_registry import service_registry
 from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["audio"])
-
-# Initialize audio service
-audio_service = AudioService()
 
 
 @router.post("/generate/{card_id}")
@@ -71,7 +68,7 @@ async def generate_audio(card_id: str, db: Session = Depends(get_db)):
         logger.info(f"Generating audio for card {card_id}: '{flashcard.word_or_phrase}' ({language.name})")
         
         # Generate audio
-        success, audio_path, error_msg = audio_service.generate_word_audio(
+        success, audio_path, error_msg = service_registry.audio_service.generate_word_audio(
             word=flashcard.word_or_phrase,
             language_name=language.name,
             flashcard_id=str(flashcard.id)
@@ -153,7 +150,7 @@ async def delete_audio(card_id: str, db: Session = Depends(get_db)):
         }
     
     # Delete audio file
-    deleted = audio_service.delete_audio(flashcard.audio_url)
+    deleted = service_registry.audio_service.delete_audio(flashcard.audio_url)
     
     # Update database
     flashcard.audio_url = None
@@ -199,7 +196,7 @@ async def get_audio_status(db: Session = Depends(get_db)):
     percentage = (cards_with_audio / total_cards * 100) if total_cards > 0 else 0
     
     # Storage statistics
-    storage_stats = audio_service.get_audio_stats()
+    storage_stats = service_registry.audio_service.get_audio_stats()
     
     return {
         "total_cards": total_cards,
@@ -234,7 +231,7 @@ async def check_audio(card_id: str, db: Session = Depends(get_db)):
     file_exists = False
     
     if has_audio:
-        file_exists = audio_service.audio_exists(flashcard.audio_url)
+        file_exists = service_registry.audio_service.audio_exists(flashcard.audio_url)
     
     return {
         "has_audio": has_audio,

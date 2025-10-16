@@ -34,6 +34,9 @@ class FlashcardBase(BaseModel):
     image_description: Optional[str] = None
     audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
     audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
+    ipa_pronunciation: Optional[str] = None  # IPA phonetic transcription
+    ipa_audio_url: Optional[str] = None  # TTS from IPA pronunciation
+    ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID
@@ -49,6 +52,9 @@ class FlashcardUpdate(BaseModel):
     image_description: Optional[str] = None
     audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
     audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
+    ipa_pronunciation: Optional[str] = None  # IPA phonetic transcription
+    ipa_audio_url: Optional[str] = None  # TTS from IPA pronunciation
+    ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
 
 class Flashcard(FlashcardBase):
     id: UUID

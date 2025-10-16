@@ -8,6 +8,12 @@ echo 🌐 URL: http://localhost:8000
 echo ⏹️  Stop with: Ctrl+C
 echo.
 
+REM Record start time for performance tracking
+set "START_TIME=%TIME%"
+echo ⏱️  Server startup initiated at: %START_TIME%
+echo 📊 Tracking startup performance... (Look for "Application startup complete")
+echo.
+
 REM Get the directory where this script is located (project root)
 set "PROJECT_ROOT=%~dp0"
 set "BACKEND_PATH=%PROJECT_ROOT%backend"

@@ -1,7 +1,10 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
 
-// API Configuration
+// Sprint 5: Offline-First Architecture
+let offlineDB, syncManager, apiClient;
+
+// API Configuration (Legacy - will be replaced by ApiClient)
 const API_BASE = window.location.origin.includes('localhost') 
     ? 'http://localhost:8000/api' 
     : '/api';
@@ -13,7 +16,8 @@ let state = {
     currentCardIndex: 0,
     isFlipped: false,
     isOnline: navigator.onLine,
-    languages: []
+    languages: [],
+    syncStatus: 'offline'
 };
 
 // ========================================
@@ -71,7 +75,48 @@ async function apiRequest(endpoint, options = {}) {
 
 async function loadLanguages() {
     try {
-        const languages = await apiRequest('/languages');
+        // Sprint 5: Use offline-first API client
+        let languages;
+        if (apiClient) {
+            try {
+                languages = await apiClient.getLanguages();
+            } catch (error) {
+                console.warn('API client failed, using offline data:', error);
+                // If API fails, get from IndexedDB directly
+                if (offlineDB) {
+                    languages = await offlineDB.getAllLanguages();
+                } else {
+                    languages = [];
+                }
+            }
+        } else {
+            // Fallback to old API
+            try {
+                languages = await apiRequest('/languages');
+            } catch (error) {
+                console.warn('Old API failed:', error);
+                languages = [];
+            }
+        }
+        
+        // If no languages found, add some defaults for testing
+        if (languages.length === 0) {
+            console.log('📝 No languages found, adding defaults for testing...');
+            languages = [
+                { id: 1, name: 'French', code: 'fr' },
+                { id: 2, name: 'Spanish', code: 'es' },
+                { id: 3, name: 'German', code: 'de' },
+                { id: 4, name: 'Italian', code: 'it' }
+            ];
+            
+            // Save defaults to IndexedDB if available
+            if (offlineDB) {
+                for (const lang of languages) {
+                    await offlineDB.saveLanguage(lang);
+                }
+            }
+        }
+        
         state.languages = languages;
         
         const select = document.getElementById('language-select');
@@ -116,7 +161,35 @@ async function loadFlashcards() {
     
     try {
         showLoading();
-        const flashcards = await apiRequest(`/flashcards?language_id=${state.currentLanguage}`);
+        
+        // Sprint 5: Use offline-first API client
+        let flashcards;
+        if (apiClient) {
+            try {
+                // New offline-first approach
+                flashcards = await apiClient.getFlashcards();
+                // Filter by language locally (API client returns all cards for offline support)
+                flashcards = flashcards.filter(card => card.language_id === state.currentLanguage);
+            } catch (error) {
+                console.warn('API client failed, using offline data:', error);
+                // If API fails, get from IndexedDB directly
+                if (offlineDB) {
+                    const allCards = await offlineDB.getAllFlashcards();
+                    flashcards = allCards.filter(card => card.language_id === state.currentLanguage);
+                } else {
+                    flashcards = [];
+                }
+            }
+        } else {
+            // Fallback to old API for backward compatibility
+            try {
+                flashcards = await apiRequest(`/flashcards?language_id=${state.currentLanguage}`);
+            } catch (error) {
+                console.warn('Old API failed:', error);
+                flashcards = [];
+            }
+        }
+        
         state.flashcards = flashcards;
         state.currentCardIndex = 0;
         
@@ -145,14 +218,24 @@ async function loadFlashcards() {
 async function createFlashcard(data) {
     try {
         showLoading();
-        const flashcard = await apiRequest('/flashcards', {
-            method: 'POST',
-            body: JSON.stringify({
-                ...data,
-                language_id: state.currentLanguage,
-                source: 'manual'
-            })
-        });
+        
+        const flashcardData = {
+            ...data,
+            language_id: state.currentLanguage,
+            source: 'manual'
+        };
+        
+        // Sprint 5: Use offline-first API client
+        let flashcard;
+        if (apiClient) {
+            flashcard = await apiClient.createFlashcard(flashcardData);
+        } else {
+            // Fallback to old API
+            flashcard = await apiRequest('/flashcards', {
+                method: 'POST',
+                body: JSON.stringify(flashcardData)
+            });
+        }
         
         showToast('✅ Flashcard created successfully!');
         await loadFlashcards();
@@ -897,18 +980,44 @@ async function searchFlashcards(query) {
         searchStats.classList.add('hidden');
         
         console.log('Searching for:', query);
-        const languageParam = state.currentLanguage && state.currentLanguage !== 'all' 
-            ? `&language_id=${state.currentLanguage}` 
-            : '';
+        console.log('🌍 Current language for search:', state.currentLanguage);
         
-        const searchUrl = `/flashcards/search?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
-        console.log('Search URL:', searchUrl);
+        // Sprint 5: Use offline-first search
+        let searchResults = [];
         
-        const response = await apiRequest(searchUrl);
-        console.log('Search response:', response);
+        if (apiClient) {
+            try {
+                // Try API client first (works offline too)
+                const languageId = state.currentLanguage && state.currentLanguage !== 'all' 
+                    ? state.currentLanguage 
+                    : null;
+                searchResults = await apiClient.searchFlashcards(query, languageId);
+            } catch (error) {
+                console.warn('API client search failed, using local search:', error);
+                // Fallback to local IndexedDB search
+                if (offlineDB) {
+                    const languageId = state.currentLanguage && state.currentLanguage !== 'all' 
+                        ? state.currentLanguage 
+                        : null;
+                    searchResults = await offlineDB.searchFlashcards(query, languageId);
+                }
+            }
+        } else {
+            // Old API fallback
+            try {
+                const languageParam = state.currentLanguage && state.currentLanguage !== 'all' 
+                    ? `&language_id=${state.currentLanguage}` 
+                    : '';
+                const searchUrl = `/flashcards/search?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
+                const response = await apiRequest(searchUrl);
+                searchResults = Array.isArray(response) ? response : [];
+            } catch (error) {
+                console.warn('Old API search failed:', error);
+                searchResults = [];
+            }
+        }
         
-        // The API returns the array directly, not wrapped in a results object
-        const searchResults = Array.isArray(response) ? response : [];
+        console.log('Search results:', searchResults);
         
         // Store original flashcards and show search results
         if (!state.originalFlashcards) {
@@ -1255,11 +1364,307 @@ function deleteFromEditModal() {
 }
 
 // ========================================
+// Sprint 5: Offline-First Initialization
+// ========================================
+
+/**
+ * Initialize offline-first architecture
+ */
+async function initializeOfflineFirst() {
+    console.log('🔄 Initializing Sprint 5 offline-first architecture...');
+    
+    try {
+        // Initialize IndexedDB
+        console.log('📂 Initializing IndexedDB...');
+        offlineDB = new OfflineDatabase();
+        await offlineDB.init();
+        
+        // Initialize Sync Manager
+        console.log('🔄 Initializing Sync Manager...');
+        syncManager = new SyncManager(offlineDB);
+        await syncManager.init();
+        
+        // Initialize API Client
+        console.log('🌐 Initializing API Client...');
+        apiClient = new ApiClient(offlineDB, syncManager);
+        
+        console.log('✅ Sprint 5 initialization complete!');
+        
+        // Setup sync button
+        setupSyncButton();
+        
+        // Setup debug buttons
+        setupDebugButtons();
+        
+        // Update UI with initial status
+        updateSyncStatus();
+        
+        // Start periodic status updates
+        setInterval(updateSyncStatus, 30000); // Update every 30 seconds
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize Sprint 5:', error);
+        showToast('Failed to initialize offline features', 5000);
+    }
+}
+
+/**
+ * Setup manual sync button
+ */
+function setupSyncButton() {
+    const syncButton = document.getElementById('sync-button');
+    if (syncButton) {
+        syncButton.addEventListener('click', async () => {
+            console.log('🔄 Manual sync requested');
+            
+            syncButton.disabled = true;
+            syncButton.textContent = '🔄 Syncing...';
+            
+            try {
+                await apiClient.forceSync();
+                showToast('Sync completed successfully!');
+            } catch (error) {
+                console.error('❌ Manual sync failed:', error);
+                showToast('Sync failed - will retry automatically', 5000);
+            } finally {
+                syncButton.disabled = false;
+                syncButton.textContent = '🔄 Sync';
+            }
+        });
+    }
+}
+
+/**
+ * Update sync status display
+ */
+async function updateSyncStatus() {
+    if (syncManager && offlineDB) {
+        try {
+            const status = await syncManager.getSyncStatus();
+            state.syncStatus = status.online ? 'online' : 'offline';
+            
+        // Update offline indicator
+        const offlineIndicator = document.getElementById('offline-indicator');
+        if (offlineIndicator) {
+            // Use browser's navigator.onLine for accurate status
+            const actuallyOnline = navigator.onLine && status.online;
+            if (!actuallyOnline) {
+                offlineIndicator.classList.remove('hidden');
+            } else {
+                offlineIndicator.classList.add('hidden');
+            }
+        }            // Update sync stats
+            const localCount = document.getElementById('local-flashcards-count');
+            const pendingCount = document.getElementById('pending-sync-count');
+            const networkStatus = document.getElementById('network-status');
+            
+            if (localCount && status.stats) {
+                localCount.textContent = status.stats.flashcardsCount || 0;
+            }
+            
+            if (pendingCount) {
+                pendingCount.textContent = status.pendingOperations || 0;
+            }
+            
+            if (networkStatus) {
+                networkStatus.textContent = status.online ? '🟢' : '🔴';
+            }
+            
+        } catch (error) {
+            console.error('Failed to update sync status:', error);
+        }
+    }
+}
+
+/**
+ * Setup debug buttons for testing
+ */
+function setupDebugButtons() {
+    // Test Offline Study Mode
+    const testOfflineBtn = document.getElementById('test-offline-btn');
+    if (testOfflineBtn) {
+        testOfflineBtn.addEventListener('click', async () => {
+            debugLog('🧪 Testing offline study mode...');
+            
+            try {
+                // Add some sample cards to IndexedDB for offline study
+                debugLog('📚 Adding sample study cards to IndexedDB...');
+                debugLog(`🌍 Current language state: ${state.currentLanguage}`);
+                
+                const sampleCards = [
+                    {
+                        id: -1001,
+                        word_or_phrase: 'bonjour',
+                        definition: 'hello (French greeting)',
+                        language_id: state.currentLanguage || 9, // Use French (9) as default for French words
+                        etymology: 'From Old French bon jorn (good day)',
+                        english_cognates: 'bonus, journal',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        synced: false
+                    },
+                    {
+                        id: -1002,
+                        word_or_phrase: 'merci',
+                        definition: 'thank you (French)',
+                        language_id: state.currentLanguage || 9, // Use French (9) as default for French words
+                        etymology: 'From Latin merces (wages, reward)',
+                        english_cognates: 'mercy, merchant',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        synced: false
+                    },
+                    {
+                        id: -1003,
+                        word_or_phrase: 'au revoir',
+                        definition: 'goodbye (French farewell)',
+                        language_id: state.currentLanguage || 9, // Use French (9) as default for French words
+                        etymology: 'Literally "until seeing again"',
+                        english_cognates: 'revise, review',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        synced: false
+                    }
+                ];
+                
+                for (const card of sampleCards) {
+                    await offlineDB.saveFlashcard(card);
+                    debugLog(`  ✅ Added: ${card.word_or_phrase} (language_id: ${card.language_id})`);
+                }
+                
+                debugLog('🎯 Sample cards ready for offline study!');
+                debugLog('💡 Now you can study these cards even without internet');
+                debugLog('� Try switching to Study tab to browse offline cards');
+                
+                // Reload the current view to show the new cards
+                await loadFlashcards();
+                await updateSyncStatus();
+                
+            } catch (error) {
+                debugLog(`❌ Offline setup failed: ${error.message}`);
+            }
+        });
+    }
+    
+    // Test Sync Queue
+    const testSyncBtn = document.getElementById('test-sync-btn');
+    if (testSyncBtn) {
+        testSyncBtn.addEventListener('click', async () => {
+            debugLog('🔄 Testing sync queue...');
+            
+            try {
+                const queue = await offlineDB.getSyncQueue();
+                debugLog(`📋 Found ${queue.length} operations in queue:`);
+                
+                queue.forEach((op, i) => {
+                    debugLog(`  ${i+1}. ${op.type} ${op.entity} (ID: ${op.entityId})`);
+                });
+                
+                if (navigator.onLine) {
+                    debugLog('🌐 Online - triggering sync...');
+                    await syncManager.sync();
+                    debugLog('✅ Sync completed!');
+                } else {
+                    debugLog('📴 Offline - cannot sync now');
+                }
+                
+                await updateSyncStatus();
+                
+            } catch (error) {
+                debugLog(`❌ Sync test failed: ${error.message}`);
+            }
+        });
+    }
+    
+    // Clear Local DB
+    const clearDbBtn = document.getElementById('clear-db-btn');
+    if (clearDbBtn) {
+        clearDbBtn.addEventListener('click', async () => {
+            if (confirm('Clear all local data? This cannot be undone!')) {
+                debugLog('🗑️ Clearing local database...');
+                
+                try {
+                    // Clear all stores
+                    await offlineDB.clear();
+                    debugLog('✅ Local database cleared');
+                    
+                    // Reload page to reinitialize
+                    location.reload();
+                    
+                } catch (error) {
+                    debugLog(`❌ Clear failed: ${error.message}`);
+                }
+            }
+        });
+    }
+    
+    // Simulate Airplane Mode
+    const simulateAirplaneBtn = document.getElementById('simulate-airplane-btn');
+    if (simulateAirplaneBtn) {
+        let airplaneModeActive = false;
+        
+        simulateAirplaneBtn.addEventListener('click', async () => {
+            airplaneModeActive = !airplaneModeActive;
+            
+            if (airplaneModeActive) {
+                debugLog('✈️ Simulating airplane mode - blocking network requests');
+                simulateAirplaneBtn.textContent = '🌐 Go Online';
+                simulateAirplaneBtn.className = 'px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm';
+                
+                // Override fetch to simulate network failure
+                window.originalFetch = window.fetch;
+                window.fetch = async (...args) => {
+                    debugLog(`🚫 Blocked network request: ${args[0]}`);
+                    throw new Error('Network unavailable (airplane mode simulation)');
+                };
+                
+                debugLog('📱 Now try studying cards or browsing - should work offline!');
+                
+            } else {
+                debugLog('🌐 Back online - network requests enabled');
+                simulateAirplaneBtn.textContent = '✈️ Simulate Offline';
+                simulateAirplaneBtn.className = 'px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm';
+                
+                // Restore original fetch
+                if (window.originalFetch) {
+                    window.fetch = window.originalFetch;
+                    delete window.originalFetch;
+                }
+                
+                debugLog('🔄 Triggering sync now that we\'re back online...');
+                if (syncManager) {
+                    await syncManager.sync();
+                }
+            }
+            
+            await updateSyncStatus();
+        });
+    }
+}
+
+/**
+ * Debug logging to on-screen console
+ */
+function debugLog(message) {
+    const debugLogElement = document.getElementById('debug-log');
+    if (debugLogElement) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logLine = `[${timestamp}] ${message}\n`;
+        debugLogElement.textContent += logLine;
+        debugLogElement.scrollTop = debugLogElement.scrollHeight;
+    }
+    console.log(`[DEBUG] ${message}`);
+}
+
+// ========================================
 // Initialize App
 // ========================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOMContentLoaded fired, initializing app...');
+    
+    // Sprint 5: Initialize offline-first architecture
+    await initializeOfflineFirst();
     
     // Debug: Check if TTS elements exist in DOM
     console.log('🐛 DEBUG: Checking TTS elements in DOM...');
