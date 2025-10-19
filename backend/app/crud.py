@@ -76,11 +76,12 @@ def delete_flashcard(db: Session, flashcard_id: str):
 
 def increment_review_count(db: Session, flashcard_id: str):
     """Increment times_reviewed and update last_reviewed timestamp"""
+    from datetime import datetime, timezone
+    
     db_flashcard = get_flashcard(db, flashcard_id)
     if db_flashcard:
         db_flashcard.times_reviewed += 1
-        from datetime import datetime
-        db_flashcard.last_reviewed = datetime.now()
+        db_flashcard.last_reviewed = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_flashcard)
     return db_flashcard
@@ -183,16 +184,28 @@ def get_instruction_language(db: Session, user_id: str, language_id: str) -> str
     1. User's language-specific setting
     2. User's global preference
     3. Default to English
-    """
-    # Check user-language specific setting
-    user_lang = get_user_language_setting(db, user_id, language_id)
-    if user_lang and user_lang.instruction_language:
-        return user_lang.instruction_language
     
-    # Use user's global preference
-    user = get_user(db, user_id)
-    if user and user.preferred_instruction_language:
-        return user.preferred_instruction_language
+    NOTE: Phase 1 workaround - users/user_languages tables don't exist yet
+    """
+    # Phase 1: Skip database queries, default to English
+    # TODO Phase 2: Implement proper user preferences
+    if user_id == "00000000-0000-0000-0000-000000000000":
+        return 'en'
+    
+    # Phase 2+ code (when users table exists):
+    try:
+        # Check user-language specific setting
+        user_lang = get_user_language_setting(db, user_id, language_id)
+        if user_lang and user_lang.instruction_language:
+            return user_lang.instruction_language
+        
+        # Use user's global preference
+        user = get_user(db, user_id)
+        if user and user.preferred_instruction_language:
+            return user.preferred_instruction_language
+    except Exception:
+        # Table doesn't exist yet, fallback to English
+        pass
     
     # Default to English
     return 'en'

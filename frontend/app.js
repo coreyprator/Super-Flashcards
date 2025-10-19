@@ -37,7 +37,8 @@ let state = {
     isFlipped: false,
     isOnline: navigator.onLine,
     languages: [],
-    syncStatus: 'offline'
+    syncStatus: 'offline',
+    currentMode: 'study' // Track current mode: 'study', 'read', or 'browse'
 };
 
 // ========================================
@@ -85,14 +86,17 @@ class CachedAudioPlayer {
      * @param {String} flashcardId - Associated flashcard ID for caching
      */
     async playAudio(audioUrl, flashcardId = null) {
+        const startTime = performance.now(); // Start performance timer
         try {
             const fixedUrl = fixAssetUrl(audioUrl);
             console.log(`🔊 Playing audio: ${fixedUrl}`);
             
             // Check if we have cached audio first
             let audioBlob = null;
+            let cacheHit = false;
             if (offlineDB) {
                 audioBlob = await offlineDB.getCachedAudio(fixedUrl);
+                cacheHit = !!audioBlob;
             }
             
             let playableUrl = fixedUrl;
@@ -119,11 +123,40 @@ class CachedAudioPlayer {
             
             // Create and play audio
             this.currentAudio = new Audio(playableUrl);
-            await this.currentAudio.play();
+            
+            // Add detailed event listeners for debugging
+            this.currentAudio.addEventListener('canplay', () => {
+                console.log('✅ Audio can play - duration:', this.currentAudio.duration);
+            });
+            this.currentAudio.addEventListener('playing', () => {
+                console.log('▶️ Audio is playing');
+            });
+            this.currentAudio.addEventListener('error', (e) => {
+                console.error('❌ Audio element error:', e, this.currentAudio.error);
+            });
+            
+            console.log('🎵 Audio element created, attempting play...');
+            const playPromise = this.currentAudio.play();
+            
+            playPromise.then(() => {
+                console.log('✅ Play promise resolved successfully');
+            }).catch((error) => {
+                console.error('❌ Play promise rejected:', error);
+                throw error;
+            });
+            
+            await playPromise;
+            
+            // Log performance metrics
+            const endTime = performance.now();
+            const loadTime = (endTime - startTime).toFixed(2);
+            console.log(`⏱️ Audio load time: ${loadTime}ms (${cacheHit ? 'CACHED' : 'NETWORK'})`);
             
         } catch (error) {
             console.error('❌ Error playing audio:', error);
-            showToast('Audio playback failed');
+            console.error('❌ Error name:', error.name);
+            console.error('❌ Error message:', error.message);
+            showToast('Audio playback failed: ' + error.message);
         }
     }
     
@@ -313,13 +346,15 @@ async function loadFlashcards() {
             try {
                 // New offline-first approach
                 flashcards = await apiClient.getFlashcards();
-                // Filter by language locally (API client returns all cards for offline support)
+                // Filter by language (language_id exists in Cloud SQL!)
                 flashcards = flashcards.filter(card => card.language_id === state.currentLanguage);
+                console.log(`Loaded ${flashcards.length} flashcards for language ${state.currentLanguage}`);
             } catch (error) {
                 console.warn('API client failed, using offline data:', error);
                 // If API fails, get from IndexedDB directly
                 if (offlineDB) {
                     const allCards = await offlineDB.getAllFlashcards();
+                    // Filter by language for offline data too
                     flashcards = allCards.filter(card => card.language_id === state.currentLanguage);
                 } else {
                     flashcards = [];
@@ -763,7 +798,9 @@ function renderFlashcard(flashcard) {
                         ${flashcard.image_url ? `
                             <img src="${fixAssetUrl(flashcard.image_url)}" 
                                  alt="${flashcard.image_description || flashcard.word_or_phrase}"
-                                 class="w-full max-w-md mx-auto rounded-lg mb-6 shadow-md">
+                                 class="w-full max-w-md mx-auto rounded-lg mb-6 shadow-md"
+                                 onload="console.log('🖼️ Image loaded:', this.src, 'Time:', performance.now().toFixed(2) + 'ms')"
+                                 onerror="console.error('❌ Image failed to load:', this.src)">
                         ` : ''}
                         
                         <!-- Reveal Details Button -->
@@ -946,6 +983,223 @@ function previousCard() {
 }
 
 /**
+ * Render flashcard in Read Mode (shows back content with navigation)
+ */
+function renderReadCard(flashcard) {
+    console.log('📄 renderReadCard called with:', flashcard.word_or_phrase);
+    
+    const container = document.getElementById('read-card-container');
+    
+    if (!container) {
+        console.error('❌ read-card-container element not found!');
+        return;
+    }
+    
+    console.log('✅ read-card-container found, rendering card...');
+    
+    // Parse related words if it's a JSON string
+    let relatedWords = [];
+    try {
+        relatedWords = flashcard.related_words ? JSON.parse(flashcard.related_words) : [];
+    } catch (e) {
+        relatedWords = flashcard.related_words ? flashcard.related_words.split(',') : [];
+    }
+    
+    container.innerHTML = `
+        <div class="max-w-3xl mx-auto">
+            <!-- Read Mode Card -->
+            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-2xl p-8 min-h-[500px]">
+                <div class="space-y-6">
+                    <!-- Header with thumbnail and title -->
+                    <div class="flex items-start gap-6 border-b border-indigo-200 pb-6">
+                        <!-- Image Thumbnail -->
+                        ${flashcard.image_url ? `
+                            <div class="flex-shrink-0">
+                                <img src="${fixAssetUrl(flashcard.image_url)}" 
+                                     alt="${flashcard.image_description || flashcard.word_or_phrase}"
+                                     class="w-32 h-32 object-cover rounded-lg shadow-md border-2 border-white">
+                            </div>
+                        ` : `
+                            <div class="flex-shrink-0 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-lg shadow-md flex items-center justify-center border-2 border-white">
+                                <span class="text-4xl">📚</span>
+                            </div>
+                        `}
+                        
+                        <!-- Title and Meta -->
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h2 class="text-3xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
+                                    <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
+                                </div>
+                                <button onclick="editCard('${flashcard.id}')" 
+                                        class="px-3 py-1 bg-white text-indigo-700 rounded-md hover:bg-indigo-50 text-sm transition-colors shadow-sm" 
+                                        title="Edit this card">
+                                    ✏️ Edit
+                                </button>
+                            </div>
+                            
+                            <!-- Audio Controls -->
+                            <div class="mt-3">
+                                ${getAudioButtonHTML(flashcard)}
+                            </div>
+                            
+                            <!-- IPA Pronunciation -->
+                            <div class="mt-2">
+                                ${getIPAHTML(flashcard)}
+                            </div>
+                            
+                            <!-- Stats -->
+                            <div class="mt-3 flex items-center gap-4 text-xs text-indigo-700">
+                                <span>${flashcard.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}</span>
+                                <span>•</span>
+                                <span>Reviewed ${flashcard.times_reviewed} times</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Sections -->
+                    ${flashcard.definition ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
+                                <span class="text-lg">📖</span> Definition
+                            </h3>
+                            <p class="text-gray-800 leading-relaxed text-lg">${flashcard.definition}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${flashcard.etymology ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
+                                <span class="text-lg">🌱</span> Etymology
+                            </h3>
+                            <p class="text-gray-700 leading-relaxed">${flashcard.etymology}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${flashcard.english_cognates ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
+                                <span class="text-lg">🔗</span> English Cognates
+                            </h3>
+                            <p class="text-gray-700">${flashcard.english_cognates}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${flashcard.example_sentences ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
+                                <span class="text-lg">💬</span> Example Sentences
+                            </h3>
+                            <p class="text-gray-700 leading-relaxed italic">${flashcard.example_sentences}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${relatedWords.length > 0 ? `
+                        <div>
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
+                                <span class="text-lg">🔀</span> Related Words
+                            </h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${relatedWords.map(word => `
+                                    <span class="px-3 py-1 bg-white text-indigo-800 rounded-full text-sm shadow-sm border border-indigo-200">
+                                        ${word.trim()}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            
+            <!-- Navigation Controls -->
+            <div class="mt-6 flex justify-between items-center gap-4">
+                <button onclick="previousReadCard()" 
+                        class="px-6 py-3 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 font-medium shadow-md border border-indigo-200 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" 
+                        ${state.currentCardIndex === 0 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+                
+                <div class="text-center">
+                    <div class="text-sm text-indigo-600 font-medium px-4 py-2 bg-white rounded-lg shadow-sm border border-indigo-100">
+                        ${state.currentCardIndex + 1} of ${state.flashcards.length}
+                    </div>
+                </div>
+                
+                <button onclick="nextReadCard()" 
+                        class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-md transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
+                    Next →
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add touch/swipe support for mobile navigation in read mode
+    addReadModeSwipeSupport();
+}
+
+/**
+ * Navigate to next card in read mode
+ */
+function nextReadCard() {
+    if (state.currentCardIndex < state.flashcards.length - 1) {
+        state.currentCardIndex++;
+        renderReadCard(state.flashcards[state.currentCardIndex]);
+        
+        // Scroll to top of card
+        document.getElementById('read-card-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+/**
+ * Navigate to previous card in read mode
+ */
+function previousReadCard() {
+    if (state.currentCardIndex > 0) {
+        state.currentCardIndex--;
+        renderReadCard(state.flashcards[state.currentCardIndex]);
+        
+        // Scroll to top of card
+        document.getElementById('read-card-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+/**
+ * Add swipe support for Read Mode navigation
+ */
+function addReadModeSwipeSupport() {
+    const container = document.getElementById('read-card-container');
+    if (!container) return;
+    
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    container.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    container.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleReadSwipe();
+    }, { passive: true });
+    
+    function handleReadSwipe() {
+        const swipeThreshold = 50; // minimum distance for swipe
+        
+        if (touchEndX < touchStartX - swipeThreshold) {
+            // Swipe left - next card
+            nextReadCard();
+        }
+        
+        if (touchEndX > touchStartX + swipeThreshold) {
+            // Swipe right - previous card
+            previousReadCard();
+        }
+    }
+}
+
+/**
  * Add swipe support for mobile navigation
  */
 function addSwipeSupport() {
@@ -1041,28 +1295,12 @@ function selectCard(index) {
 function switchTab(tabName) {
     console.log(`🔄 switchTab called with: "${tabName}"`);
     
-    // Extra debugging for TTS test tab
-    if (tabName === 'tts-test') {
-        console.log('🐛 DEBUG: TTS Test tab activation started');
-        console.log('🐛 DEBUG: Looking for elements with IDs:');
-        console.log('🐛 DEBUG: - tab-tts-test');
-        console.log('🐛 DEBUG: - content-tts-test');
-    }
-    
     // Check if elements exist
     const tabButton = document.getElementById(`tab-${tabName}`);
     const contentDiv = document.getElementById(`content-${tabName}`);
     
     console.log(`🔍 Tab button found: ${!!tabButton}`, tabButton);
     console.log(`🔍 Content div found: ${!!contentDiv}`, contentDiv);
-    
-    if (tabName === 'tts-test') {
-        console.log('🐛 DEBUG: TTS Test specific element check:');
-        console.log('🐛 DEBUG: tabButton element:', tabButton);
-        console.log('🐛 DEBUG: contentDiv element:', contentDiv);
-        console.log('🐛 DEBUG: All elements with tab- prefix:', document.querySelectorAll('[id^="tab-"]'));
-        console.log('🐛 DEBUG: All elements with content- prefix:', document.querySelectorAll('[id^="content-"]'));
-    }
     
     if (!tabButton) {
         console.error(`❌ Tab button not found: tab-${tabName}`);
@@ -1382,18 +1620,33 @@ document.addEventListener('keydown', (e) => {
         return;
     }
     
-    switch(e.key) {
-        case 'ArrowLeft':
-            prevCard();
-            break;
-        case 'ArrowRight':
-        case ' ':
-            e.preventDefault();
-            nextCard();
-            break;
-        case 'f':
-            flipCard();
-            break;
+    // Handle keyboard navigation based on current mode
+    if (state.currentMode === 'read') {
+        switch(e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                previousReadCard();
+                break;
+            case 'ArrowRight':
+            case ' ':
+                e.preventDefault();
+                nextReadCard();
+                break;
+        }
+    } else if (state.currentMode === 'study') {
+        switch(e.key) {
+            case 'ArrowLeft':
+                prevCard();
+                break;
+            case 'ArrowRight':
+            case ' ':
+                e.preventDefault();
+                nextCard();
+                break;
+            case 'f':
+                flipCard();
+                break;
+        }
     }
 });
 
@@ -1997,13 +2250,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup debug panel (menu)
     setupDebugButtons();
     
-    // Debug: Check if TTS elements exist in DOM
-    console.log('🐛 DEBUG: Checking TTS elements in DOM...');
-    console.log('🐛 DEBUG: document.getElementById("tab-tts-test"):', document.getElementById('tab-tts-test'));
-    console.log('🐛 DEBUG: document.getElementById("content-tts-test"):', document.getElementById('content-tts-test'));
-    console.log('🐛 DEBUG: All tab buttons:', document.querySelectorAll('.tab-button'));
-    console.log('🐛 DEBUG: All tab content divs:', document.querySelectorAll('.tab-content'));
-    
     // Debug: Check if all tab elements exist
     const tabs = ['study', 'add', 'import', 'browse'];
     tabs.forEach(tab => {
@@ -2107,7 +2353,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const importTab = document.getElementById('tab-import');
     const batchTab = document.getElementById('tab-batch');
     const browseTab = document.getElementById('tab-browse');
-    const ttsTestTab = document.getElementById('tab-tts-test');
     
     // Debug: Check if all tab elements are found
     console.log('🐛 DEBUG: Tab elements found:');
@@ -2116,8 +2361,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🐛 DEBUG: importTab:', !!importTab);
     console.log('🐛 DEBUG: batchTab:', !!batchTab);
     console.log('🐛 DEBUG: browseTab:', !!browseTab);
-    console.log('🐛 DEBUG: ttsTestTab:', !!ttsTestTab);
-    console.log('🐛 DEBUG: ttsTestTab element:', ttsTestTab);
     
     if (studyTab) {
         studyTab.addEventListener('click', () => {
@@ -2152,17 +2395,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('🔄 Switching to browse tab');
             switchTab('browse');
         });
-    }
-    
-    if (ttsTestTab) {
-        console.log('✅ TTS Test tab found, adding event listener');
-        ttsTestTab.addEventListener('click', () => {
-            console.log('🔄 TTS Test tab clicked!');
-            console.log('🔄 Switching to TTS test tab');
-            switchTab('tts-test');
-        });
-    } else {
-        console.error('❌ TTS Test tab element not found! ID: tab-tts-test');
     }
     
     // Navigation buttons
@@ -2864,35 +3096,86 @@ function startBatchStatusPolling() {
  */
 function switchMode(mode) {
     console.log(`🔄 Switching to ${mode} mode`);
+    console.log(`📊 Current state:`, {
+        flashcardsCount: state.flashcards.length,
+        currentIndex: state.currentCardIndex,
+        previousMode: state.currentMode
+    });
     
     // Update button states
     const studyBtn = document.getElementById('mode-study');
+    const readBtn = document.getElementById('mode-read');
     const browseBtn = document.getElementById('mode-browse');
     
+    console.log('🔍 Mode containers found:', {
+        studyMode: !!document.getElementById('study-mode'),
+        readMode: !!document.getElementById('read-mode'),
+        browseMode: !!document.getElementById('browse-mode'),
+        readContainer: !!document.getElementById('read-card-container')
+    });
+    
+    // Reset all buttons
+    [studyBtn, readBtn, browseBtn].forEach(btn => {
+        if (btn) {
+            btn.classList.remove('active', 'bg-indigo-600', 'text-white');
+            btn.classList.add('text-gray-600');
+        }
+    });
+    
+    // Hide all mode content
+    const studyModeEl = document.getElementById('study-mode');
+    const readModeEl = document.getElementById('read-mode');
+    const browseModeEl = document.getElementById('browse-mode');
+    
+    if (studyModeEl) studyModeEl.classList.add('hidden');
+    if (readModeEl) readModeEl.classList.add('hidden');
+    if (browseModeEl) browseModeEl.classList.add('hidden');
+    
+    console.log(`🎯 Switching to: ${mode}`);
+    
     if (mode === 'study') {
-        studyBtn.classList.add('active', 'bg-indigo-600', 'text-white');
-        studyBtn.classList.remove('text-gray-600');
-        browseBtn.classList.remove('active', 'bg-indigo-600', 'text-white');
-        browseBtn.classList.add('text-gray-600');
+        console.log('📚 Activating Study mode');
+        if (studyBtn) {
+            studyBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            studyBtn.classList.remove('text-gray-600');
+        }
         
         // Show study mode content
-        document.getElementById('study-mode').classList.remove('hidden');
-        document.getElementById('browse-mode').classList.add('hidden');
+        if (studyModeEl) studyModeEl.classList.remove('hidden');
         
         // Load current card if available
         if (state.flashcards.length > 0) {
             renderFlashcard(state.flashcards[state.currentCardIndex]);
         }
         
+    } else if (mode === 'read') {
+        console.log('📄 Activating Read mode');
+        console.log('📄 Read mode flashcards available:', state.flashcards.length);
+        
+        if (readBtn) {
+            readBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            readBtn.classList.remove('text-gray-600');
+        }
+        
+        // Show read mode content
+        if (readModeEl) {
+            readModeEl.classList.remove('hidden');
+            console.log('📄 Read mode container now visible');
+        } else {
+            console.error('❌ Read mode element not found!');
+        }
+        
+        // Load current card in read mode
+        if (state.flashcards.length > 0) {
+            renderReadCard(state.flashcards[state.currentCardIndex]);
+        }
+        
     } else if (mode === 'browse') {
         browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
         browseBtn.classList.remove('text-gray-600');
-        studyBtn.classList.remove('active', 'bg-indigo-600', 'text-white');
-        studyBtn.classList.add('text-gray-600');
         
         // Show browse mode content
         document.getElementById('browse-mode').classList.remove('hidden');
-        document.getElementById('study-mode').classList.add('hidden');
         
         // Load cards list
         loadCardsList();
@@ -3030,9 +3313,31 @@ function initializeNewUI() {
     });
     console.log('🎨 Initializing new UI...');
     
-    // Mode toggle buttons
-    document.getElementById('mode-study')?.addEventListener('click', () => switchMode('study'));
-    document.getElementById('mode-browse')?.addEventListener('click', () => switchMode('browse'));
+    // Mode toggle buttons with debugging
+    const studyBtn = document.getElementById('mode-study');
+    const readBtn = document.getElementById('mode-read');
+    const browseBtn = document.getElementById('mode-browse');
+    
+    console.log('🔍 Mode buttons found:', {
+        study: !!studyBtn,
+        read: !!readBtn,
+        browse: !!browseBtn
+    });
+    
+    studyBtn?.addEventListener('click', () => {
+        console.log('📚 Study button clicked');
+        switchMode('study');
+    });
+    
+    readBtn?.addEventListener('click', () => {
+        console.log('📄 Read button clicked');
+        switchMode('read');
+    });
+    
+    browseBtn?.addEventListener('click', () => {
+        console.log('📖 Browse button clicked');
+        switchMode('browse');
+    });
     
     // Primary action button
     document.getElementById('add-card-btn')?.addEventListener('click', () => {
@@ -3171,3 +3476,38 @@ async function performSearch(query) {
         // No error messages shown to user for smoother experience
     }
 }
+
+// ========================================
+// Debug Helper Functions (accessible from console)
+// ========================================
+
+window.debugReadMode = function() {
+    console.log('🔍 DEBUG: Read Mode Diagnostics');
+    console.log('================================');
+    console.log('Read button exists:', !!document.getElementById('mode-read'));
+    console.log('Read mode container exists:', !!document.getElementById('read-mode'));
+    console.log('Read card container exists:', !!document.getElementById('read-card-container'));
+    console.log('Current mode:', state.currentMode);
+    console.log('Flashcards loaded:', state.flashcards.length);
+    console.log('Current card index:', state.currentCardIndex);
+    
+    if (state.flashcards.length > 0) {
+        console.log('Current card:', state.flashcards[state.currentCardIndex]);
+    }
+    
+    // Try to switch to read mode
+    console.log('Attempting to switch to Read mode...');
+    switchMode('read');
+};
+
+window.testReadCard = function() {
+    console.log('🧪 Testing Read Card rendering...');
+    if (state.flashcards.length > 0) {
+        renderReadCard(state.flashcards[state.currentCardIndex]);
+        console.log('✅ renderReadCard called');
+    } else {
+        console.log('❌ No flashcards available');
+    }
+};
+
+console.log('💡 Debug helpers loaded! Use debugReadMode() or testReadCard() in console');

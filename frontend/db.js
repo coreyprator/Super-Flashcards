@@ -325,8 +325,14 @@ class OfflineDatabase {
             };
             
             request.onerror = () => {
-                console.error('❌ Error saving language:', request.error);
-                reject(request.error);
+                // Silently handle constraint errors (duplicate languages)
+                if (request.error.name === 'ConstraintError') {
+                    console.log(`⚠️ Language already exists: ${language.name} (${language.code})`);
+                    resolve(language); // Resolve instead of reject for duplicates
+                } else {
+                    console.error('❌ Error saving language:', request.error);
+                    reject(request.error);
+                }
             };
         });
     }

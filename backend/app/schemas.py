@@ -39,7 +39,7 @@ class FlashcardBase(BaseModel):
     ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
 
 class FlashcardCreate(FlashcardBase):
-    language_id: UUID
+    language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
     source: str = "manual"
 
 class FlashcardUpdate(BaseModel):
@@ -57,16 +57,19 @@ class FlashcardUpdate(BaseModel):
     ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
 
 class Flashcard(FlashcardBase):
-    id: UUID
-    language_id: UUID
+    id: UUID  # CORRECTED: id DOES exist in Cloud SQL!
+    language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
     source: str
-    times_reviewed: int
+    times_reviewed: Optional[int] = 0
     last_reviewed: Optional[datetime] = None
     is_synced: bool
     local_only: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    language: Language
+    
+    @field_serializer('id', 'language_id')
+    def serialize_uuid(self, value):
+        return str(value)
     
     class Config:
         from_attributes = True

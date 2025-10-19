@@ -20,7 +20,7 @@ def create_flashcard(
 def read_flashcards(
     language_id: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
     db: Session = Depends(get_db)
 ):
     """Get all flashcards, optionally filtered by language"""

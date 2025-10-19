@@ -22,10 +22,10 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate())
     
-    # Relationships
-    flashcards = relationship("Flashcard", back_populates="user")
-    study_sessions = relationship("StudySession", back_populates="user")
-    user_languages = relationship("UserLanguage", back_populates="user")
+    # Relationships - Commented out for Cloud SQL (FK columns missing)
+    # flashcards = relationship("Flashcard", back_populates="user")
+    # study_sessions = relationship("StudySession", back_populates="user")
+    # user_languages = relationship("UserLanguage", back_populates="user")
 
 
 class UserLanguage(Base):
@@ -39,9 +39,9 @@ class UserLanguage(Base):
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate())
     
-    # Relationships
-    user = relationship("User", back_populates="user_languages")
-    language = relationship("Language")
+    # Relationships - Commented out for Cloud SQL
+    # user = relationship("User", back_populates="user_languages")
+    # language = relationship("Language")
 
 
 class Language(Base):
@@ -52,18 +52,21 @@ class Language(Base):
     code = Column(NVARCHAR(5), unique=True, nullable=False)  # "fr", "el"
     created_at = Column(DateTime, server_default=func.getdate())
     
-    # Relationship
+    # Relationship - CORRECTED: Flashcard DOES have language_id
     flashcards = relationship("Flashcard", back_populates="language")
 
 class Flashcard(Base):
     __tablename__ = "flashcards"
     
+    # CORRECTED: id and language_id DO exist in Cloud SQL database!
     id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
     language_id = Column(UNIQUEIDENTIFIER, ForeignKey("languages.id"), nullable=False)
-    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=True)
+    word_or_phrase = Column(NVARCHAR(500), nullable=False, index=True)
+    
+    # user_id doesn't exist in Cloud SQL schema (no user authentication yet)
+    # user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=True)
     
     # Core content - Using NVARCHAR for Unicode (Greek, French, etc.)
-    word_or_phrase = Column(NVARCHAR(500), nullable=False, index=True)
     definition = Column(NVARCHAR(None))  # NVARCHAR(MAX)
     etymology = Column(NVARCHAR(None))  # NVARCHAR(MAX)
     english_cognates = Column(NVARCHAR(None))  # NVARCHAR(MAX)
@@ -95,9 +98,9 @@ class Flashcard(Base):
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
     
-    # Relationships
+    # Relationships - CORRECTED: language_id exists, so enable relationship
     language = relationship("Language", back_populates="flashcards")
-    user = relationship("User", back_populates="flashcards")
+    # user = relationship("User", back_populates="flashcards")  # user_id doesn't exist yet
 
 # Phase 2: Study sessions for spaced repetition
 class StudySession(Base):
@@ -113,5 +116,5 @@ class StudySession(Base):
     
     created_at = Column(DateTime, server_default=func.getdate())
     
-    # Relationships
-    user = relationship("User", back_populates="study_sessions")
+    # Relationships - Commented out for Cloud SQL
+    # user = relationship("User", back_populates="study_sessions")

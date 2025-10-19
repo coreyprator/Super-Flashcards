@@ -21,7 +21,7 @@ $EmailConfig = @{
 $ProjectRoot = "G:\My Drive\Code\Python\Super-Flashcards"
 $SQLBackupDir = "C:\Backups\SuperFlashcards"
 $GoogleDriveDir = "$ProjectRoot\backups"
-$BackupScript = "$ProjectRoot\backend\scripts\backup_database_fixed.sql"
+$BackupScript = "$ProjectRoot\backend\scripts\backup_database_cloud_compatible.sql"  # UPDATED: Now creates cloud-compatible backups
 $LogFile = "$GoogleDriveDir\backup_log_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 
 # Create directories

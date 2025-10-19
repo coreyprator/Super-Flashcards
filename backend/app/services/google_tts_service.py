@@ -103,15 +103,35 @@ class GoogleTTSService:
             timestamp = str(int(time.time()))
             filename = f"{flashcard_id}_google_{timestamp}.mp3"
             audio_path = AUDIO_DIR / filename
+            audio_data = response.audio_content
             
-            # Save the audio content
-            with open(audio_path, "wb") as out:
-                out.write(response.audio_content)
-            
-            audio_url = f"/audio/{filename}"
-            logger.info(f"✅ Generated Google TTS audio: {filename}")
-            
-            return True, audio_url, None
+            # Upload to Cloud Storage
+            try:
+                from google.cloud import storage
+                storage_client = storage.Client()
+                bucket = storage_client.bucket("super-flashcards-media")
+                blob = bucket.blob(f"audio/{filename}")
+                
+                # Upload the audio
+                blob.upload_from_string(audio_data, content_type="audio/mpeg")
+                blob.make_public()
+                
+                logger.info(f"✅ Uploaded Google TTS audio to Cloud Storage: audio/{filename}")
+                
+                # Return the URL path (will be proxied by /audio/* endpoint)
+                audio_url = f"/audio/{filename}"
+                return True, audio_url, None
+                
+            except Exception as storage_error:
+                # If Cloud Storage upload fails, save locally as fallback
+                logger.warning(f"⚠️ Cloud Storage upload failed: {storage_error}, saving locally")
+                
+                with open(audio_path, "wb") as out:
+                    out.write(audio_data)
+                
+                audio_url = f"/audio/{filename}"
+                logger.info(f"✅ Generated Google TTS audio (local): {filename}")
+                return True, audio_url, None
             
         except Exception as e:
             logger.error(f"Google TTS generation failed for '{text}': {e}")

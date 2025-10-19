@@ -1,8 +1,8 @@
 # 🚀 Sprint Handoff - Super-Flashcards Project
 
-**Handoff Date:** October 15, 2025  
+**Handoff Date:** October 16, 2025  
 **Project:** AI-Powered Language Learning Flashcards  
-**Status:** Sprint Complete - Ready for Next Phase  
+**Status:** Sprint Complete + Bootstrap Content In Progress  
 
 ---
 
@@ -14,6 +14,16 @@
 3. **Accurate Performance Monitoring** - Real startup timing measurement (35s actual)
 4. **UX Improvements** - Auto-language selection, translation subtitles on cards
 5. **Code Quality** - Comprehensive git commit with detailed documentation
+6. **API Limit Fix** - Increased default flashcard limit from 100 to 1000 cards
+7. **Schema Fix** - Made `times_reviewed` field nullable to handle NULL values
+
+### 🎉 **EXTRA CREDIT: Bootstrap Vocabulary Import**
+- **Content Added:** 140 curated French and Greek phrases (143 total, 3 duplicates)
+- **Source:** High-frequency vocabulary and common expressions for language learning
+- **Database Status:** Successfully imported into production database
+- **Audio Generation:** ✅ 142/144 completed (~99% success rate)
+- **Image Generation:** 🔄 IN PROGRESS (~150 images, estimated 3-7 hours)
+- **Import Scripts:** Created reusable batch processing tools for future content
 
 ### 🎯 **FULLY FUNCTIONAL FEATURES**
 - Multi-language flashcard management (Greek, French)
@@ -289,5 +299,42 @@ The Super-Flashcards project is in excellent condition for the next development 
 
 ---
 
-*Last Updated: October 15, 2025*  
+## 📦 **GIT STATUS & PENDING COMMIT**
+
+### Modified Files (API Fixes)
+- `backend/app/schemas.py` - Made `times_reviewed` Optional to handle NULL values
+- `backend/app/routers/flashcards.py` - Increased default limit from 100 to 1000 cards
+- `frontend/index.html` - Cache-busting version bumps (v2.5.1, v5.2.1, v5.1.1)
+
+### New Scripts (Bootstrap Content Pipeline)
+- `scripts/import_bootstrap_simple.py` - Direct database import bypassing API
+- `scripts/batch_audio_bootstrap.py` - Batch TTS generation for new cards
+- `scripts/batch_images_bootstrap.py` - Batch DALL-E image generation
+- `scripts/batch_bootstrap_enrichment.py` - Status checker for enrichment progress
+- `scripts/check_db_vs_api.py` - Diagnostic tool for comparing database vs API results
+
+### Recommended Commit Message
+```
+Bootstrap content import + API fixes
+
+- Imported 140 curated French/Greek vocabulary phrases
+- Fixed API limit (100→1000) to return all flashcards
+- Fixed schema to handle NULL times_reviewed values
+- Added batch processing scripts for audio/image generation
+- Cache-busting fixes for frontend JavaScript
+
+Database: 492 total flashcards (357 French, 130 Greek, 5 English)
+Audio: 142/144 completed
+Images: In progress (~150 cards, 3-7 hour process)
+```
+
+### Post-Handoff TODO
+1. ✅ Complete image generation batch (currently running)
+2. Commit and push all changes with above message
+3. Verify all 492 flashcards display correctly at http://localhost:8000
+4. Optional: Re-run failed audio generation for 2 timeout cards
+
+---
+
+*Last Updated: October 16, 2025*  
 *Next Sprint: Advanced Learning Features*

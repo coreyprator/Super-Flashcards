@@ -62,8 +62,58 @@ class ApiClient {
             return this.handleOfflineRequest(method, endpoint, data, options);
         }
         
+        // CACHE-FIRST STRATEGY for GET requests (instant loading!)
+        if (method === 'GET' && !options.forceFresh) {
+            try {
+                // Try to get from IndexedDB cache first
+                const cachedData = await this.handleOfflineRead(endpoint, options);
+                if (cachedData && (Array.isArray(cachedData) ? cachedData.length > 0 : true)) {
+                    console.log(`  💾 Using cached data${Array.isArray(cachedData) ? ` (${cachedData.length} items)` : ''}`);
+                    
+                    // Update cache in background without blocking UI
+                    this.updateCacheInBackground(method, url, data, options, endpoint);
+                    
+                    return cachedData;
+                }
+            } catch (error) {
+                console.warn('  ⚠️  Cache read failed, fetching from server:', error);
+            }
+        }
+        
         // Online: try request with retry logic
         return this.makeHttpRequest(method, url, data, options);
+    }
+    
+    /**
+     * Update cache in background after returning cached data
+     * @param {String} method - HTTP method
+     * @param {String} url - Full URL
+     * @param {Object} data - Request data
+     * @param {Object} options - Additional options
+     * @param {String} endpoint - API endpoint
+     */
+    async updateCacheInBackground(method, url, data, options, endpoint) {
+        try {
+            // Fetch from server in background
+            const freshData = await this.makeHttpRequest(method, url, data, options);
+            
+            // Update IndexedDB cache with fresh data
+            if (endpoint.startsWith('/api/flashcards') && Array.isArray(freshData)) {
+                // Update flashcards in cache
+                for (const flashcard of freshData) {
+                    await this.db.saveFlashcard(flashcard);
+                }
+                console.log(`  🔄 Background cache updated: ${freshData.length} flashcards`);
+            } else if (endpoint.startsWith('/api/languages') && Array.isArray(freshData)) {
+                // Update languages in cache
+                for (const language of freshData) {
+                    await this.db.saveLanguage(language);
+                }
+                console.log(`  🔄 Background cache updated: ${freshData.length} languages`);
+            }
+        } catch (error) {
+            console.warn('  ⚠️  Background cache update failed (non-critical):', error);
+        }
     }
     
     /**
@@ -84,7 +134,8 @@ class ApiClient {
                     headers: {
                         'Content-Type': 'application/json',
                         ...options.headers
-                    }
+                    },
+                    credentials: 'include'  // CRITICAL: Include Basic Auth credentials with requests
                 };
                 
                 if (data && (method === 'POST' || method === 'PUT')) {

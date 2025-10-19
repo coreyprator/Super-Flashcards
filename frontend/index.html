@@ -193,7 +193,7 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900 mb-2">
-                        � Super Flashcards
+                        💎 Super Flashcards
                     </h1>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -254,6 +254,9 @@
                 <div class="flex items-center bg-gray-100 rounded-lg p-1">
                     <button id="mode-study" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white">
                         📚 Study
+                    </button>
+                    <button id="mode-read" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
+                        📄 Read
                     </button>
                     <button id="mode-browse" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
                         📖 Browse
@@ -335,6 +338,18 @@
                         <button id="next-card" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                             Next →
                         </button>
+                    </div>
+                </div>
+                
+                <!-- Read Mode -->
+                <div id="read-mode" class="mode-content hidden">
+                    <!-- Read Mode Content -->
+                    <div id="read-card-container">
+                        <!-- Read card will be inserted here -->
+                        <div class="text-center text-gray-500 py-12">
+                            <p class="text-lg mb-4">Select a language to start reading</p>
+                            <p class="text-sm">Read mode shows the full details of each card</p>
+                        </div>
                     </div>
                 </div>
                 
@@ -1057,13 +1072,13 @@
     </div>
 
     <!-- Sprint 4: Audio Player -->
-    <script src="/audio-player.js?v=2.4"></script>
+    <script src="/audio-player.js?v=2.4.1"></script>
     
     <!-- Sprint 5: Offline Sync Modules -->
-    <script src="/db.js?v=5.2"></script>
-    <script src="/sync.js?v=5.1"></script>
-    <script src="/api-client.js?v=5.1"></script>
+    <script src="/db.js?v=5.2.1"></script>
+    <script src="/sync.js?v=5.2.0"></script>
+    <script src="/api-client.js?v=5.3.0"></script>
     
-    <script src="/app.js?v=2.5"></script>
+    <script src="/app.js?v=2.5.4"></script>
 </body>
 </html>

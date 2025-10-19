@@ -110,15 +110,30 @@ class AudioService:
             return
             
         try:
-            # Initialize OpenAI client with explicit parameters to avoid proxy issues
-            self.openai_client = OpenAI(
-                # The API key will be read from OPENAI_API_KEY environment variable
-                # No need to explicitly pass proxy settings
+            import httpx
+            import os
+            
+            # Get API key and strip any whitespace (critical fix)
+            api_key = os.getenv("OPENAI_API_KEY", "").strip()
+            
+            logger.info(f"Initializing OpenAI TTS client with key: {api_key[:20]}...")
+            
+            # Create explicit httpx client to avoid proxy configuration issues
+            http_client = httpx.Client(
+                timeout=httpx.Timeout(60.0, connect=10.0),
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
             )
-            logger.info("OpenAI client initialized for TTS (FALLBACK)")
+            
+            self.openai_client = OpenAI(
+                api_key=api_key,
+                http_client=http_client
+            )
+            logger.info("✅ OpenAI client initialized for TTS (FALLBACK)")
             self._openai_client_initialized = True
         except Exception as e:
-            logger.error(f"Failed to initialize OpenAI client: {e}")
+            logger.error(f"❌ Failed to initialize OpenAI client: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             # For development, continue without failing the entire service
             self.openai_client = None
             logger.warning("OpenAI client not initialized - no fallback audio generation")
@@ -245,11 +260,30 @@ class AudioService:
                     response_format="mp3"
                 )
                 
-                # Save audio file
-                file_path.write_bytes(response.content)
+                audio_data = response.content
                 
-                logger.info(f"✅ OpenAI TTS fallback success: {relative_path} ({len(response.content)} bytes)")
-                return True, relative_path, None
+                # Upload to Cloud Storage
+                try:
+                    from google.cloud import storage
+                    storage_client = storage.Client()
+                    bucket = storage_client.bucket("super-flashcards-media")
+                    blob = bucket.blob(f"audio/{filename}")
+                    
+                    # Upload the audio
+                    blob.upload_from_string(audio_data, content_type="audio/mpeg")
+                    blob.make_public()
+                    
+                    logger.info(f"✅ OpenAI TTS fallback success (Cloud Storage): {relative_path} ({len(audio_data)} bytes)")
+                    return True, relative_path, None
+                    
+                except Exception as storage_error:
+                    # If Cloud Storage upload fails, save locally as fallback
+                    logger.warning(f"⚠️ Cloud Storage upload failed: {storage_error}, saving locally")
+                    
+                    file_path.write_bytes(audio_data)
+                    
+                    logger.info(f"✅ OpenAI TTS fallback success (local): {relative_path} ({len(audio_data)} bytes)")
+                    return True, relative_path, None
                 
             except Exception as e:
                 logger.error(f"❌ OpenAI TTS fallback also failed: {str(e)}")

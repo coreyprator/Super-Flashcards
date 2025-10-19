@@ -262,6 +262,7 @@ class SyncManager {
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',  // Include Basic Auth credentials
             body: JSON.stringify(flashcard)
         });
         
@@ -290,6 +291,7 @@ class SyncManager {
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',  // Include Basic Auth credentials
             body: JSON.stringify(flashcard)
         });
         
@@ -307,7 +309,8 @@ class SyncManager {
      */
     async deleteFlashcardOnServer(id) {
         const response = await fetch(`/api/flashcards/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'include'  // Include Basic Auth credentials
         });
         
         if (!response.ok) {
@@ -325,6 +328,7 @@ class SyncManager {
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',  // Include Basic Auth credentials
             body: JSON.stringify(language)
         });
         
@@ -352,7 +356,9 @@ class SyncManager {
         
         try {
             // Get flashcards from server
-            const flashcardsResponse = await fetch('/api/flashcards');
+            const flashcardsResponse = await fetch('/api/flashcards', {
+                credentials: 'include'  // Include Basic Auth credentials
+            });
             if (flashcardsResponse.ok) {
                 const serverFlashcards = await flashcardsResponse.json();
                 
@@ -387,15 +393,26 @@ class SyncManager {
         
         try {
             // Get languages from server
-            const languagesResponse = await fetch('/api/languages');
+            const languagesResponse = await fetch('/api/languages', {
+                credentials: 'include'  // Include Basic Auth credentials
+            });
             if (languagesResponse.ok) {
                 const serverLanguages = await languagesResponse.json();
                 
                 for (const language of serverLanguages) {
-                    await this.db.saveLanguage(language);
+                    try {
+                        await this.db.saveLanguage(language);
+                        languagesCount++;
+                    } catch (error) {
+                        // Silently skip duplicate languages (constraint error)
+                        if (error.name === 'ConstraintError') {
+                            console.log(`  ⚠️ Skipping duplicate language: ${language.name} (${language.code})`);
+                        } else {
+                            throw error; // Re-throw non-constraint errors
+                        }
+                    }
                 }
                 
-                languagesCount = serverLanguages.length;
                 console.log(`  🌍 Languages: ${languagesCount} synced`);
             }
         } catch (error) {

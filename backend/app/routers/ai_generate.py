@@ -3,11 +3,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import json
 import os
+import logging
+import traceback
+from datetime import datetime
 
 from app import crud, schemas
 from app.database import get_db
 
 router = APIRouter()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # OpenAI client will be initialized on first use
 client = None
@@ -17,21 +23,49 @@ def get_openai_client():
     global client
     if client is None:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        import httpx
+        
+        # Get API key and strip any whitespace (trailing spaces cause httpx header errors)
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        logger.info(f"Initializing OpenAI client with key: {api_key[:20] if api_key else 'NONE'}...")
+        
+        # Create httpx client explicitly to avoid proxy configuration issues
+        http_client = httpx.Client(
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        )
+        
+        client = OpenAI(
+            api_key=api_key,
+            http_client=http_client
+        )
+        logger.info("OpenAI client initialized successfully")
     return client
 
-def generate_flashcard_content(word_or_phrase: str, language_code: str, user_id: str, db: Session) -> dict:
+def generate_flashcard_content(word_or_phrase: str, language_code: str, user_id: str, db: Session, verbose: bool = False) -> dict:
     """Generate flashcard content using OpenAI GPT-4"""
+    
+    if verbose:
+        logger.info(f"=== AI Generation Started ===")
+        logger.info(f"Word: {word_or_phrase}, Language: {language_code}, User: {user_id}")
     
     # Get language
     language = crud.get_language_by_code(db, language_code)
     if not language:
-        raise HTTPException(status_code=404, detail=f"Language {language_code} not found")
+        error_msg = f"Language {language_code} not found"
+        logger.error(error_msg)
+        raise HTTPException(status_code=404, detail=error_msg)
+    
+    if verbose:
+        logger.info(f"Language found: {language.name} (ID: {language.id})")
     
     # Determine instruction language for this user + language
     instruction_lang_code = crud.get_instruction_language(db, user_id, str(language.id))
     instruction_lang = crud.get_language_by_code(db, instruction_lang_code)
     instruction_lang_name = instruction_lang.name if instruction_lang else "English"
+    
+    if verbose:
+        logger.info(f"Instruction language: {instruction_lang_name} ({instruction_lang_code})")
     
     # Build prompt with instruction language
     prompt = f"""Create a language learning flashcard for the {language.name} word/phrase: "{word_or_phrase}"
@@ -54,7 +88,14 @@ Format your response as valid JSON only, no additional text:
   "image_description": "..."
 }}"""
 
+    if verbose:
+        logger.info(f"Prompt length: {len(prompt)} characters")
+
     try:
+        if verbose:
+            logger.info("Calling OpenAI API...")
+            logger.info(f"Model: gpt-4-turbo-preview, Temperature: 0.7, Max tokens: 800")
+        
         response = get_openai_client().chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -65,47 +106,80 @@ Format your response as valid JSON only, no additional text:
             max_tokens=800
         )
         
+        if verbose:
+            logger.info(f"OpenAI API call successful. Response received.")
+            logger.info(f"Usage: {response.usage if hasattr(response, 'usage') else 'N/A'}")
+        
         content = response.choices[0].message.content.strip()
+        
+        if verbose:
+            logger.info(f"Raw response length: {len(content)} characters")
+            logger.info(f"Raw response preview: {content[:200]}...")
         
         # Remove markdown code blocks if present
         if content.startswith("```json"):
             content = content[7:]
+            if verbose:
+                logger.info("Removed ```json prefix")
         if content.startswith("```"):
             content = content[3:]
+            if verbose:
+                logger.info("Removed ``` prefix")
         if content.endswith("```"):
             content = content[:-3]
+            if verbose:
+                logger.info("Removed ``` suffix")
         content = content.strip()
+        
+        if verbose:
+            logger.info(f"Cleaned response: {content[:200]}...")
         
         # Parse JSON
         result = json.loads(content)
+        
+        if verbose:
+            logger.info(f"JSON parsed successfully. Keys: {list(result.keys())}")
+            logger.info("=== AI Generation Complete ===")
+        
         return result
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+        error_detail = f"Failed to parse AI response: {str(e)}\nContent: {content[:500]}"
+        logger.error(error_detail)
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_detail)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+        error_detail = f"AI generation failed: {type(e).__name__}: {str(e)}"
+        logger.error(error_detail)
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
-def generate_image(image_description: str, word: str) -> str:
+def generate_image(image_description: str, word: str, verbose: bool = False) -> str:
     """
-    Generate an image using DALL-E and download it locally
-    Returns the local image URL path or None if failed
+    Generate an image using DALL-E, save locally, and upload to Cloud Storage
+    Returns the image URL path or None if failed
     """
     import requests
     import uuid
     from pathlib import Path
-    import logging
-    
-    # Set up logging for debugging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    from google.cloud import storage
     
     try:
-        logger.info(f"Starting image generation for: {word}")
+        if verbose:
+            logger.info(f"🔍 VERBOSE: === Starting Image Generation ===")
+            logger.info(f"🔍 VERBOSE: Word: {word}")
+            logger.info(f"🔍 VERBOSE: Description: {image_description}")
         
         # Generate image with DALL-E
+        prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style."
+        
+        if verbose:
+            logger.info(f"🔍 VERBOSE: Calling DALL-E 3...")
+            logger.info(f"🔍 VERBOSE: Prompt: {prompt}")
+        
         response = get_openai_client().images.generate(
             model="dall-e-3",
-            prompt=f"Educational illustration for language learning: {image_description}. Simple, clear, educational style.",
+            prompt=prompt,
             size="1024x1024",
             quality="standard",
             n=1
@@ -113,100 +187,186 @@ def generate_image(image_description: str, word: str) -> str:
         
         # Get the temporary URL from DALL-E
         dalle_url = response.data[0].url
-        logger.info(f"DALL-E generated image URL: {dalle_url}")
+        
+        if verbose:
+            logger.info(f"🔍 VERBOSE: DALL-E response received")
+            logger.info(f"🔍 VERBOSE: Image URL: {dalle_url[:100]}...")
         
         # Download the image
-        logger.info("Downloading image from DALL-E...")
-        image_response = requests.get(dalle_url, timeout=60)  # Increased timeout
-        image_response.raise_for_status()
-        logger.info(f"Downloaded {len(image_response.content)} bytes")
+        if verbose:
+            logger.info(f"🔍 VERBOSE: Downloading image from DALL-E...")
         
-        # Create images directory if it doesn't exist
-        # Path should be: Super-Flashcards/images (not backend/images)
-        images_dir = Path(__file__).parent.parent.parent.parent / "images"
-        images_dir.mkdir(exist_ok=True)
-        logger.info(f"Images directory: {images_dir}")
+        image_response = requests.get(dalle_url, timeout=60)
+        image_response.raise_for_status()
+        image_data = image_response.content
+        
+        if verbose:
+            logger.info(f"🔍 VERBOSE: Downloaded {len(image_data)} bytes")
         
         # Generate unique filename: word_uuid.png
-        # Sanitize word for filename (remove special characters)
         safe_word = "".join(c for c in word if c.isalnum() or c in (' ', '-', '_')).strip()
-        safe_word = safe_word.replace(' ', '_')[:50]  # Limit length
+        safe_word = safe_word.replace(' ', '_')[:50]
         filename = f"{safe_word}_{uuid.uuid4().hex[:8]}.png"
         
-        # Save image to disk
-        image_path = images_dir / filename
-        logger.info(f"Saving image to: {image_path}")
-        
-        with open(image_path, 'wb') as f:
-            f.write(image_response.content)
-        
-        # Verify file was created and has content
-        if image_path.exists() and image_path.stat().st_size > 0:
-            logger.info(f"Image successfully saved: {filename}")
-            # Return relative URL path that FastAPI will serve
+        # Upload to Cloud Storage
+        try:
+            if verbose:
+                logger.info(f"🔍 VERBOSE: Uploading to Cloud Storage...")
+            
+            storage_client = storage.Client()
+            bucket = storage_client.bucket("super-flashcards-media")
+            blob = bucket.blob(f"images/{filename}")
+            
+            # Upload the image
+            blob.upload_from_string(image_data, content_type="image/png")
+            blob.make_public()
+            
+            if verbose:
+                logger.info(f"🔍 VERBOSE: ✓ Uploaded to Cloud Storage: images/{filename}")
+            
+            # Return the URL path (will be proxied by /images/* endpoint)
             return f"/images/{filename}"
-        else:
-            logger.error("Image file was not created or is empty")
-            return None
+            
+        except Exception as storage_error:
+            # If Cloud Storage upload fails, try saving locally as fallback
+            logger.warning(f"⚠️ Cloud Storage upload failed: {storage_error}, saving locally")
+            
+            images_dir = Path(__file__).parent.parent.parent.parent / "images"
+            images_dir.mkdir(exist_ok=True)
+            image_path = images_dir / filename
+            
+            with open(image_path, 'wb') as f:
+                f.write(image_data)
+            
+            if image_path.exists() and image_path.stat().st_size > 0:
+                if verbose:
+                    logger.info(f"🔍 VERBOSE: ✓ Image saved locally (fallback): {filename}")
+                return f"/images/{filename}"
+            else:
+                logger.error("❌ Image file was not created or is empty")
+                return None
         
     except requests.exceptions.RequestException as e:
-        logger.error(f"Network error downloading image: {str(e)}")
+        error_msg = f"Network error downloading image: {str(e)}"
+        logger.error(f"❌ {error_msg}")
+        if verbose:
+            logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
+            logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
         return None
     except Exception as e:
-        logger.error(f"Image generation/download failed: {str(e)}")
+        error_msg = f"Image generation/download failed: {str(e)}"
+        logger.error(f"❌ {error_msg}")
+        if verbose:
+            logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
+            logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
         return None
 
 @router.post("/generate", response_model=schemas.Flashcard)
 def generate_ai_flashcard(
     request: schemas.AIGenerateRequest,
+    verbose: bool = Query(False, description="Enable verbose logging for debugging"),
     db: Session = Depends(get_db)
 ):
     """
     Generate a flashcard using OpenAI API and save it to the database
+    
+    Args:
+        request: Flashcard generation request
+        verbose: Enable detailed logging (append ?verbose=true to URL)
+        db: Database session
     """
-    # Get default user (Phase 1)
-    user = crud.get_or_create_default_user(db)
+    if verbose:
+        logger.info(f"=== VERBOSE MODE ENABLED ===")
+        logger.info(f"Request: word='{request.word_or_phrase}', language_id={request.language_id}, include_image={request.include_image}")
     
-    # Get language info
-    language = crud.get_language(db, str(request.language_id))
-    if not language:
-        raise HTTPException(status_code=404, detail="Language not found")
-    
-    # Generate content with user's instruction language preferences
-    content = generate_flashcard_content(
-        request.word_or_phrase, 
-        language.code, 
-        str(user.id),
-        db
-    )
-    
-    # Generate image if requested
-    image_url = None
-    if request.include_image and content.get("image_description"):
-        image_url = generate_image(content["image_description"], request.word_or_phrase)
-    
-    # Create flashcard
-    flashcard_data = schemas.FlashcardCreate(
-        language_id=request.language_id,
-        word_or_phrase=request.word_or_phrase,
-        definition=content.get("definition", ""),
-        etymology=content.get("etymology", ""),
-        english_cognates=content.get("english_cognates", ""),
-        related_words=json.dumps(content.get("related_words", [])),
-        image_url=image_url,
-        image_description=content.get("image_description", ""),
-        source="ai_generated"
-    )
-    
-    return crud.create_flashcard(db=db, flashcard=flashcard_data)
+    try:
+        # TODO: User management - Phase 1 is single-user, skip user table for now
+        # For now, use a dummy user ID - get_instruction_language will default to 'en'
+        dummy_user_id = "00000000-0000-0000-0000-000000000000"
+        
+        # Get language info
+        language = crud.get_language(db, str(request.language_id))
+        if not language:
+            raise HTTPException(status_code=404, detail="Language not found")
+        
+        if verbose:
+            logger.info(f"Language: {language.name} (code: {language.code})")
+        
+        # Generate content with user's instruction language preferences
+        content = generate_flashcard_content(
+            request.word_or_phrase, 
+            language.code, 
+            dummy_user_id,
+            db,
+            verbose=verbose
+        )
+        
+        if verbose:
+            logger.info(f"Content generated. Definition length: {len(content.get('definition', ''))}")
+        
+        # Generate image if requested
+        image_url = None
+        if request.include_image and content.get("image_description"):
+            if verbose:
+                logger.info(f"🔍 VERBOSE: Generating image for: {content['image_description']}")
+            image_url = generate_image(content["image_description"], request.word_or_phrase, verbose=verbose)
+            if verbose:
+                if image_url:
+                    logger.info(f"🔍 VERBOSE: ✓ Image generated: {image_url}")
+                else:
+                    logger.warning(f"🔍 VERBOSE: ⚠ Image generation failed, continuing without image")
+
+        
+        # Create flashcard
+        flashcard_data = schemas.FlashcardCreate(
+            language_id=request.language_id,
+            word_or_phrase=request.word_or_phrase,
+            definition=content.get("definition", ""),
+            etymology=content.get("etymology", ""),
+            english_cognates=content.get("english_cognates", ""),
+            related_words=json.dumps(content.get("related_words", [])),
+            image_url=image_url,
+            image_description=content.get("image_description", ""),
+            source="ai_generated"
+        )
+        
+        if verbose:
+            logger.info(f"🔍 VERBOSE: Creating flashcard in database...")
+            logger.info(f"🔍 VERBOSE: Data: word='{flashcard_data.word_or_phrase}', language_id={flashcard_data.language_id}")
+        
+        result = crud.create_flashcard(db=db, flashcard=flashcard_data)
+        
+        if verbose:
+            logger.info(f"🔍 VERBOSE: ✅ Flashcard created successfully!")
+            logger.info(f"🔍 VERBOSE: Flashcard ID: {result.id}")
+            logger.info(f"🔍 VERBOSE: === AI Generation Complete ===")
+        
+        return result
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (already have proper error messages)
+        if verbose:
+            logger.error(f"🔍 VERBOSE: HTTPException raised - status {e.status_code if hasattr(e, 'status_code') else 'unknown'}")
+        raise
+    except Exception as e:
+        error_detail = f"Unexpected error in generate_ai_flashcard: {type(e).__name__}: {str(e)}"
+        logger.error(f"❌ {error_detail}")
+        logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+        if verbose:
+            logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
+            logger.error(f"🔍 VERBOSE: Exception args: {e.args}")
+        raise HTTPException(status_code=500, detail=error_detail)
+
 
 @router.post("/preview")
 def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depends(get_db)):
+
     """
     Generate flashcard content without saving (for preview/editing)
     """
-    # Get default user (Phase 1)
-    user = crud.get_or_create_default_user(db)
+    # TODO: User management - Phase 1 is single-user, skip user table for now
+    # For now, use a dummy user ID - get_instruction_language will default to 'en'
+    dummy_user_id = "00000000-0000-0000-0000-000000000000"
     
     # Get language info
     language = crud.get_language(db, str(request.language_id))
@@ -217,7 +377,7 @@ def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depen
     content = generate_flashcard_content(
         request.word_or_phrase, 
         language.code, 
-        str(user.id),
+        dummy_user_id,
         db
     )
     

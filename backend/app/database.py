@@ -5,32 +5,54 @@ from sqlalchemy.orm import sessionmaker
 import os
 import urllib
 
-# MS SQL Express connection
-server = os.getenv("SQL_SERVER", "localhost\\SQLEXPRESS")
-database = os.getenv("SQL_DATABASE", "LanguageLearning")
-username = os.getenv("SQL_USERNAME", "")  # Empty for Windows Auth
-password = os.getenv("SQL_PASSWORD", "")
+# Detect if running in Cloud Run
+CLOUD_RUN = os.getenv("K_SERVICE") is not None
 
-# Build connection string
-if username:
-    # SQL Server Authentication
+if CLOUD_RUN:
+    # Cloud SQL connection via Public IP
+    server = os.getenv("SQL_SERVER", "35.224.242.223")  # Cloud SQL Public IP
+    database = os.getenv("SQL_DATABASE", "LanguageLearning")
+    username = os.getenv("SQL_USERNAME", "flashcards_user")
+    password = os.getenv("SQL_PASSWORD", "")  # Will be loaded from Secret Manager
+    
+    # Connect to Cloud SQL via public IP with SQL Auth
     params = urllib.parse.quote_plus(
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
         f"SERVER={server};"
         f"DATABASE={database};"
         f"UID={username};"
-        f"PWD={password}"
+        f"PWD={password};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=yes;"
     )
     DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
 else:
-    # Windows Authentication (Trusted Connection)
-    params = urllib.parse.quote_plus(
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={server};"
-        f"DATABASE={database};"
-        f"Trusted_Connection=yes"
-    )
-    DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
+    # Local MS SQL Express connection
+    server = os.getenv("SQL_SERVER", "localhost\\SQLEXPRESS")
+    database = os.getenv("SQL_DATABASE", "LanguageLearning")
+    username = os.getenv("SQL_USERNAME", "")  # Empty for Windows Auth
+    password = os.getenv("SQL_PASSWORD", "")
+    
+    # Build connection string
+    if username:
+        # SQL Server Authentication
+        params = urllib.parse.quote_plus(
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            f"UID={username};"
+            f"PWD={password}"
+        )
+        DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
+    else:
+        # Windows Authentication (Trusted Connection)
+        params = urllib.parse.quote_plus(
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            f"Trusted_Connection=yes"
+        )
+        DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
 
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
