@@ -1,8 +1,46 @@
 # 📋 Revision 00030 - Cache-First Performance Update
 
 **Date:** October 19, 2025  
-**Status:** ✅ Ready for Production Deployment  
+**Status:** ✅ Production Deployed + Hotfix Applied  
 **Author:** Development Team with GitHub Copilot
+
+---
+
+## 🔧 HOTFIX (v2.5.5) - Language Switching in Browse Mode
+
+**Issue Discovered:** After production deployment, language switching in Browse mode loaded data but didn't render cards.
+
+**Root Cause:** 
+- `loadFlashcards()` always called `renderFlashcard()` (study mode) regardless of current mode
+- Browse mode uses `loadCardsList()` which wasn't called on language change
+- Data loaded correctly (console confirmed), but UI didn't update
+
+**Fix Applied (app.js v2.5.5):**
+```javascript
+// Before: Always rendered study mode
+if (flashcards.length > 0) {
+    renderFlashcard(flashcards[0]);
+}
+
+// After: Check current mode and render appropriately  
+if (flashcards.length > 0) {
+    if (state.currentMode === 'browse') {
+        loadCardsList();  // Browse mode - list view
+    } else if (state.currentMode === 'read') {
+        renderReadCard(flashcards[0]);  // Read mode
+    } else {
+        renderFlashcard(flashcards[0]);  // Study mode (default)
+    }
+}
+```
+
+**Testing:**
+- ✅ Study mode: Language switching works
+- ✅ Read mode: Language switching works  
+- ✅ Browse mode: Language switching now works (FIXED)
+
+**Files Modified:**
+- `frontend/app.js` (v2.5.4 → v2.5.5) - Lines 371-397
 
 ---
 

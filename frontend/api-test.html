@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Super Flashcards</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .test { margin: 20px 0; padding: 15px; background: #252526; border-left: 3px solid #007acc; }
+        .success { border-color: #4ec9b0; }
+        .error { border-color: #f48771; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #1e1e1e; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 API Diagnostic Tool</h1>
+    
+    <button onclick="testBackend()">Test Backend Connection</button>
+    <button onclick="testLanguages()">Test Languages API</button>
+    <button onclick="testFlashcards()">Test Flashcards API</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        const resultsDiv = document.getElementById('results');
+        
+        function addResult(title, success, data) {
+            const div = document.createElement('div');
+            div.className = `test ${success ? 'success' : 'error'}`;
+            div.innerHTML = `
+                <h3>${success ? '✅' : '❌'} ${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function testBackend() {
+            try {
+                const response = await fetch(`${API_BASE}/languages`);
+                if (response.ok) {
+                    addResult('Backend is ONLINE', true, { status: response.status, message: 'Backend server is responding' });
+                } else {
+                    addResult('Backend responded but with error', false, { status: response.status });
+                }
+            } catch (error) {
+                addResult('Backend is OFFLINE', false, { error: error.message });
+            }
+        }
+        
+        async function testLanguages() {
+            try {
+                const response = await fetch(`${API_BASE}/languages`);
+                const data = await response.json();
+                addResult(`Languages API (${data.length} languages)`, true, data);
+            } catch (error) {
+                addResult('Languages API Failed', false, { error: error.message });
+            }
+        }
+        
+        async function testFlashcards() {
+            try {
+                // Test without language filter
+                const response1 = await fetch(`${API_BASE}/flashcards?limit=5`);
+                const data1 = await response1.json();
+                addResult(`Flashcards API - No Filter (${data1.length} cards)`, true, data1);
+                
+                // Test with French language ID
+                const frenchId = '9E4D5CA8-FFEC-47B9-9943-5F2DD1093593';
+                const response2 = await fetch(`${API_BASE}/flashcards?language_id=${frenchId}&limit=5`);
+                const data2 = await response2.json();
+                addResult(`Flashcards API - French Only (${data2.length} cards)`, true, data2);
+                
+                // Test what the app actually requests
+                const response3 = await fetch(`${API_BASE}/flashcards`);
+                const data3 = await response3.json();
+                addResult(`Flashcards API - Default Request (${data3.length} cards)`, true, { 
+                    count: data3.length,
+                    sample: data3.slice(0, 3)
+                });
+            } catch (error) {
+                addResult('Flashcards API Failed', false, { error: error.message });
+            }
+        }
+        
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+    </script>
+</body>
+</html>

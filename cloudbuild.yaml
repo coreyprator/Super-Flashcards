@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - '.'
+images:
+  - 'gcr.io/super-flashcards-475210/super-flashcards:latest'

@@ -1,0 +1,989 @@
+.git/
+.venv/
+.vscode/
+audio/
+backend/
+backups/
+docs/
+frontend/
+images/
+Input/
+ipa_audio/
+Output/
+scripts/
+.gitignore
+analyze_bootstrap.py
+console-debug.js
+console-test.txt
+consolidated_package.txt
+debug-edit-modal.html
+DEBUGGING_CHANGES.md
+DEBUGGING_READ_MODE.md
+GIT_COMMIT_INSTRUCTIONS.md
+greek_flashcards.json
+install-global-runui.ps1
+pip.conf
+powershell-profile-setup.ps1
+READ_MODE_FEATURE.md
+READ_MODE_QUICK_REF.md
+READ_MODE_VISUAL_GUIDE.md
+README.md
+run_simple.py
+runui.bat
+runui.cmd
+runui.ps1
+SETUP_INSTRUCTIONS.md
+setup-firewall.bat
+setup-runui.ps1
+SPRINT_COMPLETE.md
+start_server.ps1
+start_server.sh
+test_import.csv
+test_import.json
+test_sprint5.py
+test_vocab_sample.txt
+test-iphone.ps1
+test-sprint5.ps1
+TODO-Sprint5.md
+sprint4/
+ai_collaboration_protocol.md
+BACKUP_SYSTEM.md
+CHANGES.md
+CLAUDE_HANDOFF_PACKAGE.md
+command_reference.txt
+CURRENT_STATE_HANDOFF.md
+development_setup.md
+DOCUMENTATION_INDEX.md
+edit-modal-testing-guide.md
+environment-contamination-diagnostic.ps1
+environment-contamination-lessons-learned.md
+HANDOFF_CLAUDE.md
+mssql_quick_reference.md
+NEXT_SPRINT_ROADMAP.md
+quick_start_summary.md
+SPRINT_AUDIO_FIXES.md
+SPRINT_SUMMARY.md
+SPRINT_WRAPUP_OCT16.md
+sprint2_implementation_guide.md
+sprint2_kickoff.md
+SPRINT2_LESSONS_LEARNED.md
+sprint2_summary.md
+testing_checklist.md
+updated_roadmap_v2.md
+vs_ai_handoff_backup.md
+vs_ai_handoff_new.md
+vs_ai_handoff.md
+vs_code_ai_brief.md
+html_integration_guide.html
+implementation_guide.md
+main_py_reference.py
+quick_start_checklist.md
+.venv/
+app/
+images/
+ipa_audio/
+pronunciation_tests/
+scripts/
+.env
+batch_generate_greek_images.py
+batch_ipa_processor.py
+check_greek_images.py
+check_traverse.py
+cost_calculator.py
+create_phonetic_test.py
+create_proper_ipa_test.py
+create_test_tts_samples.py
+elevenlabs_integration.py
+fix_greek_image_urls.py
+get_words.py
+import_greek_and_batch_french.py
+multilingual_tts.py
+parse_greek_document.py
+process_travers.py
+PROJECT_STRUCTURE.txt
+requirements.txt
+super-flashcards-key.json
+test_comprehensive_tts.py
+test_google_cloud_setup.py
+test_google_vs_openai.py
+test_greek_tts.py
+test_ipa.py
+test_pronunciation.py
+  __pycache__/
+  routers/
+  services/
+  __init__.py
+  crud.py
+  database.py
+  main_debug.py
+  main_detailed_debug.py
+  main_minimal.py
+  main.py
+  models.py
+  schemas.py
+  test_minimal.py
+    __pycache__/
+    __init__.py
+    ai_generate.py
+    audio.py
+    batch_ipa.py
+    batch_processing.py
+    document_parser.py
+    flashcards.py
+    import_flashcards.py
+    ipa.py
+    languages.py
+    search.py
+    tts_testing.py
+    users.py
+    __pycache__/
+    __init__.py
+    audio_service.py
+    background_init.py
+    google_tts_service.py
+    ipa_service.py
+    service_registry.py
+  add_audio_columns.sql
+  add_ipa_columns.sql
+  advanced_vocabulary_parser.py
+  analyze_word_frequency.py
+  backup_database_fixed.sql
+  backup_database_simple.sql
+  backup_database.sql
+  backup_with_google_workspace_email.ps1
+  backup_with_notifications.ps1
+  check_app_password_account.ps1
+  CONFIGURE_EMAIL.bat
+  copy_backup_to_gdrive.ps1
+  CREATE_BACKUP_TASK.bat
+  diagnose_smtp.ps1
+  EMAIL_SETUP_GUIDE.md
+  fix_images.py
+  init_db.py
+  notification_config.ps1
+  setup_backup_simple.ps1
+  setup_backup.ps1
+  setup_fulltext_search.sql
+  setup_scheduled_backup.ps1
+  simple_account_test.ps1
+  simple_backup_with_notifications.ps1
+  simple_email_test.ps1
+  test_backup.ps1
+  test_email_config.ps1
+  12945ddd-b7d2-4619-ad3a-104a9ae94a5a_ipa.mp3
+  1fec7365-a495-4101-bf45-d29b1e55f421_ipa.mp3
+  2904c28e-83b9-427b-9bf1-fc71f0b22cbc_ipa.mp3
+  2f1726d3-44ae-4f94-82bc-3218d9cd847d_ipa.mp3
+  3390d6dc-8662-430d-8e33-6053f542e03a_ipa.mp3
+  81856eed-fa3c-46a3-a7cc-11ba50293e7c_ipa.mp3
+  c463ccf9-8851-47c0-9d78-1f64187f75f2_ipa.mp3
+  dd559be8-fe5f-40e6-8055-7784328130b5_ipa.mp3
+  openai_enhanced/
+    french_context_alloy_travers.mp3
+    french_context_echo_travers.mp3
+    french_context_fable_travers.mp3
+    french_context_nova_travers.mp3
+    ipa_guide_alloy_travers.mp3
+    ipa_guide_echo_travers.mp3
+    ipa_guide_fable_travers.mp3
+    ipa_guide_nova_travers.mp3
+    native_phrase_alloy_travers.mp3
+    native_phrase_echo_travers.mp3
+    native_phrase_fable_travers.mp3
+    native_phrase_nova_travers.mp3
+    phonetic_alloy_travers.mp3
+    phonetic_echo_travers.mp3
+    phonetic_fable_travers.mp3
+    phonetic_nova_travers.mp3
+    spelled_alloy_travers.mp3
+    spelled_echo_travers.mp3
+    spelled_fable_travers.mp3
+    spelled_nova_travers.mp3
+    word_only_alloy_travers.mp3
+    word_only_echo_travers.mp3
+    word_only_fable_travers.mp3
+    word_only_nova_travers.mp3
+static/
+api-client.js
+api-test.html
+app.js
+audio-player.js
+clear-cache.html
+db.js
+debug-edit-modal.html
+edit-button-debug.html
+google-vs-openai.html
+index.html
+integration-test.html
+ipa-comparison.html
+manifest.json
+settings.html
+sw.js
+sync.js
+tts-test-samples.html
+tts-testing.html
+  settings.html
+  abbinamento_50ca135c.png
+  abbiocco_2d10d719.png
+  abbraccio_fc81efe5.png
+  Abendbrot_7662c09f.png
+  abonné_a67f08cb.png
+  aborder_b5524d68.png
+  aboutir_61764c1b.png
+  abrazo_225ca4b4.png
+  accorder_c552f387.png
+  accrue_c721917c.png
+  accueil_0732153e.png
+  aconchego_30fc7b91.png
+  açorda_e428b721.png
+  actes_75e402f3.png
+  actuellement_9308808b.png
+  adeus_bb147277.png
+  affaiblit_59de46f9.png
+  afición_cb96ffbe.png
+  ailleurs_5a25bc2e.png
+  ailleurs_a49d89fd.png
+  al_dente_e72a9bc6.png
+  aldeia_aed3b6eb.png
+  alegría_08859fc9.png
+  allegroallegra_6fb583de.png
+  Alpha_Α_α_1a3fb315.png
+  Alpha_Α_α_291666be.png
+  ambiance_05987b06.png
+  ambiente_aefc7537.png
+  ameijoas_à_Bulhão_Pato_7c8c3db7.png
+  amore_56c187c8.png
+  amuse-gueule_bd7dded1.png
+  andante_a9fe08b6.png
+  andar_9a93ebd7.png
+  angles_501dedd4.png
+  annoncer_6ec62e8c.png
+  antipasto_4bc2e0e9.png
+  antojo_dc02ebc2.png
+  apéritif_82be8d29.png
+  aperitivo_7ff55c73.png
+  aprovechar_9b131b41.png
+  arrivederci_661198a2.png
+  arrondissement_32b1b960.png
+  arroz_de_marisco_c58f8737.png
+  arte_ec8d832c.png
+  assurer_a61365cf.png
+  astuce_7db3a2a0.png
+  até_logo_f2523f1a.png
+  atteindre_e4887113.png
+  attendre_5c0f6ed7.png
+  attire_f0ecbae7.png
+  auguri_80fe31f2.png
+  Autobahn_e6b08341.png
+  autocarro_161f57fe.png
+  autrement_2cd6e88f.png
+  avant-garde_3976932d.png
+  avenir_d410e11e.png
+  azulejo_5ec0e596.png
+  bac_2bd6e212.png
+  bacalhau_701b37b8.png
+  baciobaci_227a4e04.png
+  Backpfeifengesicht_5f94bc70.png
+  baguette_709995bc.png
+  bain_1e0f940f.png
+  baisse_7291838e.png
+  bar_0bc5d479.png
+  barrio_858fccee.png
+  bas_9832c246.png
+  bavette_a24ff9f8.png
+  bel_canto_ec1c9150.png
+  bella_figura_24abe969.png
+  bellezza_950f035b.png
+  bellobella_3ec8c747.png
+  bénéfique_68978a6e.png
+  berceau_6080139d.png
+  beso_948b71fc.png
+  Beta_Β_β_1b08ef17.png
+  bêtises_4818735c.png
+  biblique_5d027e09.png
+  bica_58700b80.png
+  Bier_f0384723.png
+  Biergarten_be28466b.png
+  bisous_d5bc2252.png
+  bistrot_86794169.png
+  bistrot_d593fded.png
+  blagues_50283e5e.png
+  blesser_104ca372.png
+  boa_noite_5cf11c95.png
+  boa_tarde_59d87e92.png
+  bodega_8d4fe745.png
+  boh_4ac79823.png
+  bom_dia_36e26674.png
+  bon_vivant_a6705fd0.png
+  bonjour_086ca287.png
+  bouche_ba7f9152.png
+  bouchon_be33143c.png
+  boulangerie_afc35dbd.png
+  bouleverser_0f6f1354.png
+  bouquiniste_04daa108.png
+  bourgeoisie_93c69308.png
+  bras_36fa7728.png
+  Bretzel_589eb2a9.png
+  bricolage_0b5fe2cb.png
+  Brotzeit_4feba62b.png
+  brutta_figura_dfb1ea8f.png
+  buonasera_cd695621.png
+  buongiorno_e16db24b.png
+  caffè_d27d9358.png
+  cafuné_a1fef5ce.png
+  caldeirada_9673d37e.png
+  calle_1165da9d.png
+  camus_8e4bb8d6.png
+  cappuccino_01b9ac71.png
+  cariño_b961bf52.png
+  carocara_20a9aff5.png
+  cas_f27158c8.png
+  cashew_220389db.png
+  casiers_0375738b.png
+  cataláncatalana_cbf186f1.png
+  cataplana_9f535368.png
+  céline_7fd4b6ba.png
+  celles_0d242ab8.png
+  cena_e3012067.png
+  cependant_2aaeee39.png
+  cerveja_4e0206ca.png
+  cerveza_59d6535f.png
+  cest_la_vie_6f3041cb.png
+  ceux_2e86f3bf.png
+  chacun_à_son_goût_4c0b713d.png
+  chacun_à_son_goût_c7bad3d9.png
+  chaleur_4f150488.png
+  charcuterie_9f0fd447.png
+  charlar_b51bc0d9.png
+  chasser_094076e3.png
+  chêne_78d42722.png
+  chez_b4a46565.png
+  chouriço_549b4da5.png
+  chulochula_f8dd99e1.png
+  churrasqueira_8fb1d2bc.png
+  churros_7c28285d.png
+  ciao_47838212.png
+  ciblés_a5bb2d96.png
+  citoyenneté_eb82e1e2.png
+  cliché_881fa93c.png
+  coincé_80eaf2ec.png
+  colega_672ef64e.png
+  colère_7277d40a.png
+  colis_4f57ccdd.png
+  colorée_34113414.png
+  comboio_873f8ff1.png
+  complimenti_5c0e7941.png
+  compte_4b974151.png
+  cônes_6e962769.png
+  connerie_72c70620.png
+  consuegroconsuegra_8306994e.png
+  contemplation_a841661e.png
+  contemplation_ca462f19.png
+  contorno_92d29695.png
+  contrairement_200bc215.png
+  convivencia_0bf3527a.png
+  copain_95d429d1.png
+  cornetto_fe55e775.png
+  cotilla_affaea35.png
+  cotilleo_25a77730.png
+  couches_64dd4d35.png
+  couches_95f7d651.png
+  coup_de_foudre_2c5aa430.png
+  coup_détat_45ac76f1.png
+  courants_5c062fb1.png
+  coût_9ba15084.png
+  coûteuses_756e7a89.png
+  covoiturage_2e33a51a.png
+  créant_3fd01175.png
+  crescendo_b1cdf3ee.png
+  creuser_499e556b.png
+  creux_2b5a3d54.png
+  critique_026da30f.png
+  croie_b4974eba.png
+  croissance_b3f79f53.png
+  croissant_fc4c70c0.png
+  cul-de-sac_09dce72b.png
+  cuñadocuñada_06f6f858.png
+  currar_83aa43ea.png
+  dar_un_paseo_5870fe2d.png
+  davantage_843e09db.png
+  davantage_f7aafc79.png
+  décorum_deb9afce.png
+  décroissance_a0271d5a.png
+  dégoût_8e34f534.png
+  dehors_631e90d9.png
+  déjà_vu_bd2fd355.png
+  déménagement_32b14789.png
+  démonstratifs_8c28152e.png
+  démonstratifs_ebde6951.png
+  dépaysement_ec21c001.png
+  déplacement_ab703af3.png
+  déplacements_29727915.png
+  député_7db55211.png
+  dérange_c81192e0.png
+  désaccord_772a381a.png
+  desenrascanço_8a6192d1.png
+  détriment_ef28e3d8.png
+  devient_9c311b8e.png
+  devis_b52c4e06.png
+  devons_906ac327.png
+  digestif_a87e8eb2.png
+  digestivo_d3ba9af9.png
+  diminuendo_adbc3d09.png
+  disparition_d7f4b3d5.png
+  divagation_90c17b35.png
+  divaguer_0c972ff8.png
+  dolce_520aadfe.png
+  dolce_far_niente_c88cb16e.png
+  Doppelgänger_ea94f253.png
+  doute_5e732c50.png
+  duende_8d7f1cfd.png
+  éblouissement_c6aaa71f.png
+  échappé_b0fcdf0b.png
+  echar_de_menos_7484f0e7.png
+  écologiques_8342cf77.png
+  écriture_d1591f75.png
+  effet_850083d2.png
+  égare_ddc6aa89.png
+  Eichhörnchen_b50c9cf3.png
+  elétrico_ffa2d59f.png
+  élision_8af13aae.png
+  éloges_b347e74c.png
+  éloges_c1799699.png
+  emoción_1b110465.png
+  empalagar_fe4bc8b6.png
+  empêcher_19c374ba.png
+  enfant_terrible_261ef528.png
+  enfant_terrible_e06bd7d6.png
+  enjeux_c2b6d553.png
+  ennui_5161bfbf.png
+  ennuyeux_975c0bb9.png
+  énoncé_84ebc9da.png
+  énoncer_7362f3bf.png
+  enoteca_d86bafe9.png
+  envoyer_6dd3b893.png
+  equipo_38461c8c.png
+  erre_66fae65d.png
+  erroné_d100a53e.png
+  espérer_fd378b2d.png
+  espetada_e5a96558.png
+  esprit_de_lescalier_1d4fce01.png
+  essai_7fb51277.png
+  essuie_90a51eef.png
+  essuie_ef21c5d0.png
+  estrecho_fd736e80.png
+  estrenar_9dc481cb.png
+  étant_f686aa75.png
+  étroitement_95c01a7b.png
+  etymology_290637f9.png
+  euh_1a4cd2c1.png
+  eût_2b62d922.png
+  éveiller_33cf54de.png
+  éventuellement_71341cc1.png
+  évoquer_cbf86e95.png
+  excédé_a5c4d354.png
+  fâcher_55105b88.png
+  fado_414178f3.png
+  Fahrrad_ae05aa8b.png
+  fait_accompli_2c14df40.png
+  fait_accompli_5ad01870.png
+  fallacieux_b53e028d.png
+  famiglia_2efbc5ad.png
+  familiar_e23bcfef.png
+  fare_il_ponte_6ea5c9a7.png
+  fausse_d717f7af.png
+  fausses_6d416bef.png
+  faux_pas_edc04929.png
+  favorise_f4faadd8.png
+  Feierabend_c5cabe3e.png
+  Fernseher_c34d6a95.png
+  Fernweh_e8cc0c7a.png
+  Feuerwehr_16a05e8f.png
+  feuille_045bb826.png
+  fiarse_af092487.png
+  fiesta_9694822a.png
+  fil_50f97e59.png
+  Fingerspitzengefühl_b1d3cb25.png
+  flamenco_6d4556fa.png
+  flâner_07e6e3be.png
+  Fledermaus_4b2eb521.png
+  fleuve_7f406f87.png
+  flipar_e735ad26.png
+  Flugzeug_68d38c30.png
+  forte_33bd9d9a.png
+  foudre_3550f1f4.png
+  frais_154fff74.png
+  francesinha_7e82701f.png
+  freiner_5e8513c8.png
+  Fremdschämen_30c9891d.png
+  FreundFreundin_e9e1e225.png
+  fromagerie_abd122c3.png
+  Frühstück_b164cf34.png
+  fulgurant_831d2941.png
+  fuseau_019d3bf8.png
+  fútbol_ac2ca8ee.png
+  futile_ce74e450.png
+  galão_0b422f91.png
+  Gamma_Γ_γ_2e5d0ec0.png
+  Gamma_Γ_γ_5670b758.png
+  gamme_653fc258.png
+  ganas_2ace0f4c.png
+  garantir_aab14545.png
+  garées_a9797eab.png
+  gaspillage_13c5a1d7.png
+  gastronomie_3c2b183a.png
+  Geborgenheit_5f5b5dc4.png
+  gelato_b2194686.png
+  gemütlich_9c6dd79d.png
+  gentils_b9c373ed.png
+  gérer_7145c267.png
+  Geschwindigkeitsbegrenzung_8fe84d45.png
+  geste_9fa29ddb.png
+  gestion_e92ac65f.png
+  Gesundheit_686c2960.png
+  gj_c2f5778b.png
+  graciosograciosa_4d687e44.png
+  gratte-ciel_ed417d61.png
+  grazie_0b41ec34.png
+  guay_17defd05.png
+  guillaume_e06a772b.png
+  guitarra_d9ce457b.png
+  Guten_Appetit_4b21374b.png
+  haineux_ec7a9a27.png
+  Handschuh_0e680a91.png
+  hâte_f43c3524.png
+  Heimweh_f5249646.png
+  hermeneuein_1b36c1b9.png
+  hermeneutiké_27ce50fe.png
+  hincha_9a85d5d7.png
+  hirondelle_a23b7ea3.png
+  hotte_93e3233f.png
+  housse_4607f2c2.png
+  illustre_4e131836.png
+  ilusión_e7fca5df.png
+  in_bocca_al_lupo_891922fa.png
+  incitant_9f02d47e.png
+  incluent_ae93343d.png
+  inclut_90dba047.png
+  initier_8490084b.png
+  inscrit_94f153a6.png
+  isolement_182de2ac.png
+  it_costs_an_arm_and_a_leg_620628e3.png
+  jamón_0844766f.png
+  je_ne_sais_quoi_28a93f2d.png
+  jeter_e39eef62.png
+  joie_de_vivre_78fee2d7.png
+  joué_1552137f.png
+  Kaffee_und_Kuchen_84f84e77.png
+  Kartoffel_3e7ef483.png
+  Kindergarten_9271b23f.png
+  Kopfkino_4c631781.png
+  Krankenhaus_3d59def8.png
+  Krankenschwester_06c7805a.png
+  Kuddelmuddel_aca006f6.png
+  Kühlschrank_fe221fc2.png
+  Kummerspeck_5fcb8b7b.png
+  la_rentrée_b551e92f.png
+  laïcité_d885eb1e.png
+  laissez-faire_300668ae.png
+  lampe_e8faac14.png
+  lance_b469ed5d.png
+  lart_de_vivre_94245e99.png
+  laudare_ce4ca876.png
+  légère_d753f223.png
+  lève_cdafb2fb.png
+  librairie_b2cf9155.png
+  lié_61c72baa.png
+  Lieblingsbuch_9f990aa3.png
+  lien_67185c09.png
+  lieux_92c27cda.png
+  linéaire_d3963f46.png
+  liste_cec23a71.png
+  locaux_49699d6a.png
+  locuteurs_45576562.png
+  loti_a0f01ae0.png
+  lotis_13297770.png
+  louant_2395eea3.png
+  louez_1b91bbc8.png
+  loup_3db02d21.png
+  lourd_ecb48283.png
+  luxueux_46384654.png
+  madrileñomadrileña_e359fba1.png
+  madrugada_091bc940.png
+  madrugar_36cddb81.png
+  magari_89248116.png
+  Mahlzeit_b71ce93b.png
+  majomaja_50076193.png
+  malaise_7a0aa126.png
+  mamma_544445d1.png
+  mamma_mia_92d433e4.png
+  mandaté_43b6c5dd.png
+  manteau_f9306ba6.png
+  marcha_88452117.png
+  marché_3897abdd.png
+  marre_e320447b.png
+  mauvais_1e7f6902.png
+  médecin_c1fb2616.png
+  médiatiques_4dd354c4.png
+  menefreghista_a5b7aeb3.png
+  mener_510719d4.png
+  mercado_14ecb9c6.png
+  mercado_2db0b9fa.png
+  mère_e9ea2065.png
+  merenda_08b1dcb6.png
+  merienda_892c8cab.png
+  métro_1fd2db9f.png
+  métro-boulot-dodo_44c279e9.png
+  mettons_03396b03.png
+  miradouro_3d579e3b.png
+  mnémotechnique_59176e1d.png
+  mogollón_0ba4db22.png
+  monomona_7ea999eb.png
+  montorgueil_24bf681f.png
+  morriña_a27042ba.png
+  muet_ba9bfb6f.png
+  muettes_eb93b200.png
+  Nacktschnecke_ff9459f8.png
+  naître_0dce81b2.png
+  natifs_06152846.png
+  neuronal_128edf9c.png
+  Nilpferd_e21eaf7a.png
+  noblesse_oblige_6d21f893.png
+  nommé_1d75b407.png
+  nonnononna_da984a32.png
+  nostalgie_ea7bc3c3.png
+  nuages_1e872c4a.png
+  Ohrwurm_455b1eb3.png
+  olá_b089ddde.png
+  ombres_51079a4a.png
+  onglet_b3242244.png
+  onomatopoeia_38c2003e.png
+  onomatopoeia_e877017f.png
+  opera_fe9395e2.png
+  orage_9a2882a5.png
+  orgueil_08a690d5.png
+  orgueil_ea07e41e.png
+  osteria_410d283d.png
+  paella_36103f24.png
+  pão_080e0ddb.png
+  papà_c778a921.png
+  papillon_7b250345.png
+  papoter_d7a77864.png
+  parapluie_ce1f99da.png
+  parcours_5c5b4561.png
+  parodie_b76ecded.png
+  passeggiata_72a58090.png
+  pasta_5392aea4.png
+  pasta_8aa49a94.png
+  pastel_de_nata_c2358b76.png
+  pastelaria_4d650942.png
+  pâtisserie_4d1716a3.png
+  pena_6d1cf995.png
+  péniches_b8ed093f.png
+  pénurie_7bbafbe2.png
+  per_favore_a052b39b.png
+  permesso_65a85482.png
+  persévérance_4148e0a6.png
+  perte_8a574023.png
+  petisco_1176dd04.png
+  petit_à_petit_b1d80da1.png
+  petit_à_petit_b52328a1.png
+  piano_7870da67.png
+  piazza_9aeeab51.png
+  pied-à-terre_a16e7687.png
+  pièges_02922f23.png
+  pince_9298a18c.png
+  pizza_6c805288.png
+  planifiée_dcde658d.png
+  plaza_51330265.png
+  plupart_27a805a8.png
+  pluralité_88a95855.png
+  Poltergeist_6d8b7f9c.png
+  polvo_à_lagareiro_ec6563aa.png
+  porte-monnaie_e6ffcf04.png
+  posséder_94a0a6e0.png
+  pousse_05bbe98b.png
+  praça_3d5175cf.png
+  praia_2e696b96.png
+  pranzo_cc00972c.png
+  prego_f46cc699.png
+  prestissimo_fdccbe77.png
+  presunto_ae4a595f.png
+  prétexte_7bd7c47a.png
+  primo_3c2e5719.png
+  proches_bfedd373.png
+  proposer_1bed4d9b.png
+  proposer_ade25f45.png
+  Prost_c50a8708.png
+  puente_a85613d0.png
+  quartier_67eadb20.png
+  Quatsch_c4c36f64.png
+  quedar_75208a23.png
+  queijo_75d8ed52.png
+  raison_dêtre_82fbf5da.png
+  ralenter_4e017a67.png
+  rangée_ce2f46c5.png
+  raviver_417601f2.png
+  Rechtsschutzversicherungsgesellschaft_b3f810a6.png
+  réelle_965bd7e7.png
+  reflexive_456596b1.png
+  reflexive_45b1f54a.png
+  Regenschirm_9197ab11.png
+  réjouissance_b15483e9.png
+  remarqué_7429e6fd.png
+  remuer_9802281a.png
+  renaissance_d60e5ec5.png
+  rendez-vous_8911de0c.png
+  resaca_b22d99a9.png
+  restant_fd68e043.png
+  rester_68789a5a.png
+  resver_308433db.png
+  retrouvailles_9e510723.png
+  réussir_f0c3eacb.png
+  rêvasserie_baacae4f.png
+  réveille_bbc0b795.png
+  rêver_18366ea2.png
+  rêveries_85918881.png
+  rio_82d0e03f.png
+  ristorante_b9b4d121.png
+  rôde_031e5c6e.png
+  rôder_e8d8dc38.png
+  rotunda_81e93dcc.png
+  roulent_82066a99.png
+  roux_d8c6bba5.png
+  ruse_f129a7a8.png
+  salutation_5e07e69a.png
+  salute_f56fa7ee.png
+  sang_a711086c.png
+  saoule_78b18f11.png
+  saudações_7b3f28e1.png
+  saudade_dc20bfd3.png
+  saudade_f58d1f51.png
+  Sauerkraut_41ea4b06.png
+  savoir-faire_b74631db.png
+  savoir-vivre_a3055e7f.png
+  savoir-vivre_b765e613.png
+  Schadenfreude_da69f374.png
+  Schildkröte_9b2bae47.png
+  Schmetterling_d32ec7e1.png
+  Schnapsidee_42cbe662.png
+  Schnickschnack_580b2c5d.png
+  Schnitzel_aa37835e.png
+  scusiscusa_1b726d99.png
+  seau_3f1e80dc.png
+  secondo_670b0c17.png
+  Seehund_8d1dcf0e.png
+  Sehnsucht_8cdf53d1.png
+  semblant_da2f3b7c.png
+  semble_d544565a.png
+  sensible_887b0828.png
+  serra_5b717aa2.png
+  siesta_71b69121.png
+  simpáticosimpática_4266eca3.png
+  simpaticosimpatica_b28f367d.png
+  sinon_bd64b535.png
+  sobremesa_35116cdf.png
+  sobremesa_e04cf332.png
+  soient_aba4dad6.png
+  soins_1e6758db.png
+  sois_cba2edc7.png
+  sol_5defcc62.png
+  sommelier_0343aa51.png
+  songerie_2cdb7058.png
+  sonne_7580e839.png
+  Sonnenbrille_03956604.png
+  sophisme_4c21cc31.png
+  soprano_22346e20.png
+  souhait_eb05ccf9.png
+  souhaité_f433ace8.png
+  souhaitez_17e8e589.png
+  souligne_feec0751.png
+  souvenir_9cdc5772.png
+  souvenu_dd6c9442.png
+  soyez_78e1859b.png
+  soyons_d6d9be77.png
+  sprezzatura_820f4aa1.png
+  stade_f3b6cbc7.png
+  Staubsauger_1284bca7.png
+  surtout_47e09859.png
+  suscitant_edfdb381.png
+  suscitare_824f1cec.png
+  susciter_a6848bdb.png
+  tailler_a8c8e9c8.png
+  tapas_5b586f31.png
+  tard_64022ee0.png
+  tasca_9c97ab3b.png
+  teatro_772867ee.png
+  tenons_f1909ed7.png
+  terrasse_e4af9ad7.png
+  terraza_67fc7ddb.png
+  terroir_55e525e8.png
+  tesoro_092222d3.png
+  test_4dd0ccb6.png
+  tête-à-tête_dcd9e9fa.png
+  tiens_1a1b8e0f.png
+  tiers_bf1cae6c.png
+  tíotía_d263c6fe.png
+  Tollpatsch_42a75373.png
+  tombé_a45a2315.png
+  tomber_8a97f910.png
+  tonnerre_303dddc4.png
+  toro_4dcb99e6.png
+  Torschlusspanik_9d78d66d.png
+  tournevis_673f022b.png
+  toutefois_71143c7c.png
+  trasnochar_62bed003.png
+  trattoria_00edfb94.png
+  travers_5c744f5f.png
+  Treppenwitz_caf8c5e7.png
+  trinquer_da273508.png
+  tromper_d0e2674d.png
+  tutear_cb3fb457.png
+  urbains_f88a61db.png
+  vascovasca_2736e123.png
+  veau_51f1cab5.png
+  vergüenza_ajena_b0ae8fa9.png
+  verschlimmbessern_bfb5a1fa.png
+  vieillissement_e66fa233.png
+  vinho_verde_d4d29d1e.png
+  vis_5a35e459.png
+  vis-à-vis_586f007e.png
+  vivace_0dafeb54.png
+  voilà_a313c62e.png
+  Vorfreude_711582eb.png
+  vulgaire_7903e2db.png
+  Waldeinsamkeit_b5509bda.png
+  Wanderlust_641bec96.png
+  Waschbär_01651b06.png
+  Weltschmerz_ed178ebe.png
+  Wurst_35e0b718.png
+  Xi_Ξ_ξ_29f46b50.png
+  xixe_799be346.png
+  Zahnarzt_c6f23add.png
+  Zeitgeist_c3cf53af.png
+  Α_α_ab4564c3.png
+  αγάπη_18e3030b.png
+  ανάμνηση_c563c2e9.png
+  άνεμος_a171018b.png
+  άνθρωπος_8e5032f1.png
+  αξιοθέατα_26930169.png
+  αρχιτεκτονική_7aa75f2b.png
+  αστέρι_cdc3ced4.png
+  αυτός_b394bc31.png
+  Β_β_c3cfdb4e.png
+  βιβλίο_a9857975.png
+  βιβλιοπωλείο_533315f4.png
+  βόλτα_325f3a2c.png
+  βραδινό_eaa704ac.png
+  βροχή_9f17f759.png
+  Γ_γ_3bf1469a.png
+  γεια_σας_1ca26b8c.png
+  γεια_σου_00188766.png
+  γειτονιά_47c7d7d2.png
+  γιαγιά_7d3b0bb8.png
+  γλυκό_9600f7ff.png
+  γνώση_98a7ada1.png
+  Δ_δ_3f66b8c9.png
+  δημοκρατία_ce6e3df1.png
+  δρόμος_08e6adb3.png
+  δύο_320114bc.png
+  Ε_ε_7f7a3fb4.png
+  εγώ_8060ea81.png
+  είμαι_e61d4484.png
+  εκκλησία_9a2179c4.png
+  ελιά_8599d390.png
+  ελπίδα_4c00a1da.png
+  ένα_2b571861.png
+  εσύ_c81c810c.png
+  έχω_57ebcc03.png
+  Ζ_ζ_bc912166.png
+  ζεστασιά_09a53d30.png
+  Η_η_0d56655a.png
+  ήλιος_159a9df5.png
+  ήρωας_5e01c7b6.png
+  ηχώ_6916d42e.png
+  Θ_θ_4035a667.png
+  θάλασσα_658dfc4a.png
+  θέλω_14ca9c44.png
+  Ι_ι_5df0e471.png
+  Κ_κ_ce30782a.png
+  καημός_e2d569fa.png
+  καλημέρα_2d2ec034.png
+  καληνύχτα_b9b44262.png
+  καλησπέρα_39d8c57b.png
+  καλοκαίρι_039072f4.png
+  κάνω_5d840a95.png
+  καφενείο_92ea18f9.png
+  κέφι_a59cfb2e.png
+  κύμα_7b702c26.png
+  κωμωδία_508ded5e.png
+  Λ_λ_6f1e5907.png
+  λεύκωμα_eaad440f.png
+  λέω_43c686b8.png
+  Μ_μ_4b1ae738.png
+  μάθημα_cdf720f5.png
+  ματάκι_e502f083.png
+  μεζές_b59e3e9d.png
+  μεράκι_2ae75f1a.png
+  μεσημεριανό_2dbeb092.png
+  μετεωρολογία_a9541a7d.png
+  μοναξιά_15f76ba9.png
+  μουσείο_9c919c88.png
+  μπαλκόνι_2148ca51.png
+  μύθος_386f75a6.png
+  Ν_ν_7e09da68.png
+  νησί_7d3b64de.png
+  νοσταλγία_8e8dc67e.png
+  Ξ_ξ_eaff53e5.png
+  ξεκούραση_03c8e536.png
+  ξενοδοχείο_8f323b52.png
+  Ο_ο_be56f87f.png
+  ορεκτικό_c6132dce.png
+  ορίζοντας_4398f8a6.png
+  ουζερί_ce436aa0.png
+  ουρανός_46b6b937.png
+  Π_π_148d780c.png
+  πανηγύρι_749358b2.png
+  παράδοση_bccc0a26.png
+  Παρακαλώ_έναν_καφέ_efd70236.png
+  παρέα_fa56cb25.png
+  πατρίδα_9ffdeeeb.png
+  πάω_366ba2bb.png
+  πέντε_9a14e7af.png
+  περιπέτεια_b9c40456.png
+  περιπλάνηση_2ffdd70b.png
+  πίνακας_129a7def.png
+  ποδόσφαιρο_a6ae5d87.png
+  Πόσο_κάνει_7b2a3f27.png
+  Πού_είναι_ο_δρόμος_819de351.png
+  πρωινό_e286859d.png
+  Ρ_ρ_985279ad.png
+  ῥῆμα_ce036d1f.png
+  Σ_σς_f866e69c.png
+  σιγανά_06b70e91.png
+  σουβλάκι_c2d249e4.png
+  σοφία_570f4bd0.png
+  σπίτι_21dd5b5b.png
+  σύστημα_5cca75f0.png
+  Τ_τ_c558ac1a.png
+  ταβέρνα_b59f71d1.png
+  ταξίδι_37c14048.png
+  τέσσερα_113f1899.png
+  τραγωδία_57a53d10.png
+  τραπέζι_f89466cd.png
+  τρία_5b2ce664.png
+  τσάι_0f1c4310.png
+  Υ_υ_6f2bcb3d.png
+  Φ_φ_f93e1381.png
+  φεγγάρι_de0e1549.png
+  φέτα_7234eda0.png
+  φιλοξενία_a20326ec.png
+  φιλοσοφία_9a6fbeda.png
+  φιλότιμο_d2fd17dc.png
+  Χ_χ_838017df.png
+  χάος_377cf30c.png
+  χαρά_80b3a9ef.png
+  χορός_8c531f48.png
+  Ψ_ψ_a542911e.png
+  ψησταριά_cf37ecb9.png
+  Ω_ω_6586429d.png

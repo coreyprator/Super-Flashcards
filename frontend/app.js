@@ -1,5 +1,6 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
+// Version: 2.5.5 (Hotfix: Language switching in browse mode)
 
 // Sprint 5: Offline-First Architecture
 let offlineDB, syncManager, apiClient;
@@ -374,16 +375,39 @@ async function loadFlashcards() {
         state.currentCardIndex = 0;
         
         if (flashcards.length > 0) {
-            renderFlashcard(flashcards[0]);
+            // Check current mode and render appropriately
+            if (state.currentMode === 'browse') {
+                // In browse mode, update cards list
+                loadCardsList();
+            } else if (state.currentMode === 'read') {
+                // In read mode, render read card
+                renderReadCard(flashcards[0]);
+            } else {
+                // In study mode (default), render flashcard
+                renderFlashcard(flashcards[0]);
+            }
             document.getElementById('study-controls').classList.remove('hidden');
             updateCardCounter();
         } else {
-            document.getElementById('flashcard-container').innerHTML = `
-                <div class="text-center text-gray-500 py-12">
-                    <p class="text-lg mb-4">No flashcards yet for this language</p>
-                    <p class="text-sm">Add your first flashcard using the "Add Card" tab</p>
-                </div>
-            `;
+            // Empty state - show appropriate message based on mode
+            if (state.currentMode === 'browse') {
+                const cardsList = document.getElementById('cards-list');
+                if (cardsList) {
+                    cardsList.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <p class="text-lg mb-2">No flashcards yet for this language</p>
+                            <p class="text-sm">Add your first flashcard using the "Add Card" tab</p>
+                        </div>
+                    `;
+                }
+            } else {
+                document.getElementById('flashcard-container').innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <p class="text-lg mb-4">No flashcards yet for this language</p>
+                        <p class="text-sm">Add your first flashcard using the "Add Card" tab</p>
+                    </div>
+                `;
+            }
             document.getElementById('study-controls').classList.add('hidden');
         }
         
