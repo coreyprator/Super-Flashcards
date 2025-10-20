@@ -63,7 +63,8 @@ There is terminology overlap between two different work streams:
    - ✅ Basic Auth implemented (beta/flashcards2025)
 
 4. **Domain Setup**
-   - ✅ Domain registered: learn.cbsware.com
+   - ✅ Domain registered: learn.rentyourcio.com
+   - ✅ DNS configured (CNAME to ghs.googlehosted.com)
    - ✅ Ready to map to Cloud Run service
 
 **CRITICAL:** Google Cloud SQL is now the **SINGLE SOURCE OF TRUTH** for all data.
@@ -252,7 +253,7 @@ gcloud sql instances patch super-flashcards-db \
 | Backend API | ✅ Deployed | FastAPI on Cloud Run |
 | Database | ✅ Deployed | Cloud SQL (SQL Server 2019 Express) |
 | Assets | ✅ Deployed | Cloud Storage (audio + images) |
-| Domain | ✅ Ready | learn.cbsware.com (needs mapping) |
+| Domain | ✅ Ready | learn.rentyourcio.com (DNS configured) |
 | Authentication | ⚠️ Basic Auth | Temporary (beta/flashcards2025) |
 | Users | ⚠️ Single-user | No accounts yet |
 | Backup | ⚠️ Manual only | Need automated backup |
