@@ -6,7 +6,7 @@ yamlProject Configuration:
   Google Project ID: super-flashcards-475210
   Google Account: cprator@cbsware.com
   Region: us-central1
-  Domain: learn.cbsware.com
+  Domain: learn.rentyourcio.com
   Budget: $40/month
 
 Authentication Strategy:
@@ -103,7 +103,7 @@ else:
 
 🗓️ Sprint 6 Timeline (Revised)
 Phase 1: Deployment Without Auth (This Weekend - 6 hours)
-Goal: Get app live on learn.cbsware.com with Basic Auth
+Goal: Get app live on learn.rentyourcio.com with Basic Auth
 Saturday Morning (2 hours) - Database Migration
 YOU do:
 powershell# Already done ✅
@@ -137,7 +137,7 @@ Expected result: App running at temporary Cloud Run URL ✅
 Saturday Evening (2 hours) - Domain & Testing
 VS Code AI does:
 
-Map custom domain: learn.cbsware.com
+Map custom domain: learn.rentyourcio.com
 Configure SSL (automatic)
 Add Basic Auth (temporary password protection)
 Full functionality testing
@@ -148,7 +148,7 @@ powershell# Add DNS record in Google Domains
 # Type: CNAME
 # Name: learn
 # Value: ghs.googlehosted.com
-Expected result: Live at https://learn.cbsware.com with password ✅
+Expected result: Live at https://learn.rentyourcio.com with password ✅
 
 Phase 2: User Authentication System (Next Weekend - 8 hours)
 Goal: Full user accounts with email/password + Google OAuth
@@ -314,7 +314,7 @@ Visit: https://console.cloud.google.com/apis/credentials
 Click "Create Credentials" → "OAuth 2.0 Client ID"
 Application type: "Web application"
 Name: "Super Flashcards Login"
-Authorized redirect URIs: https://learn.cbsware.com/auth/google/callback
+Authorized redirect URIs: https://learn.rentyourcio.com/auth/google/callback
 Click "Create"
 Save Client ID and Client Secret (add to 1Password)
 
@@ -369,7 +369,7 @@ I need to update these deployment docs with your specific values:
 
 1. **DEPLOYMENT_QUICK_START.md**
    - Project ID: `super-flashcards-475210`
-   - Domain: `learn.cbsware.com`
+   - Domain: `learn.rentyourcio.com`
    - Backup path: `G:\My Drive\Code\Python\Super-Flashcards\backups\LanguageLearning_20251017_081155.bak`
 
 2. **GOOGLE_CLOUD_DEPLOYMENT_GUIDE.md**
@@ -2193,7 +2193,7 @@ PROJECT CONFIGURATION:
 - Project ID: super-flashcards-475210
 - Google Account: cprator@cbsware.com  
 - Region: us-central1
-- Domain: learn.cbsware.com
+- Domain: learn.rentyourcio.com
 - Budget: $40/month max
 
 BACKUP LOCATION:
@@ -2221,7 +2221,7 @@ Hour 3: Application Deployment
 - Deploy to Cloud Run
 
 Hour 4: Domain & Testing
-- Map learn.cbsware.com to Cloud Run
+- Map learn.rentyourcio.com to Cloud Run
 - Wait for SSL certificate
 - Test all functionality
 - Verify images/audio from Cloud Storage
@@ -2235,7 +2235,7 @@ BASIC AUTH CREDENTIALS (temporary):
 - Password: flashcards2025
 
 SUCCESS CRITERIA:
-✅ App live at https://learn.cbsware.com
+✅ App live at https://learn.rentyourcio.com
 ✅ 755 flashcards accessible
 ✅ All images/audio loading
 ✅ Study/Read/Browse modes working
@@ -2244,7 +2244,7 @@ SUCCESS CRITERIA:
 
 AFTER COMPLETION:
 Share with user:
-- Live URL: https://learn.cbsware.com
+- Live URL: https://learn.rentyourcio.com
 - Username/password for testing
 - Any issues encountered
 - Cost estimate

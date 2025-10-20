@@ -71,6 +71,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://super-flashcards-57478301787.us-central1.run.app",  # Cloud Run URL
+        "https://learn.rentyourcio.com",  # Custom subdomain
         "http://localhost:8000",  # Local development
         "http://127.0.0.1:8000"  # Local development alt
     ],

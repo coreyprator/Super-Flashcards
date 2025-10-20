@@ -95,7 +95,7 @@
 - Google Cloud Run deployment
 - Google Cloud SQL database (755+ flashcards)
 - Google Cloud Storage (audio/images)
-- Domain ready: learn.cbsware.com
+- Domain ready: learn.rentyourcio.com
 - Basic Auth: beta/flashcards2025
 - Cost: ~$12-17/month
 
@@ -207,7 +207,7 @@ CREATE TABLE user_flashcard_collections (...);
 
 ### What's Ready
 - Google Cloud SQL (single source of truth)
-- Domain (learn.cbsware.com)
+- Domain (learn.rentyourcio.com)
 - Basic Auth (temporary)
 - 755 flashcards (ready to mark as bootstrap)
 
