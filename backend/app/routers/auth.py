@@ -30,7 +30,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 # Load Google OAuth configuration
 GOOGLE_CLIENT_ID = None
 GOOGLE_CLIENT_SECRET = None
-REDIRECT_URI = None
+GOOGLE_REDIRECT_URI = None
 
 try:
     # Try loading from JSON file first
@@ -47,8 +47,11 @@ try:
         # Fallback to environment variables
         GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
         GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+        GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI')
         if GOOGLE_CLIENT_ID:
             print(f"✅ Loaded OAuth config from environment variables")
+            if GOOGLE_REDIRECT_URI:
+                print(f"✅ Using redirect URI from environment: {GOOGLE_REDIRECT_URI}")
         else:
             print(f"❌ No OAuth config found!")
 except Exception as e:
@@ -288,13 +291,20 @@ async def google_login(request: Request):
             detail="Google OAuth not configured"
         )
     
-    # Determine redirect URI based on request origin
+    # Determine redirect URI based on environment variable or request origin
     redirect_start = time.time()
-    origin = request.headers.get('origin', 'http://localhost:8000')
-    redirect_uri = f"{origin}/api/auth/google/callback"
-    redirect_time = (time.time() - redirect_start) * 1000
     
-    print(f"📍 Redirect URI: {redirect_uri} (determined in {redirect_time:.2f}ms)")
+    # Use environment variable if set (production), otherwise derive from origin (development)
+    if GOOGLE_REDIRECT_URI:
+        redirect_uri = GOOGLE_REDIRECT_URI
+        print(f"📍 Using redirect URI from environment: {redirect_uri}")
+    else:
+        origin = request.headers.get('origin', 'http://localhost:8000')
+        redirect_uri = f"{origin}/api/auth/google/callback"
+        print(f"📍 Derived redirect URI from origin: {redirect_uri}")
+    
+    redirect_time = (time.time() - redirect_start) * 1000
+    print(f"⏱️  Redirect URI determined in {redirect_time:.2f}ms")
     print(f"🔄 Calling oauth.google.authorize_redirect...")
     
     oauth_start = time.time()
