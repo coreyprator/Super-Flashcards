@@ -291,7 +291,7 @@ async def google_login(request: Request):
     # Determine redirect URI based on request origin
     redirect_start = time.time()
     origin = request.headers.get('origin', 'http://localhost:8000')
-    redirect_uri = f"{origin}/api/auth/callback"
+    redirect_uri = f"{origin}/api/auth/google/callback"
     redirect_time = (time.time() - redirect_start) * 1000
     
     print(f"📍 Redirect URI: {redirect_uri} (determined in {redirect_time:.2f}ms)")
