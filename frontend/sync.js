@@ -21,6 +21,58 @@ class SyncManager {
     }
     
     /**
+     * Batch save flashcards to IndexedDB
+     * Reduces UI blocking by processing in chunks
+     */
+    async saveBatch(cards, currentIndex = 0, total = 0) {
+        const promises = cards.map(card => this.db.saveFlashcard(card));
+        await Promise.all(promises);
+        
+        // Update progress UI if in initial sync
+        if (total > 0) {
+            this.updateSyncProgress(currentIndex + cards.length, total);
+        }
+        
+        // Brief yield to allow UI updates
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    
+    /**
+     * Update sync progress UI
+     */
+    updateSyncProgress(current, total) {
+        const overlay = document.getElementById('sync-loading-overlay');
+        const progressBar = document.getElementById('sync-progress-bar');
+        const statsText = document.getElementById('sync-stats');
+        
+        if (overlay && progressBar && statsText) {
+            const percentage = Math.round((current / total) * 100);
+            progressBar.style.width = `${percentage}%`;
+            statsText.textContent = `${current} / ${total} flashcards`;
+        }
+    }
+    
+    /**
+     * Show sync loading overlay
+     */
+    showSyncOverlay() {
+        const overlay = document.getElementById('sync-loading-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+        }
+    }
+    
+    /**
+     * Hide sync loading overlay
+     */
+    hideSyncOverlay() {
+        const overlay = document.getElementById('sync-loading-overlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+    }
+    
+    /**
      * Initialize sync manager
      */
     async init() {
@@ -47,7 +99,13 @@ class SyncManager {
         // Initial sync if online
         if (navigator.onLine) {
             console.log('🌐 Online - performing initial sync');
-            await this.sync();
+            // DON'T await the sync - let it run in background after first 10 cards
+            // This allows the UI to initialize immediately
+            this.sync().then(() => {
+                console.log('✅ Background sync completed');
+            }).catch(err => {
+                console.error('❌ Background sync failed:', err);
+            });
         } else {
             console.log('📴 Offline - sync will happen when connection restored');
         }
@@ -158,6 +216,17 @@ class SyncManager {
             // Step 2: Download changes from server
             const downloadResult = await this.downloadServerChanges();
             console.log(`📥 Download phase: ${downloadResult.flashcards} flashcards, ${downloadResult.languages} languages`);
+            
+            // IMPORTANT: If progressive loading started, wait for it to complete
+            if (this._backgroundLoadingPromise) {
+                console.log('⏳ Waiting for background loading to complete...');
+                try {
+                    await this._backgroundLoadingPromise;
+                    console.log('✅ Background loading finished, sync truly complete');
+                } catch (error) {
+                    console.warn('⚠️  Background loading had errors but sync continues:', error);
+                }
+            }
             
             // Update last sync time
             this.lastSyncTime = new Date().toISOString();
@@ -351,50 +420,91 @@ class SyncManager {
     async downloadServerChanges() {
         console.log('📥 Downloading server changes...');
         
+        // Mark performance start
+        performance.mark('sync-start');
+        
         let flashcardsCount = 0;
         let languagesCount = 0;
         
         try {
+            // Check if this is first-time user (no local data = first time, regardless of localStorage)
+            const localFlashcards = await this.db.getAllFlashcards();
+            const hasNoLocalData = localFlashcards.length === 0;
+            
+            if (hasNoLocalData) {
+                console.log('👋 First-time user detected (0 local flashcards) - using progressive loading');
+                return await this.progressiveFirstTimeSync();
+            }
+            
+            // Returning user or incremental sync - use normal flow
+            console.log('🔄 Returning user - checking for updates');
+            
             // Get flashcards from server
             const flashcardsResponse = await fetch('/api/flashcards', {
-                credentials: 'include'  // Include Basic Auth credentials
+                credentials: 'include'
             });
             if (flashcardsResponse.ok) {
                 const serverFlashcards = await flashcardsResponse.json();
-                
-                // Get local flashcards for comparison
-                const localFlashcards = await this.db.getAllFlashcards();
                 const localMap = new Map(localFlashcards.map(c => [c.id, c]));
                 
-                // Update/add server flashcards
+                // Update/add server flashcards - BATCH MODE
                 let updated = 0;
                 let added = 0;
+                
+                // Batch size for IndexedDB operations
+                const BATCH_SIZE = 50;
+                const cardsToSave = [];
                 
                 for (const serverCard of serverFlashcards) {
                     const localCard = localMap.get(serverCard.id);
                     
                     // Conflict resolution: last-write-wins based on updated_at
                     if (!localCard) {
-                        await this.db.saveFlashcard(serverCard);
+                        cardsToSave.push(serverCard);
                         added++;
                     } else if (new Date(serverCard.updated_at) > new Date(localCard.updated_at)) {
-                        await this.db.saveFlashcard(serverCard);
+                        cardsToSave.push(serverCard);
                         updated++;
                     }
-                    // If local is newer, keep local (will be uploaded in next sync)
+                }
+                
+                // Show sync overlay only if significant updates (>20 cards)
+                const needsProgressUI = cardsToSave.length > 20;
+                if (needsProgressUI) {
+                    this.showSyncOverlay();
+                }
+                
+                // Process in batches
+                let processed = 0;
+                const totalToSave = cardsToSave.length;
+                
+                while (cardsToSave.length > 0) {
+                    const batch = cardsToSave.splice(0, BATCH_SIZE);
+                    await this.saveBatch(batch, processed, totalToSave);
+                    processed += batch.length;
+                }
+                
+                if (needsProgressUI) {
+                    this.hideSyncOverlay();
                 }
                 
                 flashcardsCount = serverFlashcards.length;
                 console.log(`  📚 Flashcards: ${added} added, ${updated} updated`);
+                
+                // Show toast if updates were found
+                if (added > 0 && window.firstTimeLoader) {
+                    window.firstTimeLoader.showToast(`✨ ${added} new flashcard${added > 1 ? 's' : ''} available!`);
+                }
             }
         } catch (error) {
             console.error('  ❌ Error downloading flashcards:', error);
+            this.hideSyncOverlay();
         }
         
         try {
             // Get languages from server
             const languagesResponse = await fetch('/api/languages', {
-                credentials: 'include'  // Include Basic Auth credentials
+                credentials: 'include'
             });
             if (languagesResponse.ok) {
                 const serverLanguages = await languagesResponse.json();
@@ -404,11 +514,10 @@ class SyncManager {
                         await this.db.saveLanguage(language);
                         languagesCount++;
                     } catch (error) {
-                        // Silently skip duplicate languages (constraint error)
                         if (error.name === 'ConstraintError') {
                             console.log(`  ⚠️ Skipping duplicate language: ${language.name} (${language.code})`);
                         } else {
-                            throw error; // Re-throw non-constraint errors
+                            throw error;
                         }
                     }
                 }
@@ -419,7 +528,227 @@ class SyncManager {
             console.error('  ❌ Error downloading languages:', error);
         }
         
+        // Mark performance end
+        performance.mark('sync-end');
+        performance.measure('sync-duration', 'sync-start', 'sync-end');
+        const syncTime = performance.getEntriesByName('sync-duration')[0]?.duration || 0;
+        console.log(`⏱️ Sync completed in ${(syncTime / 1000).toFixed(1)}s`);
+        
         return { flashcards: flashcardsCount, languages: languagesCount };
+    }
+    
+    /**
+     * Progressive first-time sync with instant first card
+     * @returns {Object} Result with counts
+     */
+    async progressiveFirstTimeSync() {
+        console.log('\n🚀 ===== PROGRESSIVE FIRST-TIME SYNC =====');
+        performance.mark('T13-progressive-sync-start');
+        const syncStart = performance.now();
+        
+        // Track timing
+        if (window.oauthTracker) {
+            window.oauthTracker.start('initial-sync');
+        }
+        
+        // Show first-time loading overlay
+        if (window.firstTimeLoader) {
+            window.firstTimeLoader.showLoadingOverlay();
+        }
+        
+        try {
+            // STEP 1: Load first 10 cards immediately (< 2 seconds)
+            performance.mark('first-cards-start');
+            if (window.oauthTracker) {
+                window.oauthTracker.start('load-first-10-cards');
+            }
+            
+            console.log('📦 STEP 1/2: Loading first 10 cards for immediate UI...');
+            const firstBatchStart = performance.now();
+            
+            const firstBatchResponse = await fetch('/api/flashcards?limit=10&skip=0', {
+                credentials: 'include'
+            });
+            
+            if (!firstBatchResponse.ok) {
+                throw new Error(`Failed to load flashcards: ${firstBatchResponse.status}`);
+            }
+            
+            const firstBatch = await firstBatchResponse.json();
+            const fetchTime = performance.now() - firstBatchStart;
+            console.log(`📥 First batch fetched (${firstBatch.length} cards) in ${fetchTime.toFixed(2)}ms`);
+            
+            // Save first batch immediately
+            const saveStart = performance.now();
+            for (const card of firstBatch) {
+                await this.db.saveFlashcard(card);
+            }
+            const saveTime = performance.now() - saveStart;
+            console.log(`💾 First batch saved to IndexedDB in ${saveTime.toFixed(2)}ms`);
+            
+            if (window.oauthTracker) {
+                window.oauthTracker.end('load-first-10-cards');
+            }
+            
+            performance.mark('first-cards-end');
+            performance.measure('first-cards', 'first-cards-start', 'first-cards-end');
+            const firstCardsTime = performance.getEntriesByName('first-cards')[0]?.duration || 0;
+            console.log(`⚡ First ${firstBatch.length} cards READY in ${(firstCardsTime / 1000).toFixed(3)}s`);
+            
+            // Update progress
+            if (window.firstTimeLoader) {
+                window.firstTimeLoader.updateProgress(10, 755); // Estimate total
+            }
+            
+            // Mark that we have initial data cached
+            localStorage.setItem('indexeddb-populated', 'true');
+            
+            // **CRITICAL: Dispatch event so UI can render immediately**
+            console.log('🎯 Dispatching "first-cards-ready" event to UI...');
+            window.dispatchEvent(new CustomEvent('first-cards-ready', {
+                detail: { 
+                    count: firstBatch.length,
+                    timestamp: performance.now()
+                }
+            }));
+            window.timingCheckpoint?.('T14-first-cards-ready', `First ${firstBatch.length} cards ready, UI can render now`);
+            
+            // STEP 2: Load remaining cards IN BACKGROUND (non-blocking)
+            console.log('📥 STEP 2/2: Starting background load of remaining flashcards...');
+            console.log('⚡ RETURNING CONTROL TO APP - User can start studying now!');
+            
+            // Store the promise so sync() can wait for it if needed
+            this._backgroundLoadingPromise = this.loadRemainingCardsInBackground(10).then(() => {
+                console.log('✅ Background loading complete!');
+                window.dispatchEvent(new CustomEvent('background-sync-complete'));
+                window.timingCheckpoint?.('T15-background-complete', 'All cards loaded in background');
+                
+                if (window.firstTimeLoader) {
+                    window.firstTimeLoader.showCompletion();
+                }
+                if (window.oauthTracker) {
+                    window.oauthTracker.end('load-remaining-cards');
+                    window.oauthTracker.end('initial-sync');
+                    window.oauthTracker.getReport();
+                }
+            }).catch(error => {
+                console.error('❌ Background loading failed:', error);
+                window.timingCheckpoint?.('T15-ERROR-background-failed', `Background loading error: ${error.message}`);
+            });
+            
+            // RETURN IMMEDIATELY after first 10 cards
+            // This allows the app to render and user to start studying
+            const totalTime = performance.now() - syncStart;
+            console.log(`⚡ Progressive sync initial phase complete in ${totalTime.toFixed(2)}ms`);
+            console.log('🚀 ===== RETURNING CONTROL (${firstBatch.length} cards ready) =====\n');
+            
+            return { flashcards: firstBatch.length, languages: 0 };
+            
+        } catch (error) {
+            const errorTime = performance.now() - syncStart;
+            console.error(`❌ Progressive sync failed after ${errorTime.toFixed(2)}ms:`, error);
+            
+            if (window.oauthTracker) {
+                window.oauthTracker.mark('sync-error');
+                window.oauthTracker.end('initial-sync');
+            }
+            
+            if (window.firstTimeLoader) {
+                window.firstTimeLoader.hideLoadingOverlay();
+            }
+            
+            window.timingCheckpoint?.('T14-ERROR-progressive-sync-failed', `Progressive sync error: ${error.message}`);
+            
+            throw error;
+        }
+    }
+    
+    /**
+     * Load remaining cards in background (non-blocking helper)
+     */
+    async loadRemainingCardsInBackground(alreadyLoaded) {
+        console.log(`\n📥 ===== BACKGROUND LOADING =====`);
+        const bgStart = performance.now();
+        
+        if (window.oauthTracker) {
+            window.oauthTracker.start('load-remaining-cards');
+        }
+        
+        try {
+            console.log(`📡 Fetching remaining flashcards (skip=${alreadyLoaded})...`);
+            const fetchStart = performance.now();
+            
+            const allCardsResponse = await fetch(`/api/flashcards?limit=1000&skip=${alreadyLoaded}`, {
+                credentials: 'include'
+            });
+            
+            if (allCardsResponse.ok) {
+                const remainingCards = await allCardsResponse.json();
+                const fetchTime = performance.now() - fetchStart;
+                const totalCards = alreadyLoaded + remainingCards.length;
+                
+                console.log(`📊 Fetched ${remainingCards.length} remaining cards in ${fetchTime.toFixed(2)}ms`);
+                console.log(`📊 Total flashcards: ${totalCards} (${alreadyLoaded} already loaded, ${remainingCards.length} remaining)`);
+                
+                // Update progress with actual total
+                if (window.firstTimeLoader) {
+                    window.firstTimeLoader.updateProgress(alreadyLoaded, totalCards);
+                }
+                
+                // Batch save remaining cards
+                console.log(`💾 Saving ${remainingCards.length} cards in batches...`);
+                const BATCH_SIZE = 50;
+                let processed = alreadyLoaded;
+                const saveStart = performance.now();
+                
+                for (let i = 0; i < remainingCards.length; i += BATCH_SIZE) {
+                    const batch = remainingCards.slice(i, i + BATCH_SIZE);
+                    const batchStart = performance.now();
+                    
+                    // Save batch in parallel
+                    await Promise.all(batch.map(card => this.db.saveFlashcard(card)));
+                    
+                    processed += batch.length;
+                    const batchTime = performance.now() - batchStart;
+                    
+                    // Log progress every batch
+                    console.log(`   💾 Batch ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} cards saved in ${batchTime.toFixed(2)}ms (${processed}/${totalCards})`);
+                    
+                    // Update progress
+                    if (window.firstTimeLoader) {
+                        window.firstTimeLoader.updateProgress(processed, totalCards);
+                    }
+                    
+                    // Yield to main thread to prevent blocking UI
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                
+                const saveTime = performance.now() - saveStart;
+                const totalTime = performance.now() - bgStart;
+                
+                console.log(`✅ All ${remainingCards.length} remaining cards saved in ${saveTime.toFixed(2)}ms`);
+                console.log(`✅ Background loading COMPLETE in ${totalTime.toFixed(2)}ms (${(totalTime/1000).toFixed(3)}s)`);
+                console.log(`📥 ===== BACKGROUND LOADING DONE (${totalCards} total cards) =====\n`);
+                
+                return totalCards;
+            }
+            
+            return alreadyLoaded;
+        } catch (error) {
+            const errorTime = performance.now() - bgStart;
+            console.error(`❌ Background loading failed after ${errorTime.toFixed(2)}ms:`, error);
+            
+            if (window.oauthTracker) {
+                window.oauthTracker.mark('sync-error');
+                window.oauthTracker.end('initial-sync');
+            }
+            
+            if (window.firstTimeLoader) {
+                window.firstTimeLoader.hideLoadingOverlay();
+            }
+            
+            throw error;
+        }
     }
     
     /**

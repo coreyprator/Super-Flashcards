@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Debug Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 {
+            color: #4ec9b0;
+        }
+        .debug-panel {
+            background: #2d2d2d;
+            border: 2px solid #4ec9b0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 4px 0;
+            background: #1e1e1e;
+            border-left: 3px solid #4ec9b0;
+            font-size: 14px;
+        }
+        .log-entry.error {
+            border-left-color: #f48771;
+            color: #f48771;
+        }
+        .log-entry.success {
+            border-left-color: #b5cea8;
+            color: #b5cea8;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        .info {
+            background: #264f78;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #ce9178;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 OAuth Debug Test</h1>
+    
+    <div class="info">
+        <strong>Purpose:</strong> This page tests the OAuth flow step-by-step to diagnose issues.
+    </div>
+
+    <div class="debug-panel">
+        <h2>Test Controls</h2>
+        <button onclick="testEndpoint()">1. Test OAuth Endpoint</button>
+        <button onclick="testFormSubmit()">2. Test Form Submit</button>
+        <button onclick="testDirectNavigation()">3. Navigate Directly</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Debug Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Test Form (Same as Login Page)</h2>
+        <form id="testForm" action="/api/auth/google/login" method="GET">
+            <button type="submit" style="background: #4285F4;">
+                Submit to /api/auth/google/login
+            </button>
+        </form>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Current Configuration</h2>
+        <div id="config"></div>
+    </div>
+
+    <script>
+        const logsDiv = document.getElementById('logs');
+        const configDiv = document.getElementById('config');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        // Show current configuration
+        configDiv.innerHTML = `
+            <pre>Current URL: ${window.location.href}
+Server: http://localhost:8000
+OAuth Endpoint: /api/auth/google/login
+Expected Redirect: Google OAuth consent screen</pre>
+        `;
+
+        // Test 1: Fetch the OAuth endpoint
+        async function testEndpoint() {
+            log('🔄 Testing OAuth endpoint with fetch()...');
+            try {
+                const response = await fetch('/api/auth/google/login', {
+                    method: 'GET',
+                    redirect: 'manual' // Don't follow redirects
+                });
+                
+                log(`✅ Response Status: ${response.status} ${response.statusText}`, 'success');
+                
+                if (response.type === 'opaqueredirect' || response.status === 0) {
+                    log('✅ Got redirect response (status 302/303)', 'success');
+                } else if (response.status === 302 || response.status === 303) {
+                    const location = response.headers.get('location');
+                    log(`✅ Redirect Location: ${location}`, 'success');
+                    
+                    // Parse and show client_id from redirect URL
+                    if (location && location.includes('client_id=')) {
+                        const match = location.match(/client_id=([^&]+)/);
+                        if (match) {
+                            log(`🔑 Client ID in redirect: ${match[1]}`, 'success');
+                        }
+                    }
+                } else {
+                    log(`⚠️ Unexpected status: ${response.status}`, 'error');
+                    const text = await response.text();
+                    log(`Response: ${text.substring(0, 200)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Test 2: Test form submission
+        async function testFormSubmit() {
+            log('🔄 Testing form submission...');
+            const form = document.getElementById('testForm');
+            
+            // Add event listener to see if form submits
+            form.addEventListener('submit', (e) => {
+                log('✅ Form submit event fired!', 'success');
+                log('🚀 Navigating to OAuth endpoint...');
+                // Let it submit naturally
+            }, { once: true });
+            
+            log('⏳ Submitting form...');
+            form.submit();
+        }
+
+        // Test 3: Direct navigation
+        function testDirectNavigation() {
+            log('🔄 Testing direct navigation...');
+            log('🚀 Navigating to /api/auth/google/login');
+            window.location.href = '/api/auth/google/login';
+        }
+
+        function clearLogs() {
+            logsDiv.innerHTML = '';
+            log('🧹 Logs cleared');
+        }
+
+        // Log page load
+        log('✅ Debug page loaded');
+        log('📍 Ready to test OAuth flow');
+
+        // Intercept the test form submission to log it
+        document.getElementById('testForm').addEventListener('submit', (e) => {
+            log('📤 Form submitting to: ' + e.target.action);
+            log('📤 Method: ' + e.target.method);
+        });
+    </script>
+</body>
+</html>

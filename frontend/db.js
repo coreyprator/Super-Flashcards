@@ -33,58 +33,93 @@ class OfflineDatabase {
      * Creates all object stores and indexes
      */
     async init() {
+        console.log('\n🗄️ ===== INDEXEDDB INITIALIZATION =====');
+        const dbInitStart = performance.now();
+        performance.mark('T8-indexeddb-init-start');
+        
         // Return existing promise if initialization already in progress
         if (this.initPromise) {
+            console.log('⚡ IndexedDB already initializing, returning existing promise');
             return this.initPromise;
         }
         
         this.initPromise = new Promise((resolve, reject) => {
+            console.log(`🗄️ Opening IndexedDB: "${DB_NAME}" version ${DB_VERSION}`);
+            const openStart = performance.now();
+            
             const request = indexedDB.open(DB_NAME, DB_VERSION);
             
             request.onerror = () => {
-                console.error('❌ IndexedDB error:', request.error);
+                const errorTime = performance.now() - openStart;
+                console.error(`❌ IndexedDB open FAILED after ${errorTime.toFixed(2)}ms`);
+                console.error('Error:', request.error);
+                window.timingCheckpoint?.('T8-ERROR-indexeddb-failed', `IndexedDB open failed: ${request.error}`);
                 reject(request.error);
             };
             
             request.onsuccess = () => {
+                const openTime = performance.now() - openStart;
                 this.db = request.result;
-                console.log('✅ IndexedDB initialized successfully');
+                
+                const totalTime = performance.now() - dbInitStart;
+                console.log(`✅ IndexedDB opened successfully in ${openTime.toFixed(2)}ms`);
+                console.log(`✅ IndexedDB init COMPLETE in ${totalTime.toFixed(2)}ms`);
+                
+                if (totalTime > 500) {
+                    console.warn(`⚠️ IndexedDB init took ${totalTime.toFixed(2)}ms (>500ms) - This may slow down app startup`);
+                }
+                
+                performance.mark('T8-indexeddb-init-end');
+                performance.measure('indexeddb-init', 'T8-indexeddb-init-start', 'T8-indexeddb-init-end');
+                window.timingCheckpoint?.('T8-indexeddb-ready', `IndexedDB ready (${totalTime.toFixed(2)}ms)`);
+                
+                console.log('🗄️ ===== INDEXEDDB READY =====\n');
                 resolve(this.db);
             };
             
             request.onupgradeneeded = (event) => {
+                const upgradeStart = performance.now();
+                console.log('🔄 IndexedDB UPGRADE NEEDED (first-time setup or version change)');
+                console.log(`   Old version: ${event.oldVersion}, New version: ${event.newVersion}`);
+                
                 const db = event.target.result;
-                console.log('🔄 Upgrading IndexedDB schema...');
+                
+                // Track object store creation time
+                const storesStart = performance.now();
                 
                 // Flashcards store
                 if (!db.objectStoreNames.contains(STORES.FLASHCARDS)) {
+                    console.log('📦 Creating "flashcards" object store...');
                     const flashcardStore = db.createObjectStore(STORES.FLASHCARDS, { 
                         keyPath: 'id' 
                     });
                     flashcardStore.createIndex('language_id', 'language_id', { unique: false });
                     flashcardStore.createIndex('updated_at', 'updated_at', { unique: false });
                     flashcardStore.createIndex('word', 'word_or_phrase', { unique: false });
-                    console.log('  ✓ Created flashcards store');
+                    console.log('  ✓ Created flashcards store with indexes');
                 }
                 
                 // Languages store
                 if (!db.objectStoreNames.contains(STORES.LANGUAGES)) {
+                    console.log('📦 Creating "languages" object store...');
                     const langStore = db.createObjectStore(STORES.LANGUAGES, { 
                         keyPath: 'id' 
                     });
                     langStore.createIndex('code', 'code', { unique: true });
                     langStore.createIndex('name', 'name', { unique: false });
-                    console.log('  ✓ Created languages store');
+                    console.log('  ✓ Created languages store with indexes');
                 }
                 
                 // Preferences store
                 if (!db.objectStoreNames.contains(STORES.PREFERENCES)) {
+                    console.log('📦 Creating "preferences" object store...');
                     db.createObjectStore(STORES.PREFERENCES, { keyPath: 'key' });
                     console.log('  ✓ Created preferences store');
                 }
                 
                 // Sync queue store
                 if (!db.objectStoreNames.contains(STORES.SYNC_QUEUE)) {
+                    console.log('📦 Creating "sync queue" object store...');
                     const queueStore = db.createObjectStore(STORES.SYNC_QUEUE, { 
                         keyPath: 'id',
                         autoIncrement: true 
@@ -92,24 +127,37 @@ class OfflineDatabase {
                     queueStore.createIndex('timestamp', 'timestamp', { unique: false });
                     queueStore.createIndex('type', 'type', { unique: false });
                     queueStore.createIndex('entity', 'entity', { unique: false });
-                    console.log('  ✓ Created sync queue store');
+                    console.log('  ✓ Created sync queue store with indexes');
                 }
                 
                 // Metadata store
                 if (!db.objectStoreNames.contains(STORES.METADATA)) {
+                    console.log('📦 Creating "metadata" object store...');
                     db.createObjectStore(STORES.METADATA, { keyPath: 'key' });
                     console.log('  ✓ Created metadata store');
                 }
                 
                 // Audio cache store
                 if (!db.objectStoreNames.contains(STORES.AUDIO_CACHE)) {
+                    console.log('📦 Creating "audio cache" object store...');
                     const audioStore = db.createObjectStore(STORES.AUDIO_CACHE, { keyPath: 'url' });
                     audioStore.createIndex('flashcard_id', 'flashcard_id', { unique: false });
                     audioStore.createIndex('cached_at', 'cached_at', { unique: false });
-                    console.log('  ✓ Created audio cache store');
+                    console.log('  ✓ Created audio cache store with indexes');
                 }
                 
-                console.log('✅ IndexedDB schema upgrade complete');
+                const storesTime = performance.now() - storesStart;
+                const upgradeTime = performance.now() - upgradeStart;
+                
+                console.log(`📦 All object stores created in ${storesTime.toFixed(2)}ms`);
+                console.log(`🔄 Schema upgrade COMPLETE in ${upgradeTime.toFixed(2)}ms`);
+                
+                if (upgradeTime > 5000) {
+                    console.error(`🚨 CRITICAL: IndexedDB upgrade took ${upgradeTime.toFixed(2)}ms (>5s)`);
+                    console.error('   This could be the cause of the 2-minute delay!');
+                } else if (upgradeTime > 1000) {
+                    console.warn(`⚠️ IndexedDB upgrade took ${upgradeTime.toFixed(2)}ms (>1s)`);
+                }
             };
         });
         

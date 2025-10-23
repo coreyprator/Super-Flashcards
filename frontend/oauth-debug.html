@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Debug Panel</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4ec9b0;
+            border-bottom: 2px solid #4ec9b0;
+            padding-bottom: 10px;
+        }
+        .section {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .section h2 {
+            color: #569cd6;
+            margin-top: 0;
+        }
+        .info-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: #1e1e1e;
+            border-left: 3px solid #4ec9b0;
+        }
+        .info-label {
+            color: #ce9178;
+            font-weight: bold;
+        }
+        .info-value {
+            color: #d4d4d4;
+            margin-left: 10px;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        .success {
+            color: #4ec9b0;
+        }
+        .error {
+            color: #f48771;
+        }
+        .warning {
+            color: #ce9178;
+        }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #3e3e42;
+        }
+        .log {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 4px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        .copy-btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            float: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 OAuth Debug Panel</h1>
+
+        <div class="section">
+            <h2>Server Status</h2>
+            <div id="serverStatus" class="info-item">
+                <span class="info-label">Checking server...</span>
+            </div>
+            <button onclick="checkServer()">Refresh Server Status</button>
+        </div>
+
+        <div class="section">
+            <h2>OAuth Configuration</h2>
+            <div id="oauthConfig" class="info-item">
+                <span class="info-label">Loading...</span>
+            </div>
+            <button onclick="checkOAuthEndpoint()">Test OAuth Endpoint</button>
+        </div>
+
+        <div class="section">
+            <h2>Test OAuth Flow</h2>
+            <button onclick="testGoogleLogin()">🚀 Test "Continue with Google"</button>
+            <button onclick="testDirectRequest()">📡 Test Direct Request</button>
+            <button onclick="testWithCurl()">📋 Generate cURL Command</button>
+        </div>
+
+        <div class="section">
+            <h2>Network Requests Log</h2>
+            <button class="copy-btn" onclick="copyLog()">Copy All Logs</button>
+            <div id="networkLog" class="log">
+                <div class="log-entry">Waiting for requests...</div>
+            </div>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div class="section">
+            <h2>Debug Information</h2>
+            <button class="copy-btn" onclick="copyDebugInfo()">Copy Debug Info</button>
+            <pre id="debugInfo">Collecting debug information...</pre>
+        </div>
+    </div>
+
+    <script>
+        const logs = [];
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const logDiv = document.getElementById('networkLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = logEntry;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        async function checkServer() {
+            addLog('🔍 Checking server status...');
+            const statusDiv = document.getElementById('serverStatus');
+            
+            try {
+                const response = await fetch('http://localhost:8000/health', {
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <span class="info-label success">✅ Server Status:</span>
+                        <span class="info-value">Running on http://localhost:8000</span>
+                    `;
+                    addLog('✅ Server is running', 'success');
+                } else {
+                    statusDiv.innerHTML = `
+                        <span class="info-label warning">⚠️ Server Status:</span>
+                        <span class="info-value">Unexpected response: ${response.status}</span>
+                    `;
+                    addLog(`⚠️ Server returned ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <span class="info-label error">❌ Server Status:</span>
+                    <span class="info-value">Not reachable - ${error.message}</span>
+                `;
+                addLog(`❌ Server check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkOAuthEndpoint() {
+            addLog('🔍 Testing OAuth endpoint...');
+            const configDiv = document.getElementById('oauthConfig');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/google/login', {
+                    method: 'GET',
+                    redirect: 'manual',
+                    cache: 'no-cache'
+                });
+                
+                addLog(`📡 Response status: ${response.status}`, 'info');
+                addLog(`📡 Response type: ${response.type}`, 'info');
+                
+                if (response.type === 'opaqueredirect' || response.status === 0) {
+                    configDiv.innerHTML = `
+                        <span class="info-label success">✅ OAuth Endpoint:</span>
+                        <span class="info-value">Responding (redirect detected)</span>
+                    `;
+                    addLog('✅ OAuth endpoint is redirecting (expected behavior)', 'success');
+                } else if (response.status === 307 || response.status === 302) {
+                    const location = response.headers.get('location');
+                    configDiv.innerHTML = `
+                        <span class="info-label success">✅ OAuth Endpoint:</span>
+                        <span class="info-value">Redirect to: ${location}</span>
+                    `;
+                    addLog(`✅ OAuth redirecting to: ${location}`, 'success');
+                } else {
+                    configDiv.innerHTML = `
+                        <span class="info-label warning">⚠️ OAuth Endpoint:</span>
+                        <span class="info-value">Status ${response.status}</span>
+                    `;
+                    addLog(`⚠️ Unexpected status: ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                configDiv.innerHTML = `
+                    <span class="info-label error">❌ OAuth Endpoint:</span>
+                    <span class="info-value">Error - ${error.message}</span>
+                `;
+                addLog(`❌ OAuth check failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testGoogleLogin() {
+            addLog('🚀 Navigating to OAuth endpoint...');
+            addLog('📋 This will redirect to Google. Check Network tab!');
+            setTimeout(() => {
+                window.location.href = '/api/auth/google/login';
+            }, 1000);
+        }
+
+        async function testDirectRequest() {
+            addLog('📡 Making direct fetch request...');
+            
+            try {
+                const response = await fetch('/api/auth/google/login', {
+                    method: 'GET',
+                    redirect: 'follow',
+                    cache: 'no-cache'
+                });
+                
+                addLog(`📡 Response URL: ${response.url}`);
+                addLog(`📡 Response Status: ${response.status}`);
+                addLog(`📡 Response Type: ${response.type}`);
+                
+                const text = await response.text();
+                addLog(`📡 Response Length: ${text.length} chars`);
+            } catch (error) {
+                addLog(`❌ Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testWithCurl() {
+            const curlCommand = `curl -v 'http://localhost:8000/api/auth/google/login' \\
+  -H 'Accept: text/html,application/xhtml+xml' \\
+  -H 'User-Agent: Mozilla/5.0'`;
+            
+            addLog('📋 Generated cURL command (copied to clipboard)');
+            navigator.clipboard.writeText(curlCommand);
+            alert('cURL command copied to clipboard!\n\nRun this in PowerShell:\n\n' + curlCommand.replace(/\\/g, '`'));
+        }
+
+        function clearLog() {
+            logs.length = 0;
+            document.getElementById('networkLog').innerHTML = '<div class="log-entry">Log cleared</div>';
+        }
+
+        function copyLog() {
+            const logText = logs.join('\n');
+            navigator.clipboard.writeText(logText);
+            addLog('📋 Logs copied to clipboard', 'success');
+        }
+
+        async function updateDebugInfo() {
+            const info = {
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                localStorage: {
+                    auth_token: localStorage.getItem('auth_token') ? 'present' : 'missing',
+                    user: localStorage.getItem('user') ? 'present' : 'missing'
+                },
+                cookies: document.cookie || 'none',
+                referrer: document.referrer || 'none'
+            };
+            
+            document.getElementById('debugInfo').textContent = JSON.stringify(info, null, 2);
+        }
+
+        function copyDebugInfo() {
+            const debugInfo = document.getElementById('debugInfo').textContent;
+            navigator.clipboard.writeText(debugInfo);
+            addLog('📋 Debug info copied to clipboard', 'success');
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            addLog('🎬 Debug panel loaded');
+            checkServer();
+            updateDebugInfo();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(updateDebugInfo, 5000);
+        });
+
+        // Capture network errors
+        window.addEventListener('error', (e) => {
+            addLog(`❌ JavaScript Error: ${e.message}`, 'error');
+        });
+
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', (e) => {
+            addLog(`❌ Unhandled Promise Rejection: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

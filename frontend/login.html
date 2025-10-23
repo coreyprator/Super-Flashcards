@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- CRITICAL TIMING: Track from the VERY beginning -->
+    <script>
+        // This executes IMMEDIATELY when browser starts parsing HTML
+        window.loginPageStart = performance.now();
+        window.loginPageAbsoluteStart = Date.now();
+        
+        console.log('🕐 LOGIN PAGE: HTML parsing started at', new Date().toISOString());
+        console.log('🕐 LOGIN PAGE: performance.now() =', window.loginPageStart.toFixed(2), 'ms');
+        
+        // Create timing log
+        window.loginTimingLog = [];
+        window.loginCheckpoint = function(name, message) {
+            const timestamp = performance.now();
+            const elapsed = timestamp - window.loginPageStart;
+            const absoluteTime = Date.now();
+            const elapsedAbsolute = absoluteTime - window.loginPageAbsoluteStart;
+            
+            window.loginTimingLog.push({
+                checkpoint: name,
+                timestamp: timestamp,
+                elapsed: elapsed,
+                message: message,
+                isoTime: new Date().toISOString()
+            });
+            
+            console.log(`🕐 LOGIN ${name}: ${message}`);
+            console.log(`   Time: ${elapsed.toFixed(2)}ms (${(elapsed/1000).toFixed(3)}s) from login.html start`);
+            console.log(`   Absolute: ${elapsedAbsolute}ms (${(elapsedAbsolute/1000).toFixed(3)}s) from wall clock`);
+            console.log(`   ISO: ${new Date().toISOString()}`);
+        };
+        
+        window.loginCheckpoint('L0-html-start', 'Login HTML parsing started');
+    </script>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Super Flashcards</title>
+    
+    <script>
+        window.loginCheckpoint('L1-head-meta', 'Meta tags and title parsed');
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .tab.active {
+            color: #667eea;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .google-btn {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .google-btn:hover {
+            background: #f8f8f8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .google-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading .submit-btn {
+            position: relative;
+            color: transparent;
+        }
+
+        .loading .submit-btn::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
+    
+    <script>
+        window.loginCheckpoint('L2-styles-parsed', 'All CSS styles parsed');
+    </script>
+</head>
+<body>
+    <script>
+        window.loginCheckpoint('L3-body-start', 'Body tag reached, DOM rendering starting');
+    </script>
+    
+    <!-- Load performance tracker FIRST -->
+    <script src="/oauth-tracker.js"></script>
+    <script>
+        window.loginCheckpoint('L4-oauth-tracker-loaded', 'OAuth tracker script loaded');
+    </script>
+    
+    <div class="login-container">
+        <div class="logo">
+            <h1>🌍 Super Flashcards</h1>
+            <p>AI-Powered Language Learning</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="login">Sign In</button>
+            <button class="tab" data-tab="register">Create Account</button>
+        </div>
+
+        <!-- Login Form -->
+        <div class="tab-content active" id="login">
+            <form action="/api/auth/google/login" method="GET" style="margin: 0;" id="googleOAuthForm">
+                <button type="submit" class="google-btn" id="googleLoginBtn" style="width: 100%; border: none; cursor: pointer;">
+                    <svg class="google-icon" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Continue with Google
+                </button>
+            </form>
+
+            <div class="divider"><span>or</span></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="submit-btn">Sign In</button>
+            </form>
+        </div>
+
+        <!-- Register Form -->
+        <div class="tab-content" id="register">
+            <form action="/api/auth/google/login" method="GET" style="margin: 0;">
+                <button type="submit" class="google-btn" style="width: 100%; border: none; cursor: pointer;">
+                    <svg class="google-icon" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Sign up with Google
+                </button>
+            </form>
+
+            <div class="divider"><span>or</span></div>
+
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" name="username" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                    <div class="password-requirements">
+                        At least 8 characters with uppercase, lowercase, and numbers
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">Create Account</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // PERFORMANCE TRACKING: Time to Login
+        // ========================================
+        performance.mark('login-page-start');
+        console.log('⏱️ LOGIN PAGE: Loaded and parsing');
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                // Update tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabName).classList.add('active');
+                
+                // Clear messages
+                hideError();
+                hideSuccess();
+            });
+        });
+
+        // ⏱️ TRACK GOOGLE OAUTH BUTTON CLICK
+    document.getElementById('googleOAuthForm').addEventListener('submit', (e) => {
+        const timestamp = new Date().toISOString();
+        const perfTime = performance.now();
+        console.log(`👆 [${timestamp}] User clicked "Continue with Google" (${perfTime.toFixed(0)}ms)`);
+        window.oauthTracker.start('oauth-flow');
+        window.oauthTracker.mark('google-button-clicked');
+        
+        // Store timestamp for cross-page tracking
+        sessionStorage.setItem('oauth_start_time', performance.now());
+        sessionStorage.setItem('oauth_start_timestamp', timestamp);
+        
+        console.log(`🚀 [${new Date().toISOString()}] Redirecting to Google OAuth...`);
+        
+        // Form will submit naturally (redirect to Google)
+    });        // Email/password login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+            
+            const formData = new FormData(e.target);
+            const email = formData.get('email');
+            const password = formData.get('password');
+            
+            try {
+                setLoading(true);
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Login failed');
+                }
+                
+                // Store token
+                localStorage.setItem('auth_token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                // Redirect to main app
+                window.location.href = '/';
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Email/password registration
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+            
+            const formData = new FormData(e.target);
+            const username = formData.get('username');
+            const email = formData.get('email');
+            const password = formData.get('password');
+            
+            try {
+                setLoading(true);
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Registration failed');
+                }
+                
+                // Store token
+                localStorage.setItem('auth_token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                // Redirect to main app
+                window.location.href = '/';
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+    // Check for OAuth callback with token
+    const timestamp = new Date().toISOString();
+    console.log(`🔍 [${timestamp}] Checking for OAuth callback...`);
+    console.log('🔍 Full URL:', window.location.href);
+    console.log('🔍 Pathname:', window.location.pathname);
+    console.log('🔍 Search:', window.location.search);
+    console.log('🔍 Hash:', window.location.hash);
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log('🔍 Checking URL params:', window.location.search);
+    console.log('🔍 Auth param:', urlParams.get('auth'));
+    console.log('🔍 Token param:', urlParams.get('token') ? 'present' : 'missing');        // ⏱️ TRACK OAUTH CALLBACK
+        if (urlParams.get('auth') === 'success' && urlParams.get('token')) {
+            const callbackTimestamp = new Date().toISOString();
+            console.log(`✅ [${callbackTimestamp}] OAuth callback detected, processing token...`);
+            window.oauthTracker.mark('oauth-callback-received');
+            
+            // Calculate OAuth flow time
+            const oauthStartTime = sessionStorage.getItem('oauth_start_time');
+            const oauthStartTimestamp = sessionStorage.getItem('oauth_start_timestamp');
+            
+            if (oauthStartTime) {
+                const oauthDuration = performance.now() - parseFloat(oauthStartTime);
+                const durationSeconds = (oauthDuration / 1000).toFixed(2);
+                const durationMinutes = (oauthDuration / 60000).toFixed(2);
+                
+                console.log(`⏱️  OAuth flow duration: ${durationSeconds}s (${durationMinutes} minutes)`);
+                console.log(`   Started at: ${oauthStartTimestamp}`);
+                console.log(`   Ended at: ${callbackTimestamp}`);
+                
+                if (oauthDuration > 5000) {
+                    console.warn(`⚠️  OAuth took longer than 5 seconds! Duration: ${durationSeconds}s`);
+                }
+                
+                // Clear session storage
+                sessionStorage.removeItem('oauth_start_time');
+                sessionStorage.removeItem('oauth_start_timestamp');
+            } else {
+                console.warn('⚠️  No OAuth start time found in sessionStorage');
+            }
+            window.oauthTracker.start('process-oauth-token');
+            
+            const token = urlParams.get('token');
+            localStorage.setItem('auth_token', token);
+            console.log('💾 Token saved to localStorage');
+            
+            // Fetch user info
+            console.log('🔄 Fetching user info from /api/auth/me...');
+            window.oauthTracker.start('fetch-user-info');
+            
+            fetch('/api/auth/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(r => {
+                window.oauthTracker.end('fetch-user-info');
+                
+                console.log('📥 Got response:', r.status, r.statusText);
+                if (!r.ok) {
+                    throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                }
+                return r.json();
+            })
+            .then(user => {
+                console.log('👤 User info received:', user);
+                localStorage.setItem('user', JSON.stringify(user));
+                
+                window.oauthTracker.end('process-oauth-token');
+                window.oauthTracker.end('oauth-flow');
+                
+                // Show report before redirect
+                const report = window.oauthTracker.getReport();
+                console.log('� OAuth completed successfully!');
+                console.log(`   Total OAuth time: ${window.oauthTracker.formatTime(report.summary.oauth)}`);
+                
+                console.log('�🚀 Redirecting to main app...');
+                window.oauthTracker.mark('redirecting-to-app');
+                
+                window.location.href = '/';
+            })
+            .catch(error => {
+                window.oauthTracker.mark('oauth-error');
+                window.oauthTracker.end('oauth-flow');
+                
+                console.error('❌ OAuth callback error:', error);
+                showError('Authentication failed. Please try again.');
+            });
+        } else {
+            console.log('ℹ️ No OAuth callback parameters found');
+        }
+
+        // Utility functions
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.classList.add('show');
+        }
+
+        function hideSuccess() {
+            document.getElementById('successMessage').classList.remove('show');
+        }
+
+        function setLoading(loading) {
+            document.querySelectorAll('.submit-btn').forEach(btn => {
+                if (loading) {
+                    btn.classList.add('loading');
+                    btn.disabled = true;
+                } else {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        // Check if already logged in
+        const token = localStorage.getItem('auth_token');
+        if (token && !urlParams.get('auth')) {
+            // Verify token is still valid
+            fetch('/api/auth/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(r => {
+                if (r.ok) {
+                    window.location.href = '/';
+                } else {
+                    // Token expired, clear it
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                }
+            })
+            .catch(() => {
+                // Network error or invalid token
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user');
+            });
+        }
+        
+        // ========================================
+        // TIMING: DOM Ready
+        // ========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            window.loginCheckpoint('L5-dom-ready', 'DOM fully loaded, button event listeners attached');
+        });
+        
+        // ========================================
+        // PERFORMANCE REPORT: Login Page Ready
+        // ========================================
+        window.addEventListener('load', () => {
+            performance.mark('login-page-ready');
+            window.loginCheckpoint('L6-page-interactive', 'Login page fully interactive - user can click button');
+            
+            try {
+                performance.measure('time-to-login-ready', 'login-page-start', 'login-page-ready');
+                const timeToLogin = performance.getEntriesByName('time-to-login-ready')[0];
+                
+                console.log(`\n📊 ===== LOGIN PAGE PERFORMANCE REPORT =====`);
+                console.log(`⏱️  Time to Login Button Ready: ${timeToLogin.duration.toFixed(0)}ms (${(timeToLogin.duration/1000).toFixed(3)}s)`);
+                console.log(`✅ OAuth button is now clickable`);
+                
+                // Display all login timing checkpoints
+                if (window.loginTimingLog && window.loginTimingLog.length > 0) {
+                    console.log(`\n📍 LOGIN PAGE CHECKPOINTS:`);
+                    console.table(window.loginTimingLog.map(entry => ({
+                        Checkpoint: entry.checkpoint,
+                        'Elapsed (ms)': entry.elapsed.toFixed(2),
+                        'Elapsed (s)': (entry.elapsed/1000).toFixed(3),
+                        Message: entry.message
+                    })));
+                }
+                
+                console.log(`============================================\n`);
+            } catch (e) {
+                console.warn('⚠️ Could not measure time-to-login:', e);
+            }
+        });
+    </script>
+</body>
+</html>
+

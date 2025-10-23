@@ -8,6 +8,7 @@
  * - Optimistic updates with rollback on failure
  * - Consistent API interface regardless of network state
  * - Background sync integration
+ * - JWT authentication headers
  */
 
 class ApiClient {
@@ -19,6 +20,22 @@ class ApiClient {
         this.retryDelay = 1000; // Start with 1 second
         
         console.log(`🌐 API Client initialized with base URL: ${this.baseUrl}`);
+    }
+    
+    /**
+     * Get authentication headers
+     */
+    getAuthHeaders() {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Add auth token if available
+        if (window.auth && window.auth.getToken()) {
+            headers['Authorization'] = `Bearer ${window.auth.getToken()}`;
+        }
+        
+        return headers;
     }
     
     /**
@@ -97,19 +114,58 @@ class ApiClient {
             // Fetch from server in background
             const freshData = await this.makeHttpRequest(method, url, data, options);
             
-            // Update IndexedDB cache with fresh data
+            // Update IndexedDB cache with fresh data - ONLY IF CHANGED
             if (endpoint.startsWith('/api/flashcards') && Array.isArray(freshData)) {
-                // Update flashcards in cache
+                // Get cached flashcards to compare
+                const cachedFlashcards = await this.db.getAllFlashcards();
+                const cachedMap = new Map(cachedFlashcards.map(c => [c.id, c]));
+                
+                let updated = 0;
+                let added = 0;
+                
+                // Only save flashcards that are new or changed
                 for (const flashcard of freshData) {
-                    await this.db.saveFlashcard(flashcard);
+                    const cached = cachedMap.get(flashcard.id);
+                    
+                    if (!cached) {
+                        // New flashcard
+                        await this.db.saveFlashcard(flashcard);
+                        added++;
+                    } else if (new Date(flashcard.updated_at) > new Date(cached.updated_at)) {
+                        // Updated flashcard
+                        await this.db.saveFlashcard(flashcard);
+                        updated++;
+                    }
+                    // Else: unchanged, skip saving
                 }
-                console.log(`  🔄 Background cache updated: ${freshData.length} flashcards`);
+                
+                if (added > 0 || updated > 0) {
+                    console.log(`  🔄 Background cache updated: ${added} added, ${updated} updated (${freshData.length} total)`);
+                }
             } else if (endpoint.startsWith('/api/languages') && Array.isArray(freshData)) {
-                // Update languages in cache
+                // Get cached languages to compare
+                const cachedLanguages = await this.db.getAllLanguages();
+                const cachedMap = new Map(cachedLanguages.map(l => [l.id, l]));
+                
+                let updated = 0;
+                let added = 0;
+                
+                // Only save languages that are new or changed
                 for (const language of freshData) {
-                    await this.db.saveLanguage(language);
+                    const cached = cachedMap.get(language.id);
+                    
+                    if (!cached) {
+                        await this.db.saveLanguage(language);
+                        added++;
+                    } else if (JSON.stringify(language) !== JSON.stringify(cached)) {
+                        await this.db.saveLanguage(language);
+                        updated++;
+                    }
                 }
-                console.log(`  🔄 Background cache updated: ${freshData.length} languages`);
+                
+                if (added > 0 || updated > 0) {
+                    console.log(`  🔄 Background cache updated: ${added} added, ${updated} updated languages`);
+                }
             }
         } catch (error) {
             console.warn('  ⚠️  Background cache update failed (non-critical):', error);
@@ -132,10 +188,10 @@ class ApiClient {
                 const requestOptions = {
                     method: method,
                     headers: {
-                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders(),  // Include JWT auth headers
                         ...options.headers
                     },
-                    credentials: 'include'  // CRITICAL: Include Basic Auth credentials with requests
+                    credentials: 'include'  // Include cookies (for HTTP-only auth cookies)
                 };
                 
                 if (data && (method === 'POST' || method === 'PUT')) {

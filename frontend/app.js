@@ -336,7 +336,13 @@ async function loadLanguages() {
 // ========================================
 
 async function loadFlashcards() {
-    if (!state.currentLanguage) return;
+    // During first-time progressive load, we might not have a language selected yet
+    // Allow loading without language filter in this case
+    const hasLanguages = state.languages && state.languages.length > 0;
+    if (!state.currentLanguage && hasLanguages) {
+        // Languages are loaded but none selected - this is an error state
+        return;
+    }
     
     try {
         showLoading();
@@ -347,16 +353,30 @@ async function loadFlashcards() {
             try {
                 // New offline-first approach
                 flashcards = await apiClient.getFlashcards();
-                // Filter by language (language_id exists in Cloud SQL!)
-                flashcards = flashcards.filter(card => card.language_id === state.currentLanguage);
-                console.log(`Loaded ${flashcards.length} flashcards for language ${state.currentLanguage}`);
+                
+                // IMPORTANT: Only filter by language if we have actual language data
+                // During progressive first-time load, languages may not be loaded yet
+                const hasLanguages = state.languages && state.languages.length > 0;
+                if (hasLanguages && state.currentLanguage) {
+                    // Filter by language (language_id exists in Cloud SQL!)
+                    flashcards = flashcards.filter(card => card.language_id === state.currentLanguage);
+                    console.log(`Loaded ${flashcards.length} flashcards for language ${state.currentLanguage}`);
+                } else {
+                    // No language filtering - show all available cards
+                    console.log(`Loaded ${flashcards.length} flashcards (no language filter)`);
+                }
             } catch (error) {
                 console.warn('API client failed, using offline data:', error);
                 // If API fails, get from IndexedDB directly
                 if (offlineDB) {
                     const allCards = await offlineDB.getAllFlashcards();
-                    // Filter by language for offline data too
-                    flashcards = allCards.filter(card => card.language_id === state.currentLanguage);
+                    // Filter by language for offline data too (if we have language data)
+                    const hasLanguages = state.languages && state.languages.length > 0;
+                    if (hasLanguages && state.currentLanguage) {
+                        flashcards = allCards.filter(card => card.language_id === state.currentLanguage);
+                    } else {
+                        flashcards = allCards;
+                    }
                 } else {
                     flashcards = [];
                 }
@@ -985,6 +1005,11 @@ function nextCard() {
         const card = document.querySelector('.flashcard');
         card.classList.remove('flipped');
         state.isFlipped = false;
+        
+        // Prefetch next 3 cards (simple prefetch as Claude suggested)
+        if (window.firstTimeLoader) {
+            window.firstTimeLoader.prefetchNextCards(state.flashcards, state.currentCardIndex, 3);
+        }
     }
 }
 
@@ -998,6 +1023,11 @@ function prevCard() {
         const card = document.querySelector('.flashcard');
         card.classList.remove('flipped');
         state.isFlipped = false;
+        
+        // Prefetch surrounding cards
+        if (window.firstTimeLoader) {
+            window.firstTimeLoader.prefetchNextCards(state.flashcards, state.currentCardIndex, 3);
+        }
     }
 }
 
@@ -1978,24 +2008,81 @@ function deleteFromEditModal() {
  * Initialize offline-first architecture
  */
 async function initializeOfflineFirst() {
-    console.log('🔄 Initializing Sprint 5 offline-first architecture...');
+    console.log('\n� ===== INITIALIZE OFFLINE FIRST =====');
+    performance.mark('T9-init-offline-start');
+    const initStart = performance.now();
+    window.timingCheckpoint?.('T9-init-offline-start', 'Starting offline-first initialization');
     
     try {
-        // Initialize IndexedDB
-        console.log('📂 Initializing IndexedDB...');
+        // Step 1: Create OfflineDB instance
+        console.log('📦 Step 1/5: Creating OfflineDB instance...');
+        const dbCreateStart = performance.now();
+        
         offlineDB = new OfflineDatabase();
+        
+        const dbCreateTime = performance.now() - dbCreateStart;
+        console.log(`📦 OfflineDB instance created in ${dbCreateTime.toFixed(2)}ms`);
+        
+        // Step 2: Initialize IndexedDB
+        console.log('📂 Step 2/5: Initializing IndexedDB...');
+        const dbInitStart = performance.now();
+        
         await offlineDB.init();
         
-        // Initialize Sync Manager
-        console.log('🔄 Initializing Sync Manager...');
+        const dbInitTime = performance.now() - dbInitStart;
+        console.log(`📂 IndexedDB initialized in ${dbInitTime.toFixed(2)}ms`);
+        
+        if (dbInitTime > 1000) {
+            console.error(`⚠️ WARNING: OfflineDB.init() took ${dbInitTime.toFixed(2)}ms (>1s)`);
+            console.error('   This could be causing delays in app startup!');
+        }
+        
+        // Step 3: Create SyncManager instance
+        console.log('🔄 Step 3/5: Creating SyncManager...');
+        const syncCreateStart = performance.now();
+        
         syncManager = new SyncManager(offlineDB);
+        
+        const syncCreateTime = performance.now() - syncCreateStart;
+        console.log(`🔄 SyncManager instance created in ${syncCreateTime.toFixed(2)}ms`);
+        
+        // Step 4: Initialize SyncManager
+        console.log('🔄 Step 4/5: Initializing SyncManager (will start progressive sync)...');
+        const syncInitStart = performance.now();
+        
         await syncManager.init();
         
-        // Initialize API Client
-        console.log('🌐 Initializing API Client...');
+        const syncInitTime = performance.now() - syncInitStart;
+        console.log(`🔄 SyncManager initialized in ${syncInitTime.toFixed(2)}ms`);
+        
+        if (syncInitTime > 1000) {
+            console.error(`⚠️ WARNING: SyncManager.init() took ${syncInitTime.toFixed(2)}ms (>1s)`);
+            console.error('   Progressive loading should be faster than this!');
+        }
+        
+        // Step 5: Create ApiClient
+        console.log('🌐 Step 5/5: Creating ApiClient...');
+        const apiCreateStart = performance.now();
+        
         apiClient = new ApiClient(offlineDB, syncManager);
         
-        console.log('✅ Sprint 5 initialization complete!');
+        const apiCreateTime = performance.now() - apiCreateStart;
+        console.log(`🌐 ApiClient created in ${apiCreateTime.toFixed(2)}ms`);
+        
+        // Total initialization time
+        const totalInitTime = performance.now() - initStart;
+        console.log(`✅ initializeOfflineFirst() COMPLETE in ${totalInitTime.toFixed(2)}ms (${(totalInitTime/1000).toFixed(3)}s)`);
+        
+        if (totalInitTime > 2000) {
+            console.error(`🚨 CRITICAL: initializeOfflineFirst() took ${totalInitTime.toFixed(2)}ms (>2s)`);
+            console.error('   This is likely causing significant startup delay!');
+        }
+        
+        performance.mark('T9-init-offline-end');
+        performance.measure('init-offline-time', 'T9-init-offline-start', 'T9-init-offline-end');
+        window.timingCheckpoint?.('T9-init-offline-complete', `Offline-first initialization complete (${totalInitTime.toFixed(2)}ms)`);
+        
+        console.log('🔧 ===== OFFLINE FIRST COMPLETE =====\n');
         
         // Setup sync button
         setupSyncButton();
@@ -2009,8 +2096,12 @@ async function initializeOfflineFirst() {
         setInterval(updateSyncStatus, 30000); // Update every 30 seconds
         
     } catch (error) {
-        console.error('❌ Failed to initialize Sprint 5:', error);
+        const errorTime = performance.now() - initStart;
+        console.error(`❌ Failed to initialize offline-first after ${errorTime.toFixed(2)}ms:`, error);
+        console.error('Error stack:', error.stack);
+        window.timingCheckpoint?.('T9-ERROR-init-failed', `Initialization failed: ${error.message}`);
         showToast('Failed to initialize offline features', 5000);
+        throw error; // Re-throw to prevent app from continuing in broken state
     }
 }
 
@@ -2264,13 +2355,41 @@ function debugLog(message) {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 DOMContentLoaded fired, initializing app...');
+    console.log('\n🚀 ===== DOM CONTENT LOADED =====');
+    performance.mark('T10-dom-ready');
+    const domReadyTime = performance.now();
+    const timeSincePageStart = domReadyTime - (window.pageLoadStart || 0);
+    
+    console.log(`🚀 DOMContentLoaded fired at ${domReadyTime.toFixed(2)}ms (${timeSincePageStart.toFixed(2)}ms from page start)`);
+    window.timingCheckpoint?.('T10-dom-ready', `DOM ready, starting app initialization`);
     
     // Sprint 5: Initialize offline-first architecture
-    await initializeOfflineFirst();
+    console.log('\n⏱️ Starting offline-first initialization...');
+    const initStart = performance.now();
+    
+    try {
+        await initializeOfflineFirst();
+        
+        const initTime = performance.now() - initStart;
+        console.log(`⏱️ Offline-first initialized in ${initTime.toFixed(2)}ms`);
+        window.timingCheckpoint?.('T11-offline-init-done', `Offline initialization complete (${initTime.toFixed(2)}ms)`);
+        
+    } catch (error) {
+        const errorTime = performance.now() - initStart;
+        console.error(`❌ Offline initialization failed after ${errorTime.toFixed(2)}ms:`, error);
+        // Continue despite error - app may still work in degraded mode
+    }
     
     // Initialize new UI (mode toggle & hamburger menu)
+    console.log('\n🎨 Initializing UI...');
+    const uiStart = performance.now();
+    
     initializeNewUI();
+    
+    const uiTime = performance.now() - uiStart;
+    console.log(`🎨 UI initialized in ${uiTime.toFixed(2)}ms`);
+    window.timingCheckpoint?.('T12-ui-initialized', `UI controls ready (${uiTime.toFixed(2)}ms)`);
+    
     // Setup debug panel (menu)
     setupDebugButtons();
     
@@ -2287,8 +2406,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     
+    console.log('\n📚 Loading languages and initializing batch IPA...');
+    const languagesStart = performance.now();
+    
     loadLanguages();
     initializeBatchIPA();
+    
+    const languagesTime = performance.now() - languagesStart;
+    console.log(`📚 Languages loaded in ${languagesTime.toFixed(2)}ms`);
+    
+    // CRITICAL MILESTONE: Calculate total time to this point
+    const totalTime = performance.now() - (window.pageLoadStart || 0);
+    console.log('\n' + '='.repeat(80));
+    console.log(`📊 APP INITIALIZATION CHECKPOINT`);
+    console.log(`   Time since page load: ${totalTime.toFixed(2)}ms (${(totalTime/1000).toFixed(3)}s)`);
+    console.log(`   Offline init: ${(performance.now() - initStart).toFixed(2)}ms`);
+    console.log(`   UI init: ${uiTime.toFixed(2)}ms`);
+    console.log('='.repeat(80) + '\n');
+    
+    if (totalTime > 10000) {
+        console.error(`🚨 CRITICAL: ${(totalTime/1000).toFixed(1)}s elapsed - app is taking too long to initialize!`);
+    }
     
     // ========================================
     // Form Event Listeners
@@ -3535,3 +3673,170 @@ window.testReadCard = function() {
 };
 
 console.log('💡 Debug helpers loaded! Use debugReadMode() or testReadCard() in console');
+
+// ============================================================================
+// PERFORMANCE TIMING UTILITIES
+// ============================================================================
+
+/**
+ * Detect user state (new vs returning)
+ */
+function detectUserState() {
+    console.log('\n👤 ===== USER STATE DETECTION =====');
+    
+    // Check various indicators
+    const hasVisitedBefore = localStorage.getItem('has-visited');
+    const hasAuthToken = localStorage.getItem('auth_token');
+    const hasIndexedDBData = localStorage.getItem('indexeddb-populated');
+    const firstVisitTime = localStorage.getItem('first-visit-time');
+    
+    let userState;
+    let stateDescription;
+    
+    if (!hasVisitedBefore) {
+        userState = 'BRAND_NEW_USER';
+        stateDescription = 'First-time visitor - never been here before';
+        localStorage.setItem('has-visited', 'true');
+        localStorage.setItem('first-visit-time', Date.now().toString());
+    } else if (!hasAuthToken) {
+        userState = 'RETURNING_NO_AUTH';
+        stateDescription = 'Returning visitor without authentication';
+    } else if (!hasIndexedDBData) {
+        userState = 'AUTHED_NO_DATA';
+        stateDescription = 'Authenticated but no local data cached';
+    } else {
+        userState = 'RETURNING_FULL';
+        stateDescription = 'Returning user with full cache';
+    }
+    
+    console.log('User State:', userState);
+    console.log('Description:', stateDescription);
+    console.log('Details:', {
+        'Has Visited': !!hasVisitedBefore,
+        'Has Auth Token': !!hasAuthToken,
+        'Has IndexedDB Data': !!hasIndexedDBData,
+        'First Visit': firstVisitTime ? new Date(parseInt(firstVisitTime)).toISOString() : 'N/A'
+    });
+    
+    // Store for later use
+    window.userState = userState;
+    window.timingCheckpoint?.('user-state-detected', `User state: ${userState} - ${stateDescription}`);
+    
+    console.log('👤 ===== USER STATE: ' + userState + ' =====\n');
+    
+    return userState;
+}
+
+/**
+ * Display comprehensive timing report
+ */
+function displayTimingReport() {
+    console.log('\n' + '='.repeat(80));
+    console.log('📊 COMPREHENSIVE TIMING REPORT');
+    console.log('='.repeat(80));
+    
+    // Get all performance marks
+    const allMarks = performance.getEntriesByType('mark');
+    const allMeasures = performance.getEntriesByType('measure');
+    
+    if (allMarks.length > 0) {
+        console.log('\n📍 PERFORMANCE CHECKPOINTS:');
+        console.table(allMarks.map(mark => ({
+            Name: mark.name,
+            'Time (ms)': mark.startTime.toFixed(2),
+            'Time (s)': (mark.startTime / 1000).toFixed(3)
+        })));
+    }
+    
+    if (allMeasures.length > 0) {
+        console.log('\n⏱️ MEASURED DURATIONS:');
+        console.table(allMeasures.map(measure => ({
+            Name: measure.name,
+            'Duration (ms)': measure.duration.toFixed(2),
+            'Duration (s)': (measure.duration / 1000).toFixed(3)
+        })));
+    }
+    
+    // Calculate key milestones
+    const milestones = {
+        'Page Load → Head Complete': getDuration('T0-URL-requested', 'T1d-head-complete'),
+        'Head → Body Start': getDuration('T1d-head-complete', 'T2-body-start'),
+        'Body → Auth Loaded': getDuration('T2-body-start', 'T3b-auth-js-loaded'),
+        'Auth → DOM Ready': getDuration('T3e-auth-success', 'T10-dom-ready'),
+        'DOM Ready → Offline Init Done': getDuration('T10-dom-ready', 'T9-init-offline-complete'),
+        'Offline Init → UI Ready': getDuration('T9-init-offline-complete', 'T12-ui-initialized'),
+        'TOTAL: Page → UI Ready': getDuration('T0-URL-requested', 'T12-ui-initialized')
+    };
+    
+    console.log('\n🎯 KEY MILESTONES:');
+    const milestoneTable = Object.entries(milestones)
+        .map(([name, duration]) => ({
+            Milestone: name,
+            'Duration (ms)': duration ? duration.toFixed(2) : 'N/A',
+            'Duration (s)': duration ? (duration / 1000).toFixed(3) : 'N/A',
+            Status: !duration ? 'N/A' : duration > 5000 ? '🚨 SLOW' : duration > 2000 ? '⚠️ DELAYED' : '✅ OK'
+        }));
+    console.table(milestoneTable);
+    
+    // Identify bottlenecks
+    console.log('\n🔍 BOTTLENECK ANALYSIS:');
+    const slowPhases = Object.entries(milestones)
+        .filter(([_, duration]) => duration && duration > 2000)
+        .sort((a, b) => b[1] - a[1]);
+    
+    if (slowPhases.length === 0) {
+        console.log('✅ No significant bottlenecks found! All phases completed quickly.');
+    } else {
+        console.log('🚨 SLOW PHASES DETECTED (>2 seconds):');
+        slowPhases.forEach(([name, duration]) => {
+            console.log(`   ${name}: ${(duration / 1000).toFixed(3)}s`);
+        });
+    }
+    
+    // Check error tracker
+    if (window.errorTracker?.hasErrors()) {
+        console.log('\n🚨 ERRORS DETECTED:');
+        window.errorTracker.printReport();
+    } else {
+        console.log('\n✅ No errors detected during initialization');
+    }
+    
+    // Check for fallback scenarios
+    const fallbacks = window.errorTracker?.detectFallbacks() || [];
+    if (fallbacks.length > 0) {
+        console.log('\n⚠️ FALLBACK SCENARIOS DETECTED:');
+        console.table(fallbacks);
+    }
+    
+    console.log('\n' + '='.repeat(80));
+    console.log('📊 END OF TIMING REPORT');
+    console.log('='.repeat(80) + '\n');
+}
+
+/**
+ * Get duration between two performance marks
+ */
+function getDuration(startMarkName, endMarkName) {
+    const startMark = performance.getEntriesByName(startMarkName)[0];
+    const endMark = performance.getEntriesByName(endMarkName)[0];
+    
+    if (!startMark || !endMark) return null;
+    return endMark.startTime - startMark.startTime;
+}
+
+// Expose timing functions globally for debugging
+window.displayTimingReport = displayTimingReport;
+window.detectUserState = detectUserState;
+
+// Detect user state early
+detectUserState();
+
+// Display timing report after window loads
+window.addEventListener('load', () => {
+    // Wait a bit to ensure all measurements are complete
+    setTimeout(() => {
+        displayTimingReport();
+    }, 500);
+});
+
+console.log('⏱️ Performance timing utilities loaded!');

@@ -89,20 +89,40 @@ class AIGenerateResponse(BaseModel):
     image_description: Optional[str] = None
     image_url: Optional[str] = None
 
-# User Schemas
+# User Authentication Schemas
 class UserBase(BaseModel):
     username: str
+    email: str
     preferred_instruction_language: str = "en"
 
-class UserCreate(UserBase):
-    email: Optional[str] = None
-    password: Optional[str] = None
+class UserCreate(BaseModel):
+    """For email/password registration"""
+    username: str
+    email: str
+    password: str
+    preferred_instruction_language: str = "en"
+
+class UserLogin(BaseModel):
+    """For email/password login"""
+    email: str
+    password: str
+
+class UserUpdate(BaseModel):
+    """For updating user profile"""
+    username: Optional[str] = None
+    preferred_instruction_language: Optional[str] = None
 
 class User(UserBase):
+    """User response schema"""
     id: UUID
-    email: Optional[str] = None
+    auth_provider: str
+    name: Optional[str] = None
+    picture: Optional[str] = None
+    is_active: bool
+    is_verified: bool
     created_at: datetime
     updated_at: datetime
+    last_login: Optional[datetime] = None
     
     @field_serializer('id')
     def serialize_id(self, value):
@@ -110,6 +130,18 @@ class User(UserBase):
     
     class Config:
         from_attributes = True
+
+class Token(BaseModel):
+    """JWT token response"""
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+class TokenData(BaseModel):
+    """Data stored in JWT token"""
+    user_id: str
+    email: str
+    exp: Optional[int] = None
 
 class UserPreferencesUpdate(BaseModel):
     preferred_instruction_language: str

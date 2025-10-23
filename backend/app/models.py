@@ -15,12 +15,31 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
+    
+    # Basic info
     username = Column(NVARCHAR(50), unique=True, nullable=False)
-    email = Column(NVARCHAR(255), nullable=True)
-    password_hash = Column(NVARCHAR(255), nullable=True)
+    email = Column(NVARCHAR(255), unique=True, nullable=False)  # Now required and unique
+    
+    # Authentication fields
+    password_hash = Column(NVARCHAR(255), nullable=True)  # Null for OAuth-only users
+    auth_provider = Column(NVARCHAR(20), default='email')  # 'email', 'google', 'github', etc.
+    
+    # Google OAuth fields
+    google_id = Column(NVARCHAR(255), unique=True, nullable=True)  # Google's unique user ID
+    name = Column(NVARCHAR(100), nullable=True)  # Full name from OAuth
+    picture = Column(NVARCHAR(500), nullable=True)  # Profile picture URL
+    
+    # Preferences
     preferred_instruction_language = Column(NVARCHAR(10), default='en')
+    
+    # Account status
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)  # Email verification status
+    
+    # Timestamps
     created_at = Column(DateTime, server_default=func.getdate())
-    updated_at = Column(DateTime, server_default=func.getdate())
+    updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
+    last_login = Column(DateTime, nullable=True)
     
     # Relationships - Commented out for Cloud SQL (FK columns missing)
     # flashcards = relationship("Flashcard", back_populates="user")
