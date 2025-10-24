@@ -15,6 +15,12 @@ if CLOUD_RUN:
     username = os.getenv("SQL_USERNAME", "flashcards_user")
     password = os.getenv("SQL_PASSWORD", "")  # Will be loaded from Secret Manager
     
+    print(f"🔌 Cloud Run Database Configuration:")
+    print(f"   Server: {server}")
+    print(f"   Database: {database}")
+    print(f"   Username: {username}")
+    print(f"   Password: {'*' * len(password) if password else '(empty)'}")
+    
     # Connect to Cloud SQL via public IP with SQL Auth
     params = urllib.parse.quote_plus(
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
