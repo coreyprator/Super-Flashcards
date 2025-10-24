@@ -332,7 +332,7 @@ async def google_login(request: Request):
         raise
 
 
-@router.get("/callback")
+@router.get("/google/callback")
 async def auth_callback(request: Request, response: Response, db: Session = Depends(get_db)):
     """
     Handle OAuth callback from Google.
