@@ -57,6 +57,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# DEBUG: Check if SQL_PASSWORD is available
+sql_password = os.getenv("SQL_PASSWORD", "")
+logger.info(f"🔍 SQL_PASSWORD environment variable: {'SET (' + str(len(sql_password)) + ' chars)' if sql_password else 'NOT SET'}")
+
 # Session middleware for OAuth (required by authlib)
 from starlette.middleware.sessions import SessionMiddleware
 
