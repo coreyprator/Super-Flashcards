@@ -22,14 +22,16 @@ if CLOUD_RUN:
     print(f"   Password: {'*' * len(password) if password else '(empty)'}")
     
     # Connect to Cloud SQL via public IP with SQL Auth
+    # Add port 1433 explicitly and increase timeout
     params = urllib.parse.quote_plus(
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={server};"
+        f"SERVER={server},1433;"
         f"DATABASE={database};"
         f"UID={username};"
         f"PWD={password};"
         f"Encrypt=yes;"
         f"TrustServerCertificate=yes;"
+        f"Connection Timeout=30;"
     )
     DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
 else:
