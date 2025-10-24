@@ -394,6 +394,23 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         sanitize_time = (time.time() - sanitize_start) * 1000
         print(f"✅ Data sanitized in {sanitize_time:.2f}ms")
         
+        # DIAGNOSTIC TEST: Database connection BEFORE user query
+        print(f"🧪 DIAGNOSTIC: Testing database connection BEFORE user query...")
+        try:
+            diag_start = time.time()
+            from sqlalchemy import text
+            test_result = db.execute(text("SELECT 1")).scalar()
+            diag_elapsed = (time.time() - diag_start) * 1000
+            print(f"✅ DIAGNOSTIC: Immediate query succeeded: {test_result} ({diag_elapsed:.0f}ms)")
+            
+            # Calculate how long connection has been idle
+            total_elapsed = time.time() - start_time
+            print(f"📊 DIAGNOSTIC: Connection idle time so far: {total_elapsed:.2f}s")
+        except Exception as diag_error:
+            diag_elapsed = (time.time() - diag_start) * 1000
+            print(f"❌ DIAGNOSTIC: Immediate query FAILED after {diag_elapsed:.0f}ms: {diag_error}")
+            print(f"   This suggests connection issue is NOT timing-related")
+        
         # Check if user exists by Google ID
         print(f"🔄 Step 4/5: Checking if user exists in database...")
         db_start = time.time()

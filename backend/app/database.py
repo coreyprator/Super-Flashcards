@@ -62,7 +62,18 @@ else:
         )
         DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
 
-engine = create_engine(DATABASE_URL, echo=True)
+# Create engine with connection pool settings
+# pool_pre_ping: Test connections before using them (prevents "connection closed" errors)
+# This is critical for async operations that may leave connections idle
+engine = create_engine(
+    DATABASE_URL, 
+    echo=True,
+    pool_pre_ping=True,      # Test connection before use
+    pool_size=5,              # Number of connections to maintain
+    max_overflow=10,          # Additional connections when pool exhausted
+    pool_recycle=3600,        # Recycle connections after 1 hour
+    pool_timeout=30           # Timeout for getting connection from pool
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
