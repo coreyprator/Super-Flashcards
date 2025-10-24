@@ -59,7 +59,17 @@ app = FastAPI(
 
 # Session middleware for OAuth (required by authlib)
 from starlette.middleware.sessions import SessionMiddleware
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)))
+
+# Configure session cookie for Cloud Run (HTTPS) and local dev (HTTP)
+# SameSite=Lax allows cookies to be sent on top-level navigation (OAuth redirect)
+# HTTPS_ONLY should be True in production (Cloud Run) but False in local dev
+IS_CLOUD_RUN = os.getenv("K_SERVICE") is not None
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
+    https_only=IS_CLOUD_RUN,  # Only require HTTPS in production
+    same_site="lax",  # Allow cookies on redirects (required for OAuth)
+)
 
 # Proxy header middleware for Cloud Run
 # Cloud Run terminates HTTPS and forwards as HTTP, so we need to trust X-Forwarded-Proto
