@@ -195,7 +195,7 @@ app.include_router(batch_processing.router, prefix="/api", tags=["batch_processi
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
 
 # Import document parser router
-from . import document_parser
+from .routers import document_parser
 app.include_router(document_parser.router, prefix="/api/document", tags=["document-parser"])  # Document parsing for word extraction
 
 # Serve static files (frontend)
