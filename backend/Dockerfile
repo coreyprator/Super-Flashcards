@@ -18,14 +18,14 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY backend/app/ ./app/
+COPY app/ ./app/
 
-# Copy frontend files for static serving
-COPY frontend/ ./frontend/
+# Copy frontend files for static serving  
+COPY ../frontend/ ./frontend/
 
 # NOTE: images/ and audio/ are served from Cloud Storage (gs://super-flashcards-media/)
 # not from the container to keep image size small
