@@ -66,8 +66,8 @@ Successfully deployed Google OAuth authentication to production Cloud Run enviro
 **Symptom**: Health check returned {"database":"connected"} but OAuth callback failed with "Login failed for user 'flashcards_user'"
 
 **Root Cause**: Trailing space in password stored in Secret Manager
-- Password was `"<REDACTED> "` (22 chars with space)
-- Should be `"<REDACTED>"` (20 chars)
+- Password was `"<REDACTED> "` (22 chars with trailing space)
+- Should be `"<REDACTED>"` (20 chars without trailing space)
 
 **Solution**:
 ```powershell
