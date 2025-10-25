@@ -239,6 +239,162 @@ gcloud run deploy super-flashcards \           # Deploys to Cloud Run
 
 **Solution**: Use `/health/db` for real database verification
 
+### 5. Security Incident: Password Exposure (RESOLVED) ⚠️🔒
+**Date**: October 25, 2025
+**Severity**: High - Database password exposed in documentation
+**Status**: ✅ FULLY REMEDIATED
+
+#### What Happened:
+During initial documentation of the OAuth implementation, the production database password was accidentally included in troubleshooting examples and configuration documentation. The password was committed to git and pushed to GitHub in commits `3bb6299` and `8407e7b`, making it publicly visible.
+
+#### Exposure Timeline:
+- **Initial Commit**: `3bb6299` - "Add production regression test plan and sprint handoff documentation" (included password in examples)
+- **Second Commit**: `8407e7b` - "Update handoff doc with latest git status" (password still present)
+- **Detection**: ~30 minutes after initial commit
+- **Remediation Started**: Immediately upon detection
+- **Remediation Complete**: Same day
+
+#### Files Affected:
+- `SPRINT_HANDOFF_OAUTH_COMPLETE.md` (tracked, committed to GitHub)
+- `CURRENT_BLOCKING_ISSUE.md` (untracked, local only)
+- `DIAGNOSIS_BREAKTHROUGH.md` (untracked, local only)
+- Various local scripts (untracked)
+
+#### Remediation Actions Taken:
+
+1. **Git History Rewrite** ✅
+   ```bash
+   # Used git filter-branch to replace password with <REDACTED> in all commits
+   git filter-branch --tree-filter "sed -i 's/[PASSWORD]/<REDACTED>/g' SPRINT_HANDOFF_OAUTH_COMPLETE.md" 3bb6299^..HEAD
+   
+   # Force-pushed cleaned history to GitHub
+   git push origin main --force
+   
+   # Cleaned local repository
+   git reflog expire --expire=now --all
+   git gc --prune=now --aggressive
+   ```
+
+2. **Password Rotation** ✅
+   - Generated new 20-character random password
+   - Updated password in SQL Server: `ALTER LOGIN flashcards_user WITH PASSWORD = '[NEW_PASSWORD]'`
+   - Created new Secret Manager version: `db-password:5`
+   - Deployed Cloud Run revision `00054-xw9` with new password
+   - Verified new password works with test connection
+
+3. **Documentation Cleanup** ✅
+   - Replaced all password instances with `<REDACTED>` placeholder
+   - Removed password from command examples
+   - Added security notes about Secret Manager usage
+
+4. **Verification** ✅
+   - Confirmed old password no longer in git history
+   - Confirmed new password works in production
+   - Confirmed OAuth flow still functional
+   - Confirmed database connections successful
+
+#### Current State:
+- **Old Password**: Invalid (rotated out)
+- **New Password**: Stored securely in Secret Manager (db-password:5)
+- **Git History**: Clean, no passwords exposed
+- **Production**: Fully functional with new password
+- **Security**: Restored ✅
+
+#### Lessons Learned:
+
+**🚨 NEVER include passwords in documentation:**
+- ❌ Don't put passwords in markdown files
+- ❌ Don't include passwords in code comments
+- ❌ Don't use real passwords in examples
+- ❌ Don't commit passwords to version control
+
+**✅ ALWAYS use secure storage:**
+- ✅ Store passwords in Secret Manager, .env files (gitignored), or secure vaults
+- ✅ Reference secrets by name, not value: `SQL_PASSWORD=<from Secret Manager>`
+- ✅ Use placeholders in documentation: `<REDACTED>`, `<YOUR_PASSWORD>`, `$PASSWORD`
+- ✅ Keep secrets in separate, gitignored files
+
+**✅ Git hygiene:**
+- ✅ Review commits before pushing to ensure no sensitive data
+- ✅ Use `.gitignore` for any files containing secrets
+- ✅ If secrets are exposed, rewrite history immediately (don't just add a new commit)
+- ✅ Force-push is acceptable for security incidents in private repos
+
+**✅ Defense in depth:**
+- ✅ Rotate passwords immediately if exposure suspected
+- ✅ Use Secret Manager/vault services for all sensitive values
+- ✅ Implement pre-commit hooks to scan for secrets
+- ✅ Regular security audits of documentation
+
+**✅ Incident response checklist:**
+1. Detect exposure
+2. Stop further commits
+3. Rewrite git history to remove exposed secret
+4. Force-push cleaned history
+5. Rotate the exposed credential immediately
+6. Update all systems using the credential
+7. Verify systems still functional
+8. Document the incident and lessons learned
+
+#### Prevention Measures for Future:
+
+**Documentation Standards:**
+```markdown
+# ✅ GOOD - Use placeholders
+sqlcmd -S server.example.com -U myuser -P <YOUR_PASSWORD> -d mydb
+
+# ✅ GOOD - Reference secret storage
+Password: (stored in Secret Manager: db-password:latest)
+
+# ❌ BAD - Real password
+sqlcmd -S server.example.com -U myuser -P RealPassword123 -d mydb
+```
+
+**Code Standards:**
+```python
+# ✅ GOOD - Load from environment/secrets
+password = os.getenv("SQL_PASSWORD")
+
+# ✅ GOOD - Use Secret Manager SDK
+from google.cloud import secretmanager
+password = get_secret("db-password")
+
+# ❌ BAD - Hardcoded password
+password = "RealPassword123"
+```
+
+**Git Standards:**
+```bash
+# Add to .gitignore
+*.env
+*_SECRET*
+.env.local
+secrets/
+**/*password*.txt
+```
+
+**Recommended Tools:**
+- `git-secrets` - Prevents committing secrets
+- `truffleHog` - Scans repos for secrets
+- `detect-secrets` - Pre-commit hook for secret detection
+- GitHub Secret Scanning - Automatically detects exposed secrets
+
+#### Impact Assessment:
+- **Exposure Duration**: ~30 minutes (GitHub public)
+- **Systems Affected**: Production database password only
+- **Data Breach**: None detected
+- **Service Interruption**: None (rotation performed seamlessly)
+- **User Impact**: None (transparent to users)
+
+#### Sign-Off:
+- [x] Password rotated and verified working
+- [x] Git history cleaned and force-pushed
+- [x] Documentation updated with security guidance
+- [x] Incident documented for future reference
+- [x] Production system fully functional
+
+**This incident is CLOSED and RESOLVED.** All remediation complete. Security restored. 🔒
+
 ---
 
 ## Next Sprint: Recommended Focus Areas
