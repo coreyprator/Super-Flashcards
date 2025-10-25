@@ -1,19 +1,20 @@
 # backend/app/main.py
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
+from sqlalchemy.orm import Session
 import os
 import logging
 import time
 from datetime import datetime
 import secrets
 
-from app.database import engine
+from app.database import engine, get_db
 from app import models
 from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
@@ -399,12 +400,30 @@ async def serve_first_time_loader_js():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
         "version": "1.0.0",
         "database": "connected"
     }
+
+@app.get("/health/db")
+async def health_check_database(db: Session = Depends(get_db)):
+    """Health check endpoint that ACTUALLY tests database connection"""
+    try:
+        from sqlalchemy import text
+        result = db.execute(text("SELECT 1")).scalar()
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "test_query": f"SUCCESS (result={result})"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "database": "failed",
+            "error": str(e)
+        }
 
 @app.get("/api/sync")
 async def sync_status():
