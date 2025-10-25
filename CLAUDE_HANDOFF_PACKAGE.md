@@ -7,6 +7,26 @@
 
 ---
 
+## 🔒 CRITICAL SECURITY UPDATE - READ FIRST
+
+**Security Incident Resolved**: During documentation preparation, a database password was accidentally included in example code and pushed to GitHub. The incident was detected within 30 minutes and fully remediated:
+
+✅ **Actions Taken**:
+- Git history rewritten to remove password from all commits
+- Database password rotated (SQL Server, Secret Manager, Cloud Run)
+- Production system deployed with new credentials (revision 00054-xw9)
+- Comprehensive security documentation added to handoff materials
+
+✅ **Current Status**:
+- Old password: **INVALID** (no longer works)
+- New password: Active in Secret Manager version 5
+- No data breach or service interruption occurred
+- System fully operational with new credentials
+
+📄 **Full Details**: See Section 5 "Security Incident" in `SPRINT_HANDOFF_OAUTH_COMPLETE.md` for complete timeline, remediation steps, lessons learned, and prevention measures.
+
+---
+
 ## 📋 Required Documents for Handoff
 
 ### 1. **SPRINT_HANDOFF_OAUTH_COMPLETE.md** ⭐ PRIMARY HANDOFF
@@ -18,6 +38,7 @@
 - Major issues resolved with detailed explanations
 - Google OAuth implementation lessons learned
 - Known limitations and future improvements
+- **🔒 SECURITY INCIDENT: Password exposure and complete remediation** (NEW)
 - Recommended next sprint focus areas (4 phases)
 - File locations and key code
 - Environment variables and secrets
@@ -26,7 +47,7 @@
 - Critical commands reference
 - Questions for sprint planning
 
-**Why Claude needs it**: This is the complete story of the OAuth implementation, including all the hard-won knowledge about the database authentication crisis (trailing space in password), production redirect loop fix, and deployment process. Contains strategic recommendations for next sprint.
+**Why Claude needs it**: This is the complete story of the OAuth implementation, including all the hard-won knowledge about the database authentication crisis (trailing space in password), production redirect loop fix, deployment process, and critical security incident handling. Contains strategic recommendations for next sprint and important security lessons learned.
 
 ---
 
