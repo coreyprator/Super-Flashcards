@@ -488,8 +488,13 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         
         # Redirect to frontend login page with token (will be picked up by frontend)
         redirect_start = time.time()
-        origin = request.headers.get('origin', 'http://localhost:8000')
-        redirect_url = f"{origin}/login?auth=success&token={access_token}"
+        # Use production URL in Cloud Run, localhost for local dev
+        if os.getenv("K_SERVICE"):  # Running on Cloud Run
+            frontend_url = "https://learn.rentyourcio.com"
+        else:  # Local development
+            origin = request.headers.get('origin', 'http://localhost:8000')
+            frontend_url = origin
+        redirect_url = f"{frontend_url}/login?auth=success&token={access_token}"
         redirect_time = (time.time() - redirect_start) * 1000
         
         total_time = (time.time() - start_time) * 1000
