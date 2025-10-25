@@ -198,6 +198,10 @@ app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 
 from .routers import document_parser
 app.include_router(document_parser.router, prefix="/api/document", tags=["document-parser"])  # Document parsing for word extraction
 
+# Import batch AI generation router
+from .routers import batch_ai_generate
+app.include_router(batch_ai_generate.router, prefix="/api/ai", tags=["batch-ai-generation"])  # Batch AI flashcard generation
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
