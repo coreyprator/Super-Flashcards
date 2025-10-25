@@ -47,10 +47,15 @@ Successfully deployed Google OAuth authentication to production Cloud Run enviro
 
 ### Git Repository
 - **Branch**: main
-- **Recent Commits**:
-  - `853dffe` - Add SQL script to create missing OAuth tables
+- **Status**: Clean working tree, all changes committed ✅
+- **Latest Commits**:
+  - `3bb6299` (HEAD) - Add production regression test plan and sprint handoff documentation
+  - `853dffe` - Add SQL script to create missing OAuth tables (users, user_languages, study_sessions)
   - `7896012` - Fix OAuth redirect to use production URL on Cloud Run
-  - All production code committed and pushed ✅
+  - `9554841` - Add real database health check endpoint at /health/db
+  - `ddcda09` - Add connection idle diagnostics and pool_pre_ping
+
+**Note**: Some untracked debugging markdown files exist (CURRENT_BLOCKING_ISSUE.md, DIAGNOSIS_BREAKTHROUGH.md, OAUTH_403_ISSUE.md) but these are historical troubleshooting notes and not needed for production.
 
 ---
 
