@@ -814,10 +814,14 @@
                         <div class="bg-white border border-gray-200 rounded-lg p-4">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">📄 Document Parsing Results</h3>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div class="text-center p-3 bg-blue-50 rounded-lg">
                                     <div id="parsed-count" class="text-2xl font-bold text-blue-600">0</div>
                                     <div class="text-sm text-blue-700">Entries Found</div>
+                                </div>
+                                <div class="text-center p-3 bg-purple-50 rounded-lg">
+                                    <div id="selected-count" class="text-2xl font-bold text-purple-600">0</div>
+                                    <div class="text-sm text-purple-700">Selected</div>
                                 </div>
                                 <div class="text-center p-3 bg-green-50 rounded-lg">
                                     <div id="confidence-score" class="text-2xl font-bold text-green-600">0%</div>
@@ -825,20 +829,85 @@
                                 </div>
                             </div>
 
-                            <!-- Parsed Entries Preview -->
+                            <!-- Selection Controls -->
+                            <div class="mb-4 flex gap-2">
+                                <button id="select-all-words" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">
+                                    ☑️ Select All
+                                </button>
+                                <button id="deselect-all-words" class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">
+                                    ☐ Deselect All
+                                </button>
+                            </div>
+
+                            <!-- Parsed Entries Table with Checkboxes -->
                             <div id="parsed-entries-preview" class="mt-4">
-                                <h4 class="font-medium text-gray-900 mb-2">📝 Parsed Vocabulary Entries:</h4>
-                                <div id="parsed-entries-list" class="space-y-2 max-h-60 overflow-y-auto text-sm">
-                                    <!-- Parsed entries will be shown here -->
+                                <h4 class="font-medium text-gray-900 mb-2">📝 Select Words to Generate Flashcards:</h4>
+                                <div id="parsed-entries-list" class="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                    <!-- Parsed entries will be shown here as checkboxes -->
                                 </div>
                             </div>
 
                             <div class="mt-4 pt-4 border-t border-gray-200 flex gap-2">
-                                <button id="import-parsed" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                    ✅ Import These Entries
+                                <button id="batch-generate-btn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium" disabled>
+                                    🪄 Generate Flashcards with AI (0 selected)
                                 </button>
                                 <button id="parse-another" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                                     📄 Parse Another Document
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Generation Progress -->
+                    <div id="batch-generation-progress" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">🪄 Generating Flashcards...</h3>
+                            
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span id="batch-progress-text" class="text-sm font-medium text-gray-700">Processing...</span>
+                                    <span id="batch-progress-percentage" class="text-sm text-gray-500">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div id="batch-progress-bar" class="bg-purple-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div id="batch-progress-details" class="text-sm text-gray-600 space-y-1">
+                                <!-- Progress details will appear here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Generation Results -->
+                    <div id="batch-generation-results" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">✨ Batch Generation Complete!</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="text-center p-3 bg-green-50 rounded-lg">
+                                    <div id="batch-successful-count" class="text-2xl font-bold text-green-600">0</div>
+                                    <div class="text-sm text-green-700">Successfully Generated</div>
+                                </div>
+                                <div class="text-center p-3 bg-red-50 rounded-lg">
+                                    <div id="batch-failed-count" class="text-2xl font-bold text-red-600">0</div>
+                                    <div class="text-sm text-red-700">Failed</div>
+                                </div>
+                            </div>
+
+                            <div id="batch-errors" class="hidden mb-4">
+                                <h4 class="font-medium text-red-900 mb-2">⚠️ Errors:</h4>
+                                <div id="batch-errors-list" class="space-y-1 text-sm text-red-700">
+                                    <!-- Error details will appear here -->
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button id="view-generated-cards" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                    � View Generated Cards
+                                </button>
+                                <button id="batch-another" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    🔄 Generate More Cards
                                 </button>
                             </div>
                         </div>

@@ -2990,49 +2990,175 @@ function showParserResults(result) {
     
     // Store parsed entries for later import
     window.parsedEntries = result.entries;
+    window.selectedWords = new Set(); // Track selected words
     
     // Update counters
     document.getElementById('parsed-count').textContent = result.entries.length;
+    document.getElementById('selected-count').textContent = '0';
     const avgConfidence = result.entries.length > 0 
         ? Math.round(result.entries.reduce((sum, entry) => sum + entry.confidence, 0) / result.entries.length)
         : 0;
     document.getElementById('confidence-score').textContent = `${avgConfidence}%`;
     
-    // Show parsed entries preview
+    // Show parsed entries as checkboxes
     const entriesContainer = document.getElementById('parsed-entries-list');
     entriesContainer.innerHTML = '';
     
-    result.entries.slice(0, 10).forEach((entry, index) => {
+    result.entries.forEach((entry, index) => {
         const entryDiv = document.createElement('div');
-        entryDiv.className = 'p-2 bg-gray-50 rounded border text-xs';
+        entryDiv.className = 'flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100';
         
         const confidenceColor = entry.confidence >= 80 ? 'text-green-600' : 
                                entry.confidence >= 60 ? 'text-yellow-600' : 'text-red-600';
         
         entryDiv.innerHTML = `
-            <div class="flex justify-between items-start mb-1">
-                <span class="font-medium text-gray-900">${entry.word}</span>
-                <span class="${confidenceColor}">${entry.confidence}%</span>
-            </div>
-            <div class="text-gray-600">${entry.definition}</div>
-            ${entry.etymology ? `<div class="text-blue-600 text-xs mt-1">📚 ${entry.etymology}</div>` : ''}
-            ${entry.english_equivalent ? `<div class="text-green-600 text-xs">🇬🇧 ${entry.english_equivalent}</div>` : ''}
+            <input type="checkbox" id="word-${index}" class="word-checkbox mt-1 h-4 w-4 text-purple-600 rounded" data-word="${entry.word}">
+            <label for="word-${index}" class="flex-1 cursor-pointer text-sm">
+                <div class="flex justify-between items-start">
+                    <span class="font-medium text-gray-900">${entry.word}</span>
+                    <span class="${confidenceColor} text-xs">${entry.confidence}%</span>
+                </div>
+                ${entry.definition ? `<div class="text-gray-600 text-xs">${entry.definition.substring(0, 100)}${entry.definition.length > 100 ? '...' : ''}</div>` : ''}
+            </label>
         `;
         entriesContainer.appendChild(entryDiv);
     });
     
-    if (result.entries.length > 10) {
-        const moreDiv = document.createElement('div');
-        moreDiv.className = 'text-center text-gray-500 text-xs py-2';
-        moreDiv.textContent = `... and ${result.entries.length - 10} more entries`;
-        entriesContainer.appendChild(moreDiv);
+    // Set up selection event listeners
+    setupWordSelectionHandlers();
+    
+    // Set up batch generation button
+    const batchGenerateBtn = document.getElementById('batch-generate-btn');
+    if (batchGenerateBtn) {
+        batchGenerateBtn.onclick = () => batchGenerateFlashcards();
+    }
+}
+
+function setupWordSelectionHandlers() {
+    // Update selected count when checkboxes change
+    const checkboxes = document.querySelectorAll('.word-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // Select all button
+    const selectAllBtn = document.getElementById('select-all-words');
+    if (selectAllBtn) {
+        selectAllBtn.onclick = () => {
+            checkboxes.forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        };
     }
     
-    // Set up import button
-    const importParsedBtn = document.getElementById('import-parsed');
-    if (importParsedBtn) {
-        importParsedBtn.onclick = () => importParsedEntries();
+    // Deselect all button
+    const deselectAllBtn = document.getElementById('deselect-all-words');
+    if (deselectAllBtn) {
+        deselectAllBtn.onclick = () => {
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        };
     }
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.word-checkbox:checked');
+    const count = checkboxes.length;
+    
+    document.getElementById('selected-count').textContent = count;
+    
+    // Update button state and text
+    const batchGenerateBtn = document.getElementById('batch-generate-btn');
+    batchGenerateBtn.disabled = count === 0;
+    batchGenerateBtn.textContent = `🪄 Generate Flashcards with AI (${count} selected)`;
+}
+
+async function batchGenerateFlashcards() {
+    const checkboxes = document.querySelectorAll('.word-checkbox:checked');
+    const selectedWords = Array.from(checkboxes).map(cb => cb.dataset.word);
+    
+    if (selectedWords.length === 0) {
+        showToast('❌ Please select at least one word', 3000);
+        return;
+    }
+    
+    console.log('🪄 Starting batch AI generation for', selectedWords.length, 'words');
+    
+    // Get current language
+    const languageSelect = document.getElementById('parser-language');
+    const languageId = parseInt(languageSelect.value);
+    
+    // Hide results, show progress
+    document.getElementById('parser-results').classList.add('hidden');
+    document.getElementById('batch-generation-progress').classList.remove('hidden');
+    
+    try {
+        // Start polling for progress (we'll show progress as we go)
+        const response = await fetch('/api/ai/batch-generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                words: selectedWords,
+                language_id: languageId,
+                include_images: true
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Batch generation failed: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Batch generation complete:', result);
+        
+        // Show results
+        showBatchGenerationResults(result);
+        
+    } catch (error) {
+        console.error('❌ Batch generation error:', error);
+        showToast(`❌ Batch generation failed: ${error.message}`, 5000);
+        document.getElementById('batch-generation-progress').classList.add('hidden');
+        document.getElementById('parser-results').classList.remove('hidden');
+    }
+}
+
+function showBatchGenerationResults(result) {
+    // Hide progress, show results
+    document.getElementById('batch-generation-progress').classList.add('hidden');
+    document.getElementById('batch-generation-results').classList.remove('hidden');
+    
+    // Update counters
+    document.getElementById('batch-successful-count').textContent = result.successful;
+    document.getElementById('batch-failed-count').textContent = result.failed;
+    
+    // Show errors if any
+    if (result.errors && result.errors.length > 0) {
+        document.getElementById('batch-errors').classList.remove('hidden');
+        const errorsList = document.getElementById('batch-errors-list');
+        errorsList.innerHTML = '';
+        
+        result.errors.forEach(error => {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'p-2 bg-red-50 rounded border border-red-200';
+            errorDiv.textContent = `${error.word}: ${error.error}`;
+            errorsList.appendChild(errorDiv);
+        });
+    } else {
+        document.getElementById('batch-errors').classList.add('hidden');
+    }
+    
+    showToast(`✨ Generated ${result.successful} flashcards!`, 5000);
+    
+    // Set up buttons
+    document.getElementById('view-generated-cards').onclick = () => {
+        switchToBrowseMode();
+    };
+    
+    document.getElementById('batch-another').onclick = () => {
+        document.getElementById('batch-generation-results').classList.add('hidden');
+        document.getElementById('parser-upload-section').classList.remove('hidden');
+    };
 }
 
 async function importParsedEntries() {
