@@ -4,7 +4,23 @@
 
 [![Language Support](https://img.shields.io/badge/Languages-Greek%20%7C%20French-blue)](https://github.com/coreyprator/Super-Flashcards)
 [![AI Powered](https://img.shields.io/badge/AI-OpenAI%20%7C%20Google%20TTS-green)](https://github.com/coreyprator/Super-Flashcards)
-[![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)](https://github.com/coreyprator/Super-Flashcards)
+[![Status](https://img.shields.io/badge/Status-Production-brightgreen)](https://github.com/coreyprator/Super-Flashcards)
+[![Production](https://img.shields.io/badge/Live-learn.rentyourcio.com-blue)](https://learn.rentyourcio.com)
+
+## 🎉 **NOW IN PRODUCTION!**
+
+**Live Application**: [https://learn.rentyourcio.com](https://learn.rentyourcio.com)  
+**Backend API**: Cloud Run (us-central1)  
+**Database**: Cloud SQL (758 flashcards, 9 languages)  
+**Authentication**: Google OAuth 2.0  
+**Status**: ✅ Fully Operational
+
+### Recent Achievements
+- ✅ Google OAuth authentication deployed and verified
+- ✅ Cloud Run backend fully operational (91ms response time)
+- ✅ Cloud SQL database connected (758 flashcards preserved)
+- ✅ First user successfully logged in (October 25, 2025)
+- ✅ Production-ready infrastructure on Google Cloud Platform
 
 ## ✨ Key Features
 
