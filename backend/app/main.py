@@ -193,7 +193,10 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])  # User ma
 app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # Import functionality
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
-# Removed: search.router, document_parser.router (replaced with batch processing)
+
+# Import document parser router
+from . import document_parser
+app.include_router(document_parser.router, prefix="/api/document", tags=["document-parser"])  # Document parsing for word extraction
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
