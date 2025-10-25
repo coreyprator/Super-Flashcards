@@ -42,16 +42,13 @@ class GoogleTTSService:
             return
             
         try:
-            # Check if credentials are configured
+            # In Cloud Run, the SDK automatically uses the service account
+            # No need to check GOOGLE_APPLICATION_CREDENTIALS
             credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            if not credentials_path:
-                logger.error("GOOGLE_APPLICATION_CREDENTIALS not set")
-                return
-                
-            if not os.path.exists(credentials_path):
-                logger.error(f"Credentials file not found: {credentials_path}")
-                return
+            if credentials_path and not os.path.exists(credentials_path):
+                logger.warning(f"GOOGLE_APPLICATION_CREDENTIALS set but file not found: {credentials_path}")
             
+            # Initialize client - will use Application Default Credentials (service account in Cloud Run)
             self.client = texttospeech.TextToSpeechClient()
             logger.info("✅ Google Cloud TTS client initialized successfully")
             
