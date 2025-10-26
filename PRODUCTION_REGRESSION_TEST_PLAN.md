@@ -327,6 +327,56 @@ Document any issues found during testing:
 
 ---
 
+---
+
+## Known Issues & Bugs
+
+### 🐛 Active Bugs
+
+**BUG-001: Duplicate Definition Display in Study Mode**
+- **Status**: 🔴 OPEN
+- **Severity**: Low (UI/UX)
+- **Reported**: Oct 25, 2025
+- **Description**: In study mode, when clicking "Show Details", the definition appears twice:
+  1. Below the word (in bold)
+  2. Below the audio play button
+- **Expected**: Definition should appear only once
+- **Proposed Fix**: Remove duplicate from top section, keep only below audio player
+- **Test**: Category 5 (Study Mode)
+
+**BUG-002: Audio Not Generated on Card Creation (iPhone)**
+- **Status**: 🟡 INVESTIGATING
+- **Severity**: Medium (Core Feature)
+- **Reported**: Oct 25, 2025
+- **Description**: When adding a new card via iPhone, audio is not automatically generated despite TTS fix being deployed (revision 00057+)
+- **Expected**: Audio should generate automatically after card creation
+- **Backend Fix**: ✅ Deployed in revision 00057 (TTS Application Default Credentials)
+- **Frontend**: ✅ Calls `generateAudioForCard()` after save
+- **Next Steps**: 
+  - Test on desktop to isolate iPhone-specific issue
+  - Check browser console logs on iPhone
+  - Verify network request to `/api/audio/generate` is made
+- **Test**: Category 3 (Card Creation), Category 10 (Mobile Testing)
+
+### ✅ Fixed Issues
+
+**FIXED-001: AI Card Generation 500 Error**
+- **Fixed**: Oct 25, 2025 (Revision 00055)
+- **Issue**: Missing OPENAI_API_KEY in Cloud Run environment
+- **Solution**: Added OPENAI_API_KEY secret to Cloud Run
+
+**FIXED-002: Missing Audio Generation**
+- **Fixed**: Oct 25, 2025 (Revision 00057)
+- **Issue**: Google TTS service required GOOGLE_APPLICATION_CREDENTIALS file
+- **Solution**: Modified TTS service to use Application Default Credentials in Cloud Run
+
+**FIXED-003: DNS Resolution Failures**
+- **Fixed**: Oct 25, 2025 (Client-side)
+- **Issue**: AT&T gateway DNS servers timing out (68.94.156.9, 68.94.157.9)
+- **Solution**: Changed laptop Wi-Fi DNS to Google DNS (8.8.8.8, 8.8.4.4)
+
+---
+
 ## Test Results Summary
 
 **Tester**: _______________  
@@ -338,6 +388,7 @@ Document any issues found during testing:
 **Tests Passed**: ___/ 18  
 **Tests Failed**: ___  
 **Blockers**: ___  
+**Open Bugs**: 2  
 
 **Notes**:
 [Add any additional observations or concerns]

@@ -473,15 +473,20 @@ async function createFlashcard(data) {
         // Reload flashcards first so the new card is in state.flashcards
         await loadFlashcards();
         
-        // Generate audio for the new flashcard AFTER it's loaded into state
-        if (flashcard && flashcard.id) {
+        // Generate audio for the new flashcard using the word from the response
+        if (flashcard && flashcard.id && flashcard.word_or_phrase) {
             try {
-                console.log('🔊 Starting audio generation for:', flashcard.id);
-                await generateAudioForCard(flashcard.id);
+                console.log('🔊 Starting audio generation for:', flashcard.word_or_phrase);
+                // Call audio generation directly with the word we already have
+                if (typeof generateAudio === 'function') {
+                    await generateAudio(flashcard.id, flashcard.word_or_phrase);
+                    console.log('✅ Audio generation completed');
+                } else {
+                    console.error('❌ generateAudio function not available');
+                }
             } catch (audioError) {
-                console.error('Audio generation failed:', audioError);
-                // Don't fail the whole operation if audio fails
-                // TODO: Show user-friendly error message
+                console.error('❌ Audio generation failed:', audioError);
+                showToast('⚠️ Card created but audio generation failed. Use the Generate Audio button.', 5000);
             }
         }
         
@@ -541,15 +546,21 @@ async function generateAIFlashcard(word, includeImage = true) {
         // Reload flashcards first so the new card is in state.flashcards
         await loadFlashcards();
         
-        // Generate audio for the new flashcard AFTER it's loaded into state
-        if (flashcard && flashcard.id) {
+        // Generate audio for the new flashcard using the word from the response
+        if (flashcard && flashcard.id && flashcard.word_or_phrase) {
             try {
-                console.log('🔊 Starting audio generation for:', flashcard.id);
-                await generateAudioForCard(flashcard.id);
+                console.log('🔊 Starting audio generation for:', flashcard.word_or_phrase);
+                // Call audio generation directly with the word we already have
+                if (typeof generateAudio === 'function') {
+                    await generateAudio(flashcard.id, flashcard.word_or_phrase);
+                    console.log('✅ Audio generation completed');
+                } else {
+                    console.error('❌ generateAudio function not available');
+                }
             } catch (audioError) {
-                console.error('Audio generation failed:', audioError);
+                console.error('❌ Audio generation failed:', audioError);
                 // Don't fail the whole operation if audio fails
-                // TODO: Show user-friendly error message
+                showToast('⚠️ Card created but audio generation failed. Use the Generate Audio button.', 5000);
             }
         }
         
@@ -888,7 +899,6 @@ function renderFlashcard(flashcard) {
                             </div>
                             <h2 class="text-2xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
                             <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
-                            ${flashcard.definition ? `<p class="text-lg text-indigo-800 mt-2 font-medium">${flashcard.definition}</p>` : ''}
                             <!-- Audio Controls -->
                             <div class="mt-3">
                                 ${getAudioButtonHTML(flashcard)}
