@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.9 (Fixed: sort order applies on load, new card displays correctly, UUID delete bug)
+// Version: 2.6.10 (Fixed: document parser endpoint URL)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.9';
+const APP_JS_VERSION = '2.6.10';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3141,7 +3141,8 @@ async function handleDocumentUpload(event) {
         formData.append('file', file);
         formData.append('language', state.currentLanguage || 'fr'); // Default to French
         
-        const response = await fetch(`${API_BASE}/parser/parse-document`, {
+        // ✅ FIX: Correct endpoint is /api/document/parse (not /api/parser/parse-document)
+        const response = await fetch(`${API_BASE}/document/parse`, {
             method: 'POST',
             body: formData
         });
