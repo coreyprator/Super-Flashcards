@@ -105,9 +105,10 @@ class ApiClient {
             if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/')) {
                 // Extract flashcard ID and delete from cache
                 const id = endpoint.split('/').pop();
-                if (id && !isNaN(id)) {
+                // ✅ FIX: Handle both numeric IDs and UUIDs (works for both number and string IDs)
+                if (id) {
                     console.log(`  🗑️ Invalidating cache for deleted flashcard: ${id}`);
-                    await this.db.deleteFlashcard(parseInt(id));
+                    await this.db.deleteFlashcard(id);
                 }
             } else if (method === 'PUT' && endpoint.startsWith('/api/flashcards/')) {
                 // Update cache with new data
@@ -129,9 +130,11 @@ class ApiClient {
             // Handle DELETE 404: Card doesn't exist on server, remove from cache anyway
             if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/') && error.message.includes('404')) {
                 const id = endpoint.split('/').pop();
-                if (id && !isNaN(id)) {
+                // ✅ FIX: Handle both numeric IDs and UUIDs (don't check isNaN for UUIDs)
+                if (id) {
                     console.warn(`  🗑️ DELETE returned 404 - removing ghost card from cache: ${id}`);
-                    await this.db.deleteFlashcard(parseInt(id));
+                    // Try to delete from cache with the ID as-is (works for both numbers and strings)
+                    await this.db.deleteFlashcard(id);
                     return null; // Treat as successful deletion
                 }
             }

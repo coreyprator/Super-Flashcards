@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.8 (Fixed: 404 ghost card deletion, persisted sort order to newest first)
+// Version: 2.6.9 (Fixed: sort order applies on load, new card displays correctly, UUID delete bug)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.8';
+const APP_JS_VERSION = '2.6.9';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -436,7 +436,8 @@ async function loadFlashcards() {
             }
         }
         
-        state.flashcards = flashcards;
+        // ✅ FIX: Apply sort order to state.flashcards so they're in correct order from the start
+        state.flashcards = sortFlashcards(flashcards, state.sortOrder);
         state.currentCardIndex = 0;
         
         if (flashcards.length > 0) {
@@ -629,16 +630,17 @@ async function generateAIFlashcard(word, includeImage = true) {
             }
         }
         
-        // Show the newly created card immediately
-        console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
+        // ✅ FIX: Reload flashcards to get the newly created card into state.flashcards
+        console.log('📍 Reloading flashcards to include newly created card:', flashcard.word_or_phrase);
+        await loadFlashcards();
         
-        // Find the card in state.flashcards
+        // Now find the card in the refreshed state.flashcards
         const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
         if (cardIndex !== -1) {
             state.currentCardIndex = cardIndex;
             console.log('📍 Found card at index:', cardIndex);
         } else {
-            console.warn('⚠️ Newly created card not found in state.flashcards, showing last card');
+            console.warn('⚠️ Newly created card not found in state.flashcards after reload, showing last card');
             state.currentCardIndex = state.flashcards.length - 1;
         }
         
@@ -1406,6 +1408,29 @@ function addSwipeSupport() {
     console.log('📱 Touch swipe navigation enabled');
 }
 
+/**
+ * Sort flashcards based on specified order
+ * @param {Array} cards - Array of flashcards to sort
+ * @param {string} sortOrder - Sort order ('name-asc', 'name-desc', 'date-asc', 'date-desc')
+ * @returns {Array} - Sorted array of flashcards
+ */
+function sortFlashcards(cards, sortOrder) {
+    return [...cards].sort((a, b) => {
+        switch (sortOrder) {
+            case 'name-asc':
+                return (a.word_or_phrase || '').localeCompare(b.word_or_phrase || '');
+            case 'name-desc':
+                return (b.word_or_phrase || '').localeCompare(a.word_or_phrase || '');
+            case 'date-desc':
+                return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+            case 'date-asc':
+                return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
+            default:
+                return 0;
+        }
+    });
+}
+
 function renderFlashcardList() {
     const listContainer = document.getElementById('cards-list');
     
@@ -1419,21 +1444,8 @@ function renderFlashcardList() {
         return;
     }
     
-    // Sort flashcards based on current sort order
-    const sortedCards = [...state.flashcards].sort((a, b) => {
-        switch (state.sortOrder) {
-            case 'name-asc':
-                return (a.word_or_phrase || '').localeCompare(b.word_or_phrase || '');
-            case 'name-desc':
-                return (b.word_or_phrase || '').localeCompare(a.word_or_phrase || '');
-            case 'date-desc':
-                return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
-            case 'date-asc':
-                return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
-            default:
-                return 0;
-        }
-    });
+    // Use the helper function instead of inline sort
+    const sortedCards = sortFlashcards(state.flashcards, state.sortOrder);
     
     listContainer.innerHTML = sortedCards.map((card) => {
         const originalIndex = state.flashcards.indexOf(card);
