@@ -82,16 +82,19 @@ async function generateAudio(cardId, word) {
     console.log('🔧 Button current text:', button ? button.innerHTML : 'N/A');
     console.log('🔧 Status div found:', !!statusDiv);
     
-    if (!button) {
-        console.error('❌ Button not found, returning early');
-        return;
+    // Check if button exists - if not, we're being called during card creation
+    const isCardCreation = !button;
+    if (isCardCreation) {
+        console.log('💡 No button found - running in card creation mode (direct API call)');
     }
     
     try {
-        // Update UI to show generating state
-        console.log('🔧 Updating UI to show generating state...');
-        button.disabled = true;
-        button.innerHTML = '🔄 Generating...';
+        // Update UI to show generating state (only if button exists)
+        if (button) {
+            console.log('🔧 Updating UI to show generating state...');
+            button.disabled = true;
+            button.innerHTML = '🔄 Generating...';
+        }
         if (statusDiv) {
             statusDiv.style.display = 'block';
             statusDiv.innerHTML = '<small>Generating audio...</small>';
@@ -159,20 +162,25 @@ async function generateAudio(cardId, word) {
                 }
             }
             
-            // Fallback: Update button manually if we can't refresh the whole card
-            console.log('🔄 Updating button manually (fallback)...');
-            // Update button to play button
-            button.innerHTML = '▶️ Play';
-            button.onclick = () => playAudio(cardId, audioUrl);
-            button.disabled = false;
-            button.className = 'audio-btn play-btn';
-            
-            // Add audio element
-            const audioElement = document.createElement('audio');
-            audioElement.id = `audio-${cardId}`;
-            audioElement.preload = 'none';
-            audioElement.innerHTML = `<source src="${audioUrl}" type="audio/mpeg">`;
-            button.parentElement.appendChild(audioElement);
+            // If button exists, update it (manual regeneration case)
+            if (button) {
+                console.log('🔄 Updating button manually (button exists)...');
+                // Update button to play button
+                button.innerHTML = '▶️ Play';
+                button.onclick = () => playAudio(cardId, audioUrl);
+                button.disabled = false;
+                button.className = 'audio-btn play-btn';
+                
+                // Add audio element
+                const audioElement = document.createElement('audio');
+                audioElement.id = `audio-${cardId}`;
+                audioElement.preload = 'none';
+                audioElement.innerHTML = `<source src="${audioUrl}" type="audio/mpeg">`;
+                button.parentElement.appendChild(audioElement);
+            } else {
+                // Card creation mode - audio generated but card not rendered yet
+                console.log('💡 Audio generated during card creation - will display when card renders');
+            }
             
             if (statusDiv) {
                 statusDiv.innerHTML = '<small style="color: green;">✅ Audio ready!</small>';
@@ -192,10 +200,12 @@ async function generateAudio(cardId, word) {
         console.error('❌ Error stack:', error.stack);
         console.error('❌ Error name:', error.name);
         
-        // Reset button state
-        console.log('🔧 Resetting button state after error...');
-        button.disabled = false;
-        button.innerHTML = '🔊 Generate Audio';
+        // Reset button state (only if button exists)
+        if (button) {
+            console.log('🔧 Resetting button state after error...');
+            button.disabled = false;
+            button.innerHTML = '🔊 Generate Audio';
+        }
         
         if (statusDiv) {
             statusDiv.innerHTML = `<small style="color: red;">❌ Error: ${error.message}</small>`;
