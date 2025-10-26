@@ -1,14 +1,14 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.6 (Added: Browse list sorting, inline delete, enhanced delete debugging)
+// Version: 2.6.7 (Fixed: Cache invalidation on delete, version badge selector)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.6';
+const APP_JS_VERSION = '2.6.7';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
     const htmlVersion = window.APP_VERSION || 'unknown';
-    const versionBadge = document.querySelector('h1 span[class*="text-gray-500"]');
+    const versionBadge = document.querySelector('span.font-mono[class*="text-gray"]');
     const badgeVersion = versionBadge ? versionBadge.textContent.trim() : 'unknown';
     
     console.log('🏷️ === VERSION CHECK ===');

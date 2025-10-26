@@ -98,7 +98,31 @@ class ApiClient {
         }
         
         // Online: try request with retry logic
-        return this.makeHttpRequest(method, url, data, options);
+        const result = await this.makeHttpRequest(method, url, data, options);
+        
+        // CACHE INVALIDATION for DELETE/PUT requests
+        if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/')) {
+            // Extract flashcard ID and delete from cache
+            const id = endpoint.split('/').pop();
+            if (id && !isNaN(id)) {
+                console.log(`  🗑️ Invalidating cache for deleted flashcard: ${id}`);
+                await this.db.deleteFlashcard(parseInt(id));
+            }
+        } else if (method === 'PUT' && endpoint.startsWith('/api/flashcards/')) {
+            // Update cache with new data
+            if (result && result.id) {
+                console.log(`  🔄 Updating cache for modified flashcard: ${result.id}`);
+                await this.db.saveFlashcard(result);
+            }
+        } else if (method === 'POST' && endpoint.startsWith('/api/flashcards')) {
+            // Add new flashcard to cache
+            if (result && result.id) {
+                console.log(`  ➕ Adding new flashcard to cache: ${result.id}`);
+                await this.db.saveFlashcard(result);
+            }
+        }
+        
+        return result;
     }
     
     /**
