@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.7 (Fixed: Cache invalidation on delete, version badge selector)
+// Version: 2.6.8 (Fixed: 404 ghost card deletion, persisted sort order to newest first)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.7';
+const APP_JS_VERSION = '2.6.8';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -74,7 +74,7 @@ let state = {
     languages: [],
     syncStatus: 'offline',
     currentMode: 'study', // Track current mode: 'study', 'read', or 'browse'
-    sortOrder: 'name-asc' // Default sort order for browse list
+    sortOrder: localStorage.getItem('flashcard_sort_order') || 'date-desc' // Persist sort order, default to newest first
 };
 
 // ========================================
@@ -2898,9 +2898,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('📋 Setting up sort dropdown...');
     const sortDropdown = document.getElementById('sort-dropdown');
     if (sortDropdown) {
+        // Set initial value from state
+        sortDropdown.value = state.sortOrder;
+        console.log('📋 Sort dropdown initialized with saved order:', state.sortOrder);
+        
         sortDropdown.addEventListener('change', (e) => {
             console.log('📋 Sort order changed to:', e.target.value);
             state.sortOrder = e.target.value;
+            localStorage.setItem('flashcard_sort_order', e.target.value);
             renderFlashcardList();
         });
         console.log('✅ Sort dropdown initialized');

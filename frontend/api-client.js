@@ -98,31 +98,47 @@ class ApiClient {
         }
         
         // Online: try request with retry logic
-        const result = await this.makeHttpRequest(method, url, data, options);
-        
-        // CACHE INVALIDATION for DELETE/PUT requests
-        if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/')) {
-            // Extract flashcard ID and delete from cache
-            const id = endpoint.split('/').pop();
-            if (id && !isNaN(id)) {
-                console.log(`  🗑️ Invalidating cache for deleted flashcard: ${id}`);
-                await this.db.deleteFlashcard(parseInt(id));
+        try {
+            const result = await this.makeHttpRequest(method, url, data, options);
+            
+            // CACHE INVALIDATION for DELETE/PUT requests
+            if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/')) {
+                // Extract flashcard ID and delete from cache
+                const id = endpoint.split('/').pop();
+                if (id && !isNaN(id)) {
+                    console.log(`  🗑️ Invalidating cache for deleted flashcard: ${id}`);
+                    await this.db.deleteFlashcard(parseInt(id));
+                }
+            } else if (method === 'PUT' && endpoint.startsWith('/api/flashcards/')) {
+                // Update cache with new data
+                if (result && result.id) {
+                    console.log(`  🔄 Updating cache for modified flashcard: ${result.id}`);
+                    await this.db.saveFlashcard(result);
+                }
+            } else if (method === 'POST' && endpoint.startsWith('/api/flashcards')) {
+                // Add new flashcard to cache
+                if (result && result.id) {
+                    console.log(`  ➕ Adding new flashcard to cache: ${result.id}`);
+                    await this.db.saveFlashcard(result);
+                }
             }
-        } else if (method === 'PUT' && endpoint.startsWith('/api/flashcards/')) {
-            // Update cache with new data
-            if (result && result.id) {
-                console.log(`  🔄 Updating cache for modified flashcard: ${result.id}`);
-                await this.db.saveFlashcard(result);
+            
+            return result;
+            
+        } catch (error) {
+            // Handle DELETE 404: Card doesn't exist on server, remove from cache anyway
+            if (method === 'DELETE' && endpoint.startsWith('/api/flashcards/') && error.message.includes('404')) {
+                const id = endpoint.split('/').pop();
+                if (id && !isNaN(id)) {
+                    console.warn(`  🗑️ DELETE returned 404 - removing ghost card from cache: ${id}`);
+                    await this.db.deleteFlashcard(parseInt(id));
+                    return null; // Treat as successful deletion
+                }
             }
-        } else if (method === 'POST' && endpoint.startsWith('/api/flashcards')) {
-            // Add new flashcard to cache
-            if (result && result.id) {
-                console.log(`  ➕ Adding new flashcard to cache: ${result.id}`);
-                await this.db.saveFlashcard(result);
-            }
+            
+            // Re-throw other errors
+            throw error;
         }
-        
-        return result;
     }
     
     /**
