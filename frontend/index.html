@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- VERSION CONSTANT - Source of truth for version checks -->
+    <script>
+        window.APP_VERSION = '2.6.6';
+    </script>
+    
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
     <script>
         // Initialize timing infrastructure IMMEDIATELY
@@ -363,7 +368,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.1</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.6</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -550,6 +555,17 @@
                         <div id="search-stats" class="text-sm text-gray-600 hidden">
                             Found <span id="results-count">0</span> results
                         </div>
+                    </div>
+                    
+                    <!-- Sort Controls -->
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-sm text-gray-600 font-medium">Sort by:</span>
+                        <select id="sort-dropdown" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="date-desc">Date Modified (Newest)</option>
+                            <option value="date-asc">Date Modified (Oldest)</option>
+                        </select>
                     </div>
                     
                     <!-- Cards List -->
@@ -1375,7 +1391,7 @@
     <script>
         window.timingCheckpoint('T5m-loading-app-js', 'Loading app.js (MAIN APP)');
     </script>
-    <script src="/app.js?v=2.6.1"></script>
+    <script src="/app.js?v=2.6.6"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
     </script>

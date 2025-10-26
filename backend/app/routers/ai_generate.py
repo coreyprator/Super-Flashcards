@@ -154,15 +154,17 @@ Format your response as valid JSON only, no additional text:
         logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=error_detail)
 
-def generate_image(image_description: str, word: str, verbose: bool = False) -> str:
+def generate_image(image_description: str, word: str, definition: str = None, verbose: bool = False) -> str:
     """
     Generate an image using DALL-E, save locally, and upload to Cloud Storage
+    Implements intelligent fallback for content policy violations
     Returns the image URL path or None if failed
     """
     import requests
     import uuid
     from pathlib import Path
     from google.cloud import storage
+    from openai import BadRequestError
     
     try:
         if verbose:
@@ -170,27 +172,86 @@ def generate_image(image_description: str, word: str, verbose: bool = False) -> 
             logger.info(f"🔍 VERBOSE: Word: {word}")
             logger.info(f"🔍 VERBOSE: Description: {image_description}")
         
-        # Generate image with DALL-E
+        # First attempt: Use the word directly in prompt
         prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style."
         
         if verbose:
-            logger.info(f"🔍 VERBOSE: Calling DALL-E 3...")
+            logger.info(f"🔍 VERBOSE: Calling DALL-E 3 (Attempt 1: word-based prompt)...")
             logger.info(f"🔍 VERBOSE: Prompt: {prompt}")
         
-        response = get_openai_client().images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1
-        )
+        try:
+            response = get_openai_client().images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                n=1
+            )
+            dalle_url = response.data[0].url
+            
+            if verbose:
+                logger.info(f"🔍 VERBOSE: ✅ DALL-E response received (Attempt 1 succeeded)")
+                logger.info(f"🔍 VERBOSE: Image URL: {dalle_url[:100]}...")
         
-        # Get the temporary URL from DALL-E
-        dalle_url = response.data[0].url
-        
-        if verbose:
-            logger.info(f"🔍 VERBOSE: DALL-E response received")
-            logger.info(f"🔍 VERBOSE: Image URL: {dalle_url[:100]}...")
+        except BadRequestError as policy_error:
+            # Check if it's a content policy violation
+            error_message = str(policy_error)
+            if "content_policy_violation" in error_message.lower():
+                logger.warning(f"⚠️ Content policy violation on first attempt for word '{word}'")
+                logger.warning(f"⚠️ DALL-E content policy rejection for '{word}': {error_message}")
+                logger.info(f"🔄 Attempting fallback: definition-based prompt without word...")
+                
+                # FALLBACK: Generate prompt based on meaning/definition only
+                if definition:
+                    # Strip the problematic word from the definition to avoid re-triggering policy
+                    # Replace word at start of sentence (e.g., "Gobbledygook refers to...")
+                    safe_definition = definition
+                    
+                    # Remove the word from beginning if present
+                    if safe_definition.lower().startswith(word.lower()):
+                        # Remove word and common following words like "refers to", "is", "means"
+                        safe_definition = safe_definition[len(word):].strip()
+                        # Remove common connectors at the start
+                        for connector in [' refers to', ' is', ' means', ' describes', ' indicates']:
+                            if safe_definition.lower().startswith(connector):
+                                safe_definition = safe_definition[len(connector):].strip()
+                                break
+                    
+                    # Also replace any other occurrences of the word in the definition
+                    safe_definition = safe_definition.replace(word, 'this concept').replace(word.lower(), 'this concept')
+                    
+                    logger.info(f"🔍 Safe definition: {safe_definition[:100]}...")
+                    
+                    # Create a visual metaphor prompt without the problematic word
+                    fallback_prompt = f"A humorous educational illustration showing: {safe_definition}. A person overwhelmed and confused, surrounded by visual metaphors. Cartoon style, warm colors, educational poster for language learners."
+                else:
+                    # Generic fallback based on image description (remove the word)
+                    safe_description = image_description.replace(word, 'this concept').replace(word.lower(), 'this concept')
+                    fallback_prompt = f"An educational illustration depicting: {safe_description}. Warm lighting, cartoon style, educational poster, simple and approachable."
+                
+                if verbose:
+                    logger.info(f"🔍 VERBOSE: Fallback prompt: {fallback_prompt}")
+                
+                try:
+                    response = get_openai_client().images.generate(
+                        model="dall-e-3",
+                        prompt=fallback_prompt,
+                        size="1024x1024",
+                        quality="standard",
+                        n=1
+                    )
+                    dalle_url = response.data[0].url
+                    logger.info(f"✅ Fallback attempt succeeded for '{word}'")
+                    
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: Fallback image URL: {dalle_url[:100]}...")
+                
+                except Exception as fallback_error:
+                    logger.error(f"❌ Fallback image generation also failed for '{word}': {fallback_error}")
+                    raise  # Re-raise to be caught by outer exception handler
+            else:
+                # Not a content policy issue, re-raise original error
+                raise
         
         # Download the image
         if verbose:
@@ -254,8 +315,15 @@ def generate_image(image_description: str, word: str, verbose: bool = False) -> 
             logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
         return None
     except Exception as e:
-        error_msg = f"Image generation/download failed: {str(e)}"
-        logger.error(f"❌ {error_msg}")
+        error_msg = str(e)
+        
+        # Check if this is a DALL-E content policy violation
+        if "content_policy_violation" in error_msg or "safety system" in error_msg.lower():
+            logger.warning(f"⚠️ DALL-E content policy rejection for '{word}': {error_msg}")
+            # Return a special placeholder to indicate policy violation
+            return "CONTENT_POLICY_VIOLATION"
+        
+        logger.error(f"❌ Image generation/download failed: {error_msg}")
         if verbose:
             logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
             logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
@@ -309,7 +377,19 @@ def generate_ai_flashcard(
         if request.include_image and content.get("image_description"):
             if verbose:
                 logger.info(f"🔍 VERBOSE: Generating image for: {content['image_description']}")
-            image_url = generate_image(content["image_description"], request.word_or_phrase, verbose=verbose)
+            # Pass definition for fallback in case of content policy violation
+            image_url = generate_image(
+                content["image_description"], 
+                request.word_or_phrase, 
+                definition=content.get("definition"),
+                verbose=verbose
+            )
+            
+            # Handle content policy violation
+            if image_url == "CONTENT_POLICY_VIOLATION":
+                logger.warning(f"⚠️ DALL-E rejected '{request.word_or_phrase}' - continuing without image")
+                image_url = None
+            
             if verbose:
                 if image_url:
                     logger.info(f"🔍 VERBOSE: ✓ Image generated: {image_url}")
@@ -384,7 +464,11 @@ def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depen
     # Generate image if requested
     image_url = None
     if request.include_image and content.get("image_description"):
-        image_url = generate_image(content["image_description"], request.word_or_phrase)
+        image_url = generate_image(
+            content["image_description"], 
+            request.word_or_phrase,
+            definition=content.get("definition")
+        )
     
     return {
         "word_or_phrase": request.word_or_phrase,
@@ -400,33 +484,71 @@ def preview_ai_flashcard(request: schemas.AIGenerateRequest, db: Session = Depen
 def generate_image_only(
     word_or_phrase: str = Query(..., description="Word or phrase to generate image for"),
     language_id: str = Query(..., description="Language ID"),
+    flashcard_id: str = Query(None, description="Optional flashcard ID to get definition for fallback"),
     db: Session = Depends(get_db)
 ):
     """
     Generate only an image for a word/phrase without full flashcard content
     """
-    # Check for OpenAI API key first
-    if not os.getenv("OPENAI_API_KEY"):
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.")
+    try:
+        logger.info(f"🖼️ Image generation requested for: {word_or_phrase} (language: {language_id})")
+        
+        # Check for OpenAI API key first
+        if not os.getenv("OPENAI_API_KEY"):
+            logger.error("❌ OPENAI_API_KEY not configured")
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.")
+        
+        # Get language info
+        language = crud.get_language(db, language_id)
+        if not language:
+            logger.error(f"❌ Language not found: {language_id}")
+            raise HTTPException(status_code=404, detail="Language not found")
+        
+        logger.info(f"📝 Language: {language.name}")
+        
+        # Get definition if flashcard_id provided (for fallback)
+        definition = None
+        if flashcard_id:
+            flashcard = crud.get_flashcard(db, flashcard_id)
+            if flashcard and flashcard.definition:
+                definition = flashcard.definition
+                logger.info(f"📖 Retrieved definition for fallback: {definition[:100]}...")
+        
+        # Create a simple image description based on the word and language
+        image_description = f"Educational illustration for learning the {language.name} word '{word_or_phrase}'. Simple, clear, educational style showing the concept or meaning of the word."
+        
+        logger.info(f"🎨 Generating image with DALL-E...")
+        
+        # Generate image with verbose logging and definition for fallback
+        image_url = generate_image(image_description, word_or_phrase, definition=definition, verbose=True)
+        
+        if image_url == "CONTENT_POLICY_VIOLATION":
+            logger.warning(f"⚠️ DALL-E rejected '{word_or_phrase}' due to content policy")
+            raise HTTPException(
+                status_code=422, 
+                detail=f"DALL-E's safety system rejected the word '{word_or_phrase}'. This sometimes happens with unusual words. Try a different word or add the image manually."
+            )
+        
+        if not image_url:
+            logger.error("❌ Image generation returned None")
+            raise HTTPException(status_code=500, detail="Failed to generate image - DALL-E returned no URL")
+        
+        logger.info(f"✅ Image generated successfully: {image_url}")
+        
+        return {
+            "image_url": image_url,
+            "image_description": image_description
+        }
     
-    # Get language info
-    language = crud.get_language(db, language_id)
-    if not language:
-        raise HTTPException(status_code=404, detail="Language not found")
-    
-    # Create a simple image description based on the word and language
-    image_description = f"Educational illustration for learning the {language.name} word '{word_or_phrase}'. Simple, clear, educational style showing the concept or meaning of the word."
-    
-    # Generate image
-    image_url = generate_image(image_description, word_or_phrase)
-    
-    if not image_url:
-        raise HTTPException(status_code=500, detail="Failed to generate image")
-    
-    return {
-        "image_url": image_url,
-        "image_description": image_description
-    }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected error in generate_image_only: {str(e)}")
+        logger.error(f"🔍 Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"🔍 Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
 @router.post("/fix-broken-images")
 def fix_broken_images(db: Session = Depends(get_db)):
@@ -447,8 +569,12 @@ def fix_broken_images(db: Session = Depends(get_db)):
         logger.info(f"Fixing image for: {flashcard.word_or_phrase}")
         
         if flashcard.image_description:
-            # Regenerate image
-            new_image_url = generate_image(flashcard.image_description, flashcard.word_or_phrase)
+            # Regenerate image with definition for fallback
+            new_image_url = generate_image(
+                flashcard.image_description, 
+                flashcard.word_or_phrase,
+                definition=flashcard.definition
+            )
             
             if new_image_url:
                 # Update the flashcard

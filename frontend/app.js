@@ -1,6 +1,40 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.5.5 (Hotfix: Language switching in browse mode)
+// Version: 2.6.6 (Added: Browse list sorting, inline delete, enhanced delete debugging)
+
+// VERSION CONSISTENCY CHECK
+const APP_JS_VERSION = '2.6.6';
+
+// Check version consistency on load
+window.addEventListener('DOMContentLoaded', () => {
+    const htmlVersion = window.APP_VERSION || 'unknown';
+    const versionBadge = document.querySelector('h1 span[class*="text-gray-500"]');
+    const badgeVersion = versionBadge ? versionBadge.textContent.trim() : 'unknown';
+    
+    console.log('🏷️ === VERSION CHECK ===');
+    console.log(`🏷️ HTML declared: ${htmlVersion}`);
+    console.log(`🏷️ App.js version: ${APP_JS_VERSION}`);
+    console.log(`🏷️ Badge displays: ${badgeVersion}`);
+    
+    // Check if all versions match
+    const allMatch = htmlVersion === APP_JS_VERSION && badgeVersion === `v${APP_JS_VERSION}`;
+    
+    if (!allMatch) {
+        console.error('⚠️⚠️⚠️ VERSION MISMATCH DETECTED! ⚠️⚠️⚠️');
+        console.error(`HTML: ${htmlVersion}, App.js: ${APP_JS_VERSION}, Badge: ${badgeVersion}`);
+        console.error('CACHE ISSUE: Hard refresh (Ctrl+Shift+R) or clear cache!');
+        
+        // Show visual warning to user
+        setTimeout(() => {
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px;text-align:center;z-index:10000;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+            warningDiv.innerHTML = `⚠️ VERSION MISMATCH! Badge: ${badgeVersion}, JS: v${APP_JS_VERSION}, HTML: ${htmlVersion}<br>Press <strong>Ctrl+Shift+R</strong> to hard refresh! ⚠️`;
+            document.body.prepend(warningDiv);
+        }, 1000);
+    } else {
+        console.log('✅ Version check passed - all components synchronized at v' + APP_JS_VERSION);
+    }
+});
 
 // Sprint 5: Offline-First Architecture
 let offlineDB, syncManager, apiClient;
@@ -39,7 +73,8 @@ let state = {
     isOnline: navigator.onLine,
     languages: [],
     syncStatus: 'offline',
-    currentMode: 'study' // Track current mode: 'study', 'read', or 'browse'
+    currentMode: 'study', // Track current mode: 'study', 'read', or 'browse'
+    sortOrder: 'name-asc' // Default sort order for browse list
 };
 
 // ========================================
@@ -233,7 +268,17 @@ async function apiRequest(endpoint, options = {}) {
         });
         
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+            // Try to get detailed error message from response
+            let errorDetail = `API Error: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    errorDetail = errorData.detail;
+                }
+            } catch (e) {
+                // Couldn't parse error response, use status code
+            }
+            throw new Error(errorDetail);
         }
         
         return await response.json();
@@ -490,9 +535,29 @@ async function createFlashcard(data) {
             }
         }
         
-        // Switch back to main content to show the new card
+        // Show the newly created card immediately
+        console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
+        
+        // Find the card in state.flashcards
+        const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
+        if (cardIndex !== -1) {
+            state.currentCardIndex = cardIndex;
+            console.log('📍 Found card at index:', cardIndex);
+        } else {
+            console.warn('⚠️ Newly created card not found in state.flashcards, showing last card');
+            state.currentCardIndex = state.flashcards.length - 1;
+        }
+        
+        // Switch to study mode to display the card
         backToMain();
         switchToStudyMode();
+        
+        // Render the specific card
+        if (state.flashcards[state.currentCardIndex]) {
+            renderFlashcard(state.flashcards[state.currentCardIndex]);
+            updateCardCounter();
+        }
+        
         hideLoading();
         
         return flashcard;
@@ -564,9 +629,28 @@ async function generateAIFlashcard(word, includeImage = true) {
             }
         }
         
-        // Switch back to main content to show the new card
+        // Show the newly created card immediately
+        console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
+        
+        // Find the card in state.flashcards
+        const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
+        if (cardIndex !== -1) {
+            state.currentCardIndex = cardIndex;
+            console.log('📍 Found card at index:', cardIndex);
+        } else {
+            console.warn('⚠️ Newly created card not found in state.flashcards, showing last card');
+            state.currentCardIndex = state.flashcards.length - 1;
+        }
+        
+        // Switch to study mode to display the card
         backToMain();
         switchToStudyMode();
+        
+        // Render the specific card
+        if (state.flashcards[state.currentCardIndex]) {
+            renderFlashcard(state.flashcards[state.currentCardIndex]);
+            updateCardCounter();
+        }
         
         return flashcard;
     } catch (error) {
@@ -753,8 +837,18 @@ async function generateImageForEditCard() {
         document.getElementById('generate-edit-image-btn').disabled = true;
         document.getElementById('regenerate-edit-image-btn').disabled = true;
         
+        // Get the flashcard ID from edit modal (for definition fallback)
+        const flashcardIdInput = document.getElementById('edit-flashcard-id');
+        const flashcardId = flashcardIdInput ? flashcardIdInput.value : null;
+        
+        // Build URL with optional flashcard_id parameter
+        let url = `/ai/image?word_or_phrase=${encodeURIComponent(wordInput)}&language_id=${state.currentLanguage}`;
+        if (flashcardId) {
+            url += `&flashcard_id=${flashcardId}`;
+        }
+        
         // Generate image using image-only endpoint for better performance
-        const response = await apiRequest(`/ai/image?word_or_phrase=${encodeURIComponent(wordInput)}&language_id=${state.currentLanguage}`, {
+        const response = await apiRequest(url, {
             method: 'POST'
         });
         
@@ -780,7 +874,16 @@ async function generateImageForEditCard() {
         
     } catch (error) {
         console.error('Image generation failed:', error);
-        showToast('Failed to generate image. Please try again.');
+        
+        // Check if this is a content policy violation
+        const errorMsg = error.message || '';
+        if (errorMsg.includes('safety system') || errorMsg.includes('content policy')) {
+            showToast('⚠️ DALL-E rejected this word due to content policy. You can upload an image manually instead.', 8000);
+        } else if (errorMsg.includes('422')) {
+            showToast('⚠️ Image generation blocked. Try uploading an image manually.', 6000);
+        } else {
+            showToast('❌ Failed to generate image. Please try again or upload manually.', 5000);
+        }
     } finally {
         // Hide loading state
         document.getElementById('edit-image-loading').classList.add('hidden');
@@ -1316,22 +1419,40 @@ function renderFlashcardList() {
         return;
     }
     
-    listContainer.innerHTML = state.flashcards.map((card, index) => `
+    // Sort flashcards based on current sort order
+    const sortedCards = [...state.flashcards].sort((a, b) => {
+        switch (state.sortOrder) {
+            case 'name-asc':
+                return (a.word_or_phrase || '').localeCompare(b.word_or_phrase || '');
+            case 'name-desc':
+                return (b.word_or_phrase || '').localeCompare(a.word_or_phrase || '');
+            case 'date-desc':
+                return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+            case 'date-asc':
+                return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
+            default:
+                return 0;
+        }
+    });
+    
+    listContainer.innerHTML = sortedCards.map((card) => {
+        const originalIndex = state.flashcards.indexOf(card);
+        return `
         <div class="bg-white rounded-lg p-4 shadow hover:shadow-md transition">
             <div class="flex justify-between items-start">
-                <div class="flex-1 cursor-pointer" onclick="selectCard(${index})">
+                <div class="flex-1 cursor-pointer" onclick="selectCard(${originalIndex})">
                     <h3 class="font-semibold text-gray-900 text-lg mb-1">${card.word_or_phrase}</h3>
                     <p class="text-gray-600 text-sm line-clamp-2">${card.definition || 'No definition'}</p>
                 </div>
                 <div class="ml-4 flex space-x-2 items-center">
-                    <button onclick="showEditModal(state.flashcards[${index}]); event.stopPropagation();" 
+                    <button onclick="showEditModal(state.flashcards[${originalIndex}]); event.stopPropagation();" 
                         class="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                     </button>
-                    <button onclick="confirmDelete(state.flashcards[${index}]); event.stopPropagation();" 
+                    <button onclick="confirmDelete(state.flashcards[${originalIndex}]); event.stopPropagation();" 
                         class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
@@ -1342,7 +1463,7 @@ function renderFlashcardList() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function selectCard(index) {
@@ -1940,34 +2061,49 @@ async function removeImageFromFlashcard() {
 let flashcardToDelete = null;
 
 function confirmDelete(flashcard) {
+    console.log('🗑️ === CONFIRM DELETE CALLED ===');
+    console.log('🗑️ Flashcard to delete:', flashcard);
     flashcardToDelete = flashcard;
     document.getElementById('delete-word-display').textContent = flashcard.word_or_phrase;
     document.getElementById('delete-modal').classList.remove('hidden');
+    console.log('🗑️ Modal should now be visible');
 }
 
 function closeDeleteModal() {
+    console.log('🗑️ Closing delete modal');
     document.getElementById('delete-modal').classList.add('hidden');
     flashcardToDelete = null;
 }
 
 async function deleteFlashcard() {
-    if (!flashcardToDelete) return;
+    console.log('🗑️ === DELETE FLASHCARD CALLED ===');
+    console.log('🗑️ Current flashcardToDelete:', flashcardToDelete);
+    
+    if (!flashcardToDelete) {
+        console.error('❌ No flashcard to delete');
+        return;
+    }
+    
+    console.log('🗑️ Deleting flashcard:', flashcardToDelete.id, flashcardToDelete.word_or_phrase);
     
     try {
         showLoading();
         
         // Sprint 5: Use offline-first API client
         if (apiClient) {
+            console.log('🔧 Using apiClient.deleteFlashcard()');
             await apiClient.deleteFlashcard(flashcardToDelete.id);
         } else {
             // Fallback to old API
+            console.log('🔧 Using fallback apiRequest DELETE');
             await apiRequest(`/flashcards/${flashcardToDelete.id}`, {
                 method: 'DELETE'
             });
         }
         
+        console.log('✅ Delete successful');
         hideLoading();
-        showToast('Flashcard deleted');
+        showToast('✅ Flashcard deleted');
         closeDeleteModal();
         
         // Reload flashcards from server/IndexedDB to ensure sync
@@ -2717,9 +2853,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Delete modal event listeners
+    console.log('🗑️ Setting up delete modal event listeners...');
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     const deleteFromEditBtn = document.getElementById('delete-from-edit-btn');
+    
+    console.log('🗑️ Delete buttons found:', {
+        confirmDeleteBtn: !!confirmDeleteBtn,
+        cancelDeleteBtn: !!cancelDeleteBtn,
+        deleteFromEditBtn: !!deleteFromEditBtn
+    });
     
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', deleteFlashcard);
@@ -2749,6 +2892,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     } else {
         console.warn('⚠️ Delete modal not found');
+    }
+    
+    // Sort dropdown event listener
+    console.log('📋 Setting up sort dropdown...');
+    const sortDropdown = document.getElementById('sort-dropdown');
+    if (sortDropdown) {
+        sortDropdown.addEventListener('change', (e) => {
+            console.log('📋 Sort order changed to:', e.target.value);
+            state.sortOrder = e.target.value;
+            renderFlashcardList();
+        });
+        console.log('✅ Sort dropdown initialized');
+    } else {
+        console.warn('⚠️ Sort dropdown not found');
     }
     
     // Clear form button
