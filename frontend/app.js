@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.15 (Added debug logging for parser results)
+// Version: 2.6.16 (Fixed property name mismatch: entry.word → entry.word_or_phrase)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.15';
+const APP_JS_VERSION = '2.6.16';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
