@@ -1,4 +1,5 @@
 # backend/app/main.py
+# Version: 2.6.12 - Frontend update deployment
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
