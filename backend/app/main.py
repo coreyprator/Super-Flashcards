@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.20 - Fixed related_words validation: convert list to JSON string in batch generate
+# Version: 2.6.21 - Frontend UX fixes: selection count, success toast, better error messages
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

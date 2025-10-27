@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.20 (Backend fix: convert related_words list to JSON string)
+// Version: 2.6.21 (UX fixes: selection count init, big success toast, better errors, sync trigger)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.20';
+const APP_JS_VERSION = '2.6.21';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3232,6 +3232,9 @@ function showParserResults(result) {
     // Set up selection event listeners
     setupWordSelectionHandlers();
     
+    // Initial count update after rendering
+    updateSelectedCount();
+    
     // Set up batch generation button
     const batchGenerateBtn = document.getElementById('batch-generate-btn');
     if (batchGenerateBtn) {
@@ -3327,7 +3330,15 @@ async function batchGenerateFlashcards() {
         });
         
         if (!response.ok) {
-            throw new Error(`Batch generation failed: ${response.statusText}`);
+            // Try to get error details from response
+            let errorDetail = response.statusText;
+            try {
+                const errorData = await response.json();
+                errorDetail = errorData.detail || errorData.message || JSON.stringify(errorData);
+            } catch (e) {
+                // If response is not JSON, use statusText
+            }
+            throw new Error(`Batch generation failed (${response.status}): ${errorDetail}`);
         }
         
         const result = await response.json();
@@ -3353,6 +3364,11 @@ function showBatchGenerationResults(result) {
     document.getElementById('batch-successful-count').textContent = result.successful;
     document.getElementById('batch-failed-count').textContent = result.failed;
     
+    // Show BIG success message at top if any succeeded
+    if (result.successful > 0) {
+        showToast(`✅ SUCCESS! Generated ${result.successful} flashcard${result.successful !== 1 ? 's' : ''}!`, 8000);
+    }
+    
     // Show errors if any
     if (result.errors && result.errors.length > 0) {
         document.getElementById('batch-errors').classList.remove('hidden');
@@ -3365,11 +3381,21 @@ function showBatchGenerationResults(result) {
             errorDiv.textContent = `${error.word}: ${error.error}`;
             errorsList.appendChild(errorDiv);
         });
+        
+        // Also show toast for errors
+        if (result.failed > 0) {
+            showToast(`⚠️ ${result.failed} word${result.failed !== 1 ? 's' : ''} failed to generate. See errors below.`, 8000);
+        }
     } else {
         document.getElementById('batch-errors').classList.add('hidden');
     }
     
-    showToast(`✨ Generated ${result.successful} flashcards!`, 5000);
+    // Trigger sync to update the UI with new cards
+    if (result.successful > 0 && window.syncManager) {
+        setTimeout(() => {
+            window.syncManager.performSync();
+        }, 1000);
+    }
     
     // Set up buttons
     document.getElementById('view-generated-cards').onclick = () => {

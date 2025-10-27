@@ -59,12 +59,13 @@
    - User reported tabs may be broken after upload
    - Needs testing and potential fix
 
-3. **Hamburger menu cleanup**
+3. **Hamburger menu cleanup** This is complete.
    - Keep only Import option
    - Remove other menu items
 
 ## ✅ Recently Fixed
 
+- v2.6.21: Fixed batch generate UX issues (selection count, success message, error details, sync trigger)
 - v2.6.20: Fixed related_words validation error (convert list to JSON string in batch generate)
 - v2.6.19: Fixed batch generate (import models module, use models.Flashcard not crud.Flashcard)
 - v2.6.18: Fixed batch generate API schema (language_id UUID type mismatch)
