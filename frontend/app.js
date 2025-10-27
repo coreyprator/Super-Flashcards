@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.13 (Fixed: import error null check, removed CSV/JSON format guide, extended error message duration)
+// Version: 2.6.14 (Fixed: skip entries with undefined word, update file type wording)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.13';
+const APP_JS_VERSION = '2.6.14';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3194,6 +3194,12 @@ function showParserResults(result) {
     entriesContainer.innerHTML = '';
     
     result.entries.forEach((entry, index) => {
+        // Skip entries with missing word
+        if (!entry.word) {
+            console.warn('⚠️ Skipping entry with missing word:', entry);
+            return;
+        }
+        
         const isDuplicate = existingWords.has(entry.word.toLowerCase().trim());
         const entryDiv = document.createElement('div');
         entryDiv.className = `flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100 ${isDuplicate ? 'bg-yellow-50' : ''}`;
