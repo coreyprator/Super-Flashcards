@@ -3139,7 +3139,7 @@ async function handleDocumentUpload(event) {
         
     } catch (error) {
         console.error('Document parsing error:', error);
-        showToast(`❌ Document parsing failed: ${error.message}`, 8000);
+        showToast(`❌ Document parsing failed: ${error.message}`, 15000);
         resetParserForm();
     }
 }
@@ -3173,7 +3173,7 @@ function showParserResults(result) {
     );
     
     const duplicateCount = result.entries.filter(entry => 
-        existingWords.has(entry.word.toLowerCase().trim())
+        entry.word && existingWords.has(entry.word.toLowerCase().trim())
     ).length;
     
     // Update counters

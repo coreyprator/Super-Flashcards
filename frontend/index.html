@@ -943,31 +943,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Format Help -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h3 class="text-lg font-medium text-gray-900 mb-3">📚 File Format Guide</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <h4 class="font-medium text-gray-700 mb-2">Required Fields:</h4>
-                                <ul class="text-gray-600 space-y-1">
-                                    <li>• <code class="bg-gray-200 px-1 rounded">word_or_phrase</code> - The word/phrase to learn</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">definition</code> - Translation or definition</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">language</code> - Language name (e.g., "spanish")</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-gray-700 mb-2">Optional Fields:</h4>
-                                <ul class="text-gray-600 space-y-1">
-                                    <li>• <code class="bg-gray-200 px-1 rounded">pronunciation</code> - How to pronounce</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">etymology</code> - Word origin/history</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">memory_hint</code> - Memory aid</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">difficulty_level</code> - 1-5 (default: 1)</li>
-                                    <li>• <code class="bg-gray-200 px-1 rounded">related_words</code> - Similar words</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1128,8 +1103,8 @@
         </div>
 
         <!-- Toast Notification -->
-        <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50">
-            <p id="toast-message"></p>
+        <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50 max-w-md">
+            <p id="toast-message" class="whitespace-pre-wrap"></p>
         </div>
 
         <!-- Delete Confirmation Modal -->
