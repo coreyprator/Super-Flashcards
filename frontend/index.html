@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.6.10';
+        window.APP_VERSION = '2.6.11';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -368,7 +368,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.10</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.11</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -463,39 +463,9 @@
                     
                     <!-- Dropdown Menu -->
                     <div id="dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border">
-                        <button id="menu-sync" class="w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-50 flex items-center gap-2">
-                            🔄 Sync Now
-                        </button>
                         <button id="menu-import" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2">
-                            � Import Cards
+                            📁 Import Cards
                         </button>
-                        <button id="menu-batch" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 border-t">
-                            � Batch Operations
-                        </button>
-                        <button id="menu-settings" class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2 border-t">
-                            ⚙️ Settings
-                        </button>
-                        <div class="border-t my-2"></div>
-                        <div class="px-4 py-2">
-                            <div class="text-xs font-semibold text-gray-500 mb-1">Sync Status</div>
-                            <div class="flex flex-col gap-1 mb-2">
-                                <div class="flex items-center justify-between text-sm">
-                                    <span>Local Cards</span>
-                                    <span id="local-flashcards-count-menu" class="font-mono">0</span>
-                                </div>
-                                <div class="flex items-center justify-between text-sm">
-                                    <span>Pending Sync</span>
-                                    <span id="pending-sync-count-menu" class="font-mono">0</span>
-                                </div>
-                                <div class="flex items-center justify-between text-sm">
-                                    <span>Network</span>
-                                    <span id="network-status-menu" class="font-mono">🟢</span>
-                                </div>
-                            </div>
-                            <div class="text-xs font-semibold text-gray-500 mb-1 mt-2">Debug Console</div>
-                            <button id="clear-db-btn-menu" class="w-full px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs mb-2">🗑️ Clear Local DB</button>
-                            <div id="debug-log-menu" class="p-2 bg-gray-800 text-green-400 rounded text-xs font-mono h-20 overflow-y-auto">Debug log will appear here...</div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1391,7 +1361,7 @@
     <script>
         window.timingCheckpoint('T5m-loading-app-js', 'Loading app.js (MAIN APP)');
     </script>
-    <script src="/app.js?v=2.6.10"></script>
+    <script src="/app.js?v=2.6.11"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
     </script>

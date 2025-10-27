@@ -262,7 +262,32 @@ async def parse_document(
     
     # Parse content
     parser = SmartVocabularyParser()
-    entries = parser.parse_text_sections(file_content)
+    
+    # ✅ FIX: Check if it's a simple word list (no definitions, just words)
+    # If it's just a list of words separated by whitespace/newlines, treat it differently
+    if not any(keyword in file_content.lower() for keyword in ['étymologie', 'definition', 'origine', ':']) and len(file_content.split()) > 5:
+        # Simple word list mode - split by whitespace and newlines
+        words = []
+        for line in file_content.split('\n'):
+            line = line.strip()
+            if line:
+                # Split by spaces, commas, semicolons
+                line_words = re.split(r'[,;\s]+', line)
+                words.extend([w.strip() for w in line_words if w.strip() and len(w.strip()) > 1])
+        
+        # Create minimal entries for each word (AI will fill in the rest)
+        entries = []
+        for word in words[:100]:  # Limit to 100 words per upload
+            entry = VocabularyEntry(
+                word_or_phrase=word,
+                definition=f"[AI will generate definition for: {word}]",
+                language=language,
+                confidence_score=0.99  # High confidence - it's a clean word list
+            )
+            entries.append(entry)
+    else:
+        # Structured document mode - use the smart parser
+        entries = parser.parse_text_sections(file_content)
     
     # Filter by confidence
     filtered_entries = [e for e in entries if e.confidence_score >= min_confidence]

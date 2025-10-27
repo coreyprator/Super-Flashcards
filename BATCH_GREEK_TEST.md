@@ -1,5 +1,22 @@
 # Batch Greek Words Test - User Instructions
 
+## ⚠️ **IMPORTANT: Wait for v2.6.10 Deployment**
+
+**Current Status**: v2.6.10 is deploying now (ETA: ~2-3 minutes)
+
+**Why you need v2.6.10**: The document parser endpoint had a URL mismatch bug:
+- Backend: `/api/document/parse` 
+- Frontend was calling: `/api/parser/parse-document` ❌
+
+This caused the **404 error** you saw. v2.6.10 fixes this.
+
+**Before testing**:
+1. Wait for deployment message in terminal
+2. Hard refresh browser (Ctrl+Shift+R)
+3. Verify version badge shows `v2.6.10`
+
+---
+
 ## 🎯 Test Objective
 Test the complete batch workflow with Greek words: Upload document → Select words → Generate AI flashcards → Verify all cards created with images, audio, definitions, etymology, and cognates.
 

@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.10 (Fixed: document parser endpoint URL)
+// Version: 2.6.11 (Fixed: simple word list parser, cleaned hamburger menu)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.10';
+const APP_JS_VERSION = '2.6.11';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
