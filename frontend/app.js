@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.14 (Fixed: skip entries with undefined word, update file type wording)
+// Version: 2.6.15 (Added debug logging for parser results)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.14';
+const APP_JS_VERSION = '2.6.15';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3150,6 +3150,10 @@ function showParserProgress() {
 }
 
 function showParserResults(result) {
+    console.log('📄 showParserResults called with:', result);
+    console.log('📄 Number of entries:', result.entries.length);
+    console.log('📄 First few entries:', result.entries.slice(0, 3));
+    
     // Hide progress, show results
     document.getElementById('parser-progress').classList.add('hidden');
     document.getElementById('parser-results').classList.remove('hidden');
@@ -3191,8 +3195,10 @@ function showParserResults(result) {
     
     // Show parsed entries as checkboxes (clean word list only)
     const entriesContainer = document.getElementById('parsed-entries-list');
+    console.log('📄 Entries container found:', !!entriesContainer);
     entriesContainer.innerHTML = '';
     
+    let renderedCount = 0;
     result.entries.forEach((entry, index) => {
         // Skip entries with missing word
         if (!entry.word) {
@@ -3200,6 +3206,7 @@ function showParserResults(result) {
             return;
         }
         
+        renderedCount++;
         const isDuplicate = existingWords.has(entry.word.toLowerCase().trim());
         const entryDiv = document.createElement('div');
         entryDiv.className = `flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100 ${isDuplicate ? 'bg-yellow-50' : ''}`;
@@ -3219,6 +3226,8 @@ function showParserResults(result) {
         `;
         entriesContainer.appendChild(entryDiv);
     });
+    
+    console.log(`📄 Rendered ${renderedCount} out of ${result.entries.length} entries`);
     
     // Set up selection event listeners
     setupWordSelectionHandlers();
