@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.12 - Frontend update deployment
+# Version: 2.6.13 - Fix import error, remove CSV/JSON format guide, extend error duration
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
