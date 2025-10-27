@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.19 (Backend fix: import models for Flashcard class)
+// Version: 2.6.20 (Backend fix: convert related_words list to JSON string)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.19';
+const APP_JS_VERSION = '2.6.20';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {

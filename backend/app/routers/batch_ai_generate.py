@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 import logging
+import json
 
 from ..database import get_db
 from .. import crud, schemas, models
@@ -105,6 +106,10 @@ async def batch_generate_flashcards(
                     logger.warning(f"⚠️  Image generation failed for {word}: {e}")
                     # Continue without image
             
+            # Convert related_words list to JSON string
+            related_words_list = content.get("related_words", [])
+            related_words_json = json.dumps(related_words_list) if related_words_list else None
+            
             # Create flashcard
             flashcard_data = schemas.FlashcardCreate(
                 language_id=request.language_id,
@@ -112,7 +117,7 @@ async def batch_generate_flashcards(
                 definition=content.get("definition", ""),
                 etymology=content.get("etymology", ""),
                 english_cognates=content.get("english_cognates", ""),
-                related_words=content.get("related_words", []),
+                related_words=related_words_json,
                 image_url=image_url,
                 image_description=content.get("image_description", ""),
                 source="ai_generated_batch"

@@ -3,14 +3,22 @@
 ## 🐛 Known Bugs
 
 ### High Priority
+
 1. **Adding a card shows random card instead of newly added card**
    - When manually adding a flashcard, the UI doesn't display the newly created card
    - Instead, it shows a random existing card
    - Expected: Should show the card that was just created
    - Location: `frontend/app.js` - card creation/display logic
 
+2. **Import tab has no navigation back to other modes**
+   - When user clicks Import tab, there's no way to go back to Study, Read, or Browse modes
+   - Navigation buttons/tabs disappear or become inaccessible
+   - User must refresh page to access other modes
+   - Location: `frontend/index.html` and `frontend/app.js` - tab navigation logic
+
 ### Medium Priority
-2. **Missing files causing 404 errors**
+
+3. **Missing files causing 404 errors**
    - `manifest.json` - 404 error
    - `error-tracker.js` - 404 error
    - Impact: Console warnings, but app still functions
@@ -56,6 +64,9 @@
    - Remove other menu items
 
 ## ✅ Recently Fixed
+
+- v2.6.20: Fixed related_words validation error (convert list to JSON string in batch generate)
+- v2.6.19: Fixed batch generate (import models module, use models.Flashcard not crud.Flashcard)
 - v2.6.18: Fixed batch generate API schema (language_id UUID type mismatch)
 - v2.6.17: Fixed batch generate missing language dropdown
 - v2.6.16: Fixed property name mismatch (entry.word → entry.word_or_phrase)
