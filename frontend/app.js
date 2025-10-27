@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.17 (Fixed batch generate missing language dropdown - use state.currentLanguage)
+// Version: 2.6.18 (Fixed batch generate API: backend expects UUID string, not int)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.17';
+const APP_JS_VERSION = '2.6.18';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {

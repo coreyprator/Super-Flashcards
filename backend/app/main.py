@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.17 - Fixed batch generate missing language dropdown
+# Version: 2.6.18 - Fixed batch generate API schema: language_id int → str (UUID)
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

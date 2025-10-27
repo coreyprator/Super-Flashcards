@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BatchGenerateRequest(BaseModel):
     """Request model for batch AI generation"""
     words: List[str]
-    language_id: int
+    language_id: str  # UUID string
     include_images: bool = True
 
 class BatchGenerateResponse(BaseModel):
@@ -27,7 +27,7 @@ class BatchGenerateResponse(BaseModel):
     total_requested: int
     successful: int
     failed: int
-    flashcard_ids: List[int]
+    flashcard_ids: List[str]  # UUID strings
     errors: List[dict]
 
 @router.post("/batch-generate", response_model=BatchGenerateResponse)
@@ -49,7 +49,7 @@ async def batch_generate_flashcards(
     logger.info(f"🚀 Starting batch generation for {len(request.words)} words")
     
     # Validate language
-    language = crud.get_language(db, str(request.language_id))
+    language = crud.get_language(db, request.language_id)
     if not language:
         raise HTTPException(status_code=404, detail="Language not found")
     
