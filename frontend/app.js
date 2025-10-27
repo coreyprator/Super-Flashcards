@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.11 (Fixed: simple word list parser, cleaned hamburger menu)
+// Version: 2.6.12 (Fixed: clean word list display, duplicate detection, language persistence, removed CSV/JSON import)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.11';
+const APP_JS_VERSION = '2.6.12';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -343,6 +343,9 @@ async function loadLanguages() {
         
         state.languages = languages;
         
+        // Sort languages alphabetically by name
+        languages.sort((a, b) => a.name.localeCompare(b.name));
+        
         const select = document.getElementById('language-select');
         select.innerHTML = '<option value="">Select a language...</option>';
         
@@ -361,13 +364,15 @@ async function loadLanguages() {
             // Use saved language if it still exists
             selectedLanguage = savedLanguageId;
         } else if (languages.length > 0) {
-            // Fall back to first language
+            // Fall back to first language (alphabetically)
             selectedLanguage = languages[0].id;
         }
         
         if (selectedLanguage) {
             select.value = selectedLanguage;
             state.currentLanguage = selectedLanguage;
+            // Save to localStorage immediately
+            localStorage.setItem('lastSelectedLanguage', selectedLanguage);
             await loadFlashcards();
         }
     } catch (error) {
@@ -3050,31 +3055,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('🔍 Setting up document parser event listeners...');
     
     const parserOption = document.getElementById('parser-option');
-    const directOption = document.getElementById('direct-option');
     const documentFileInput = document.getElementById('document-file');
     const importParsedBtn = document.getElementById('import-parsed');
     const parseAnotherBtn = document.getElementById('parse-another');
     
     console.log('🔍 Parser elements found:', {
         parserOption: !!parserOption,
-        directOption: !!directOption,
         documentFileInput: !!documentFileInput,
         importParsedBtn: !!importParsedBtn,
         parseAnotherBtn: !!parseAnotherBtn
     });
     
+    // Auto-select parser method (it's the only option now)
     if (parserOption) {
-        parserOption.addEventListener('click', () => {
-            console.log('🔄 Parser option selected');
-            selectImportMethod('parser');
-        });
-    }
-    
-    if (directOption) {
-        directOption.addEventListener('click', () => {
-            console.log('🔄 Direct import option selected');
-            selectImportMethod('direct');
-        });
+        selectImportMethod('parser');
     }
     
     if (documentFileInput) {
@@ -3091,23 +3085,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Document Parser Functions
 function selectImportMethod(method) {
-    const parserOption = document.getElementById('parser-option');
-    const directOption = document.getElementById('direct-option');
     const parserUploadSection = document.getElementById('parser-upload-section');
-    const directUploadSection = document.getElementById('direct-upload-section');
-    
-    // Reset selections
-    parserOption.classList.remove('border-blue-500', 'bg-blue-50');
-    directOption.classList.remove('border-indigo-500', 'bg-indigo-50');
-    parserUploadSection.classList.add('hidden');
-    directUploadSection.classList.add('hidden');
     
     if (method === 'parser') {
-        parserOption.classList.add('border-blue-500', 'bg-blue-50');
         parserUploadSection.classList.remove('hidden');
-    } else if (method === 'direct') {
-        directOption.classList.add('border-indigo-500', 'bg-indigo-50');
-        directUploadSection.classList.remove('hidden');
     }
 }
 
@@ -3115,12 +3096,12 @@ async function handleDocumentUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    // Validate file type
-    const validExtensions = ['docx', 'txt'];
+    // Validate file type (only .txt now)
+    const validExtensions = ['txt'];
     const fileExtension = file.name.split('.').pop().toLowerCase();
     
     if (!validExtensions.includes(fileExtension)) {
-        showToast('❌ Please select a Word document (.docx) or text file (.txt)', 5000);
+        showToast('❌ Please select a text file (.txt)', 5000);
         event.target.value = '';
         return;
     }
@@ -3177,33 +3158,57 @@ function showParserResults(result) {
     window.parsedEntries = result.entries;
     window.selectedWords = new Set(); // Track selected words
     
+    // Update language display
+    const currentLanguage = state.languages.find(lang => lang.id === state.currentLanguage);
+    const languageNameEl = document.getElementById('import-language-name');
+    if (languageNameEl && currentLanguage) {
+        languageNameEl.textContent = currentLanguage.name;
+    }
+    
+    // Check for duplicates against existing flashcards
+    const existingWords = new Set(
+        state.flashcards
+            .filter(card => card.language_id === state.currentLanguage)
+            .map(card => card.word_or_phrase.toLowerCase().trim())
+    );
+    
+    const duplicateCount = result.entries.filter(entry => 
+        existingWords.has(entry.word.toLowerCase().trim())
+    ).length;
+    
     // Update counters
     document.getElementById('parsed-count').textContent = result.entries.length;
     document.getElementById('selected-count').textContent = '0';
-    const avgConfidence = result.entries.length > 0 
-        ? Math.round(result.entries.reduce((sum, entry) => sum + entry.confidence, 0) / result.entries.length)
-        : 0;
-    document.getElementById('confidence-score').textContent = `${avgConfidence}%`;
+    document.getElementById('duplicate-count').textContent = duplicateCount;
     
-    // Show parsed entries as checkboxes
+    // Show/hide duplicate controls
+    const duplicateControls = document.getElementById('duplicate-controls');
+    if (duplicateCount > 0) {
+        duplicateControls.classList.remove('hidden');
+    } else {
+        duplicateControls.classList.add('hidden');
+    }
+    
+    // Show parsed entries as checkboxes (clean word list only)
     const entriesContainer = document.getElementById('parsed-entries-list');
     entriesContainer.innerHTML = '';
     
     result.entries.forEach((entry, index) => {
+        const isDuplicate = existingWords.has(entry.word.toLowerCase().trim());
         const entryDiv = document.createElement('div');
-        entryDiv.className = 'flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100';
-        
-        const confidenceColor = entry.confidence >= 80 ? 'text-green-600' : 
-                               entry.confidence >= 60 ? 'text-yellow-600' : 'text-red-600';
+        entryDiv.className = `flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100 ${isDuplicate ? 'bg-yellow-50' : ''}`;
         
         entryDiv.innerHTML = `
-            <input type="checkbox" id="word-${index}" class="word-checkbox mt-1 h-4 w-4 text-purple-600 rounded" data-word="${entry.word}">
+            <input type="checkbox" 
+                   id="word-${index}" 
+                   class="word-checkbox mt-1 h-4 w-4 text-purple-600 rounded" 
+                   data-word="${entry.word}"
+                   data-index="${index}"
+                   data-duplicate="${isDuplicate}"
+                   ${!isDuplicate ? 'checked' : ''}>
             <label for="word-${index}" class="flex-1 cursor-pointer text-sm">
-                <div class="flex justify-between items-start">
-                    <span class="font-medium text-gray-900">${entry.word}</span>
-                    <span class="${confidenceColor} text-xs">${entry.confidence}%</span>
-                </div>
-                ${entry.definition ? `<div class="text-gray-600 text-xs">${entry.definition.substring(0, 100)}${entry.definition.length > 100 ? '...' : ''}</div>` : ''}
+                <span class="font-medium text-gray-900">${entry.word}</span>
+                ${isDuplicate ? '<span class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-0.5 rounded">⚠️ Duplicate</span>' : ''}
             </label>
         `;
         entriesContainer.appendChild(entryDiv);
@@ -3240,6 +3245,23 @@ function setupWordSelectionHandlers() {
     if (deselectAllBtn) {
         deselectAllBtn.onclick = () => {
             checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        };
+    }
+    
+    // Toggle duplicates button
+    const toggleDuplicatesBtn = document.getElementById('toggle-duplicates');
+    if (toggleDuplicatesBtn) {
+        toggleDuplicatesBtn.onclick = () => {
+            const duplicateCheckboxes = document.querySelectorAll('.word-checkbox[data-duplicate="true"]');
+            const allDuplicatesUnchecked = Array.from(duplicateCheckboxes).every(cb => !cb.checked);
+            
+            duplicateCheckboxes.forEach(cb => {
+                cb.checked = allDuplicatesUnchecked; // Toggle: if all unchecked, check them; otherwise uncheck
+            });
+            
+            // Update button text
+            toggleDuplicatesBtn.textContent = allDuplicatesUnchecked ? 'Unselect Duplicates' : 'Select Duplicates';
             updateSelectedCount();
         };
     }
