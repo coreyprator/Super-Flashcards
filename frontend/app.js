@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.12 (Fixed: clean word list display, duplicate detection, language persistence, removed CSV/JSON import)
+// Version: 2.6.13 (Fixed: import error null check, removed CSV/JSON format guide, extended error message duration)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.12';
+const APP_JS_VERSION = '2.6.13';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
