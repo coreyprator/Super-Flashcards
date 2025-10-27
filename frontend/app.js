@@ -3177,7 +3177,7 @@ function showParserResults(result) {
     );
     
     const duplicateCount = result.entries.filter(entry => 
-        entry.word && existingWords.has(entry.word.toLowerCase().trim())
+        entry.word_or_phrase && existingWords.has(entry.word_or_phrase.toLowerCase().trim())
     ).length;
     
     // Update counters
@@ -3200,14 +3200,14 @@ function showParserResults(result) {
     
     let renderedCount = 0;
     result.entries.forEach((entry, index) => {
-        // Skip entries with missing word
-        if (!entry.word) {
-            console.warn('⚠️ Skipping entry with missing word:', entry);
+        // Skip entries with missing word_or_phrase
+        if (!entry.word_or_phrase) {
+            console.warn('⚠️ Skipping entry with missing word_or_phrase:', entry);
             return;
         }
         
         renderedCount++;
-        const isDuplicate = existingWords.has(entry.word.toLowerCase().trim());
+        const isDuplicate = existingWords.has(entry.word_or_phrase.toLowerCase().trim());
         const entryDiv = document.createElement('div');
         entryDiv.className = `flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100 ${isDuplicate ? 'bg-yellow-50' : ''}`;
         
@@ -3215,12 +3215,12 @@ function showParserResults(result) {
             <input type="checkbox" 
                    id="word-${index}" 
                    class="word-checkbox mt-1 h-4 w-4 text-purple-600 rounded" 
-                   data-word="${entry.word}"
+                   data-word="${entry.word_or_phrase}"
                    data-index="${index}"
                    data-duplicate="${isDuplicate}"
                    ${!isDuplicate ? 'checked' : ''}>
             <label for="word-${index}" class="flex-1 cursor-pointer text-sm">
-                <span class="font-medium text-gray-900">${entry.word}</span>
+                <span class="font-medium text-gray-900">${entry.word_or_phrase}</span>
                 ${isDuplicate ? '<span class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-0.5 rounded">⚠️ Duplicate</span>' : ''}
             </label>
         `;
