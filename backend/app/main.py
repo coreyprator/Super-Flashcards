@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.13 - Fix import error, remove CSV/JSON format guide, extend error duration
+# Version: 2.6.14 - Fix undefined word error in forEach loop, update file type wording
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
