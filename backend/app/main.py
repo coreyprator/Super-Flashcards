@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.16 - Property name fix: entry.word → entry.word_or_phrase
+# Version: 2.6.17 - Fixed batch generate missing language dropdown
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.16 (Fixed property name mismatch: entry.word → entry.word_or_phrase)
+// Version: 2.6.17 (Fixed batch generate missing language dropdown - use state.currentLanguage)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.16';
+const APP_JS_VERSION = '2.6.17';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3305,9 +3305,8 @@ async function batchGenerateFlashcards() {
     
     console.log('🪄 Starting batch AI generation for', selectedWords.length, 'words');
     
-    // Get current language
-    const languageSelect = document.getElementById('parser-language');
-    const languageId = parseInt(languageSelect.value);
+    // Get current language from state (no dropdown in parser)
+    const languageId = state.currentLanguage;
     
     // Hide results, show progress
     document.getElementById('parser-results').classList.add('hidden');
