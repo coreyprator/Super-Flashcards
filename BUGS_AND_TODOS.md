@@ -10,11 +10,11 @@
    - Expected: Should show the card that was just created
    - Location: `frontend/app.js` - card creation/display logic
 
-2. **Import tab has no navigation back to other modes**
-   - When user clicks Import tab, there's no way to go back to Study, Read, or Browse modes
-   - Navigation buttons/tabs disappear or become inaccessible
-   - User must refresh page to access other modes
-   - Location: `frontend/index.html` and `frontend/app.js` - tab navigation logic
+2. **Delete button issues in Browse mode**
+   - Delete button on edit card modal doesn't work
+   - Delete button intermittently disappears in Browse mode
+   - Needs investigation and fix
+   - Location: `frontend/app.js` - delete button event listeners
 
 ### Medium Priority
 
@@ -22,6 +22,10 @@
    - `manifest.json` - 404 error
    - `error-tracker.js` - 404 error
    - Impact: Console warnings, but app still functions
+
+4. **Tab navigation after document upload**
+   - User reported tabs may be broken after upload
+   - Needs testing and potential fix
 
 ## 📋 Feature TODOs
 
@@ -55,17 +59,10 @@
    - Currently requires manual updates in 3 places (HTML, app.js, backend)
    - Consider single source of truth
 
-2. **Tab navigation after document upload**
-   - User reported tabs may be broken after upload
-   - Needs testing and potential fix
-
-3. **Hamburger menu cleanup** This is complete.
-   - Keep only Import option
-   - Remove other menu items
-
 ## ✅ Recently Fixed
 
-- v2.6.21: Fixed batch generate UX issues (selection count, success message, error details, sync trigger)
+- v2.6.22: Added persistent status banner for batch generation, navigation buttons from Import tab, audio generation trigger for batch-generated cards (10/27/2025)
+- v2.6.21: Fixed batch generate UX issues (selection count, success message, error details, sync trigger) (10/27/2025)
 - v2.6.20: Fixed related_words validation error (convert list to JSON string in batch generate)
 - v2.6.19: Fixed batch generate (import models module, use models.Flashcard not crud.Flashcard)
 - v2.6.18: Fixed batch generate API schema (language_id UUID type mismatch)
@@ -75,3 +72,4 @@
 
 ---
 Last updated: 2025-10-27
+

@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.21 - Frontend UX fixes: selection count, success toast, better error messages
+# Version: 2.6.22 - Persistent status banner, audio generation trigger, navigation buttons
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.21 (UX fixes: selection count init, big success toast, better errors, sync trigger)
+// Version: 2.6.22 (Persistent status banner, audio generation trigger, navigation buttons)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.21';
+const APP_JS_VERSION = '2.6.22';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -76,6 +76,74 @@ let state = {
     currentMode: 'study', // Track current mode: 'study', 'read', or 'browse'
     sortOrder: localStorage.getItem('flashcard_sort_order') || 'date-desc' // Persist sort order, default to newest first
 };
+
+// ========================================
+// Status Banner Functions
+// ========================================
+
+/**
+ * Show persistent status banner at top of page
+ * @param {String} title - Main status message
+ * @param {String} message - Detailed message
+ * @param {String} type - 'processing', 'success', 'error', 'warning'
+ * @param {Number} autoDismiss - Auto-dismiss after milliseconds (0 = manual dismiss only)
+ */
+function showStatusBanner(title, message, type = 'processing', autoDismiss = 0) {
+    const banner = document.getElementById('status-banner');
+    const icon = document.getElementById('status-banner-icon');
+    const titleEl = document.getElementById('status-banner-title');
+    const messageEl = document.getElementById('status-banner-message');
+    
+    if (!banner) return;
+    
+    // Set icon and colors based on type
+    const types = {
+        processing: {
+            icon: '⏳',
+            gradient: 'from-purple-500 to-indigo-600'
+        },
+        success: {
+            icon: '✅',
+            gradient: 'from-green-500 to-emerald-600'
+        },
+        error: {
+            icon: '❌',
+            gradient: 'from-red-500 to-rose-600'
+        },
+        warning: {
+            icon: '⚠️',
+            gradient: 'from-yellow-500 to-orange-600'
+        }
+    };
+    
+    const config = types[type] || types.processing;
+    icon.textContent = config.icon;
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    // Update gradient
+    banner.className = `bg-gradient-to-r ${config.gradient} text-white shadow-lg`;
+    
+    // Show banner
+    banner.classList.remove('hidden');
+    
+    // Auto-dismiss if requested
+    if (autoDismiss > 0) {
+        setTimeout(() => {
+            banner.classList.add('hidden');
+        }, autoDismiss);
+    }
+}
+
+/**
+ * Hide status banner
+ */
+function hideStatusBanner() {
+    const banner = document.getElementById('status-banner');
+    if (banner) {
+        banner.classList.add('hidden');
+    }
+}
 
 // ========================================
 // Utility Functions
@@ -3051,6 +3119,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('⚠️ Import another button not found (this is expected initially)');
     }
 
+    // Navigation buttons for Import tab
+    const importToBrowseBtn = document.getElementById('import-to-browse');
+    const importToStudyBtn = document.getElementById('import-to-study');
+    
+    if (importToBrowseBtn) {
+        importToBrowseBtn.addEventListener('click', () => {
+            console.log('📚 Navigate to Browse from Import');
+            switchToBrowseMode();
+        });
+    }
+    
+    if (importToStudyBtn) {
+        importToStudyBtn.addEventListener('click', () => {
+            console.log('🎯 Navigate to Study from Import');
+            switchToStudyMode();
+        });
+    }
+    
+    // Navigation button for Batch Generation Results
+    const batchToStudyBtn = document.getElementById('batch-to-study');
+    
+    if (batchToStudyBtn) {
+        batchToStudyBtn.addEventListener('click', () => {
+            console.log('🎯 Navigate to Study from Batch Results');
+            switchToStudyMode();
+        });
+    }
+    
+    // Status banner close button
+    const statusBannerClose = document.getElementById('status-banner-close');
+    if (statusBannerClose) {
+        statusBannerClose.addEventListener('click', hideStatusBanner);
+    }
+
     // Document Parser Setup
     console.log('🔍 Setting up document parser event listeners...');
     
@@ -3311,6 +3413,14 @@ async function batchGenerateFlashcards() {
     // Get current language from state (no dropdown in parser)
     const languageId = state.currentLanguage;
     
+    // Show persistent status banner
+    showStatusBanner(
+        `Generating ${selectedWords.length} flashcards...`,
+        'AI is creating definitions, etymologies, and images. This may take a minute.',
+        'processing',
+        0 // Don't auto-dismiss - user needs to see final result
+    );
+    
     // Hide results, show progress
     document.getElementById('parser-results').classList.add('hidden');
     document.getElementById('batch-generation-progress').classList.remove('hidden');
@@ -3347,8 +3457,23 @@ async function batchGenerateFlashcards() {
         // Show results
         showBatchGenerationResults(result);
         
+        // Trigger audio generation for successful cards
+        if (result.successful > 0 && result.flashcard_ids && result.flashcard_ids.length > 0) {
+            console.log(`🎵 Triggering audio generation for ${result.flashcard_ids.length} flashcards`);
+            triggerBatchAudioGeneration(result.flashcard_ids);
+        }
+        
     } catch (error) {
         console.error('❌ Batch generation error:', error);
+        
+        // Update status banner to show error
+        showStatusBanner(
+            'Batch generation failed',
+            error.message,
+            'error',
+            10000 // Auto-dismiss after 10 seconds
+        );
+        
         showToast(`❌ Batch generation failed: ${error.message}`, 5000);
         document.getElementById('batch-generation-progress').classList.add('hidden');
         document.getElementById('parser-results').classList.remove('hidden');
@@ -3363,6 +3488,30 @@ function showBatchGenerationResults(result) {
     // Update counters
     document.getElementById('batch-successful-count').textContent = result.successful;
     document.getElementById('batch-failed-count').textContent = result.failed;
+    
+    // Update status banner with final result
+    if (result.successful > 0 && result.failed === 0) {
+        showStatusBanner(
+            `✅ Success! Generated ${result.successful} flashcard${result.successful !== 1 ? 's' : ''}!`,
+            'All flashcards were created successfully. Audio will be generated in the background.',
+            'success',
+            15000 // Auto-dismiss after 15 seconds
+        );
+    } else if (result.successful > 0 && result.failed > 0) {
+        showStatusBanner(
+            `⚠️ Partial Success: ${result.successful} created, ${result.failed} failed`,
+            'Some flashcards could not be generated. See details below.',
+            'warning',
+            0 // Don't auto-dismiss - user needs to see errors
+        );
+    } else {
+        showStatusBanner(
+            `❌ Generation Failed`,
+            `All ${result.failed} flashcard${result.failed !== 1 ? 's' : ''} failed to generate. See errors below.`,
+            'error',
+            0 // Don't auto-dismiss
+        );
+    }
     
     // Show BIG success message at top if any succeeded
     if (result.successful > 0) {
@@ -3406,6 +3555,41 @@ function showBatchGenerationResults(result) {
         document.getElementById('batch-generation-results').classList.add('hidden');
         document.getElementById('parser-upload-section').classList.remove('hidden');
     };
+}
+
+/**
+ * Trigger audio generation for a batch of flashcards
+ * @param {Array} flashcardIds - Array of flashcard ID strings
+ */
+async function triggerBatchAudioGeneration(flashcardIds) {
+    if (!flashcardIds || flashcardIds.length === 0) {
+        return;
+    }
+    
+    console.log(`🎵 Starting background audio generation for ${flashcardIds.length} flashcards`);
+    
+    // Trigger audio generation in parallel (but don't wait for completion)
+    flashcardIds.forEach(async (flashcardId) => {
+        try {
+            const response = await fetch(`/api/flashcards/${flashcardId}/generate-audio`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                console.log(`🎵 ✅ Audio generated for flashcard ${flashcardId}`);
+            } else {
+                console.warn(`🎵 ⚠️ Audio generation failed for flashcard ${flashcardId}: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`🎵 ❌ Error generating audio for flashcard ${flashcardId}:`, error);
+        }
+    });
+    
+    // Show a toast to inform user that audio is being generated
+    showToast(`🎵 Generating audio for ${flashcardIds.length} flashcard${flashcardIds.length !== 1 ? 's' : ''} in the background...`, 5000);
 }
 
 async function importParsedEntries() {
