@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import logging
 
 from ..database import get_db
-from .. import crud, schemas
+from .. import crud, schemas, models
 from .ai_generate import generate_flashcard_content, generate_image
 
 router = APIRouter()
@@ -68,9 +68,9 @@ async def batch_generate_flashcards(
             logger.info(f"📝 Processing {index}/{len(request.words)}: {word}")
             
             # Check for duplicates
-            existing = db.query(crud.Flashcard).filter(
-                crud.Flashcard.word_or_phrase == word,
-                crud.Flashcard.language_id == request.language_id
+            existing = db.query(models.Flashcard).filter(
+                models.Flashcard.word_or_phrase == word,
+                models.Flashcard.language_id == request.language_id
             ).first()
             
             if existing:

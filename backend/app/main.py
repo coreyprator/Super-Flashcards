@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.18 - Fixed batch generate API schema: language_id int → str (UUID)
+# Version: 2.6.19 - Fixed batch generate: import models, use models.Flashcard not crud.Flashcard
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

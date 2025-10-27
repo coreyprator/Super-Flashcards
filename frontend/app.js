@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.18 (Fixed batch generate API: backend expects UUID string, not int)
+// Version: 2.6.19 (Backend fix: import models for Flashcard class)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.18';
+const APP_JS_VERSION = '2.6.19';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
