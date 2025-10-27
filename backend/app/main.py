@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.15 - Add debug logging for parser results, GitHub Actions CI/CD
+# Version: 2.6.16 - Property name fix: entry.word → entry.word_or_phrase
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
