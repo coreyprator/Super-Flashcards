@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.28 (Fetch new cards by ID immediately after batch generation)
+// Version: 2.6.32 (Fix card click navigation, audio endpoint, auto-browse after batch)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.31';
+const APP_JS_VERSION = '2.6.32';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1553,7 +1553,7 @@ function renderFlashcardList() {
 
 function selectCard(index) {
     state.currentCardIndex = index;
-    switchTab('study');
+    switchMode('study');
     renderFlashcard(state.flashcards[index]);
     updateCardCounter();
 }
@@ -3677,10 +3677,12 @@ async function showBatchGenerationResults(result) {
                 state.flashcards = [...state.flashcards, ...newCards];
                 console.log(`✅ Added ${newCards.length} new flashcards to state. Total: ${state.flashcards.length}`);
                 
-                // Refresh browse list if we're in browse mode
-                if (state.currentMode === 'browse') {
-                    renderFlashcardList();
-                }
+                // Auto-navigate to Browse mode to see the new cards
+                console.log('🔄 Auto-navigating to Browse mode to show new flashcards...');
+                switchMode('browse');
+                
+                // Refresh browse list
+                renderFlashcardList();
             }
         }
         
@@ -3730,7 +3732,7 @@ async function triggerBatchAudioGeneration(flashcardIds) {
     // Trigger audio generation in parallel (but don't wait for completion)
     flashcardIds.forEach(async (flashcardId) => {
         try {
-            const response = await fetch(`/api/flashcards/${flashcardId}/generate-audio`, {
+            const response = await fetch(`/api/audio/generate/${flashcardId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

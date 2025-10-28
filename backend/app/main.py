@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.28 - Fetch new cards directly by ID after batch generation
+# Version: 2.6.32 - Fix audio endpoint, auto-navigate to Browse after batch
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,7 +56,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.6.31"
+    version="2.6.32"
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
