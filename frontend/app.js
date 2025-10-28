@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.22 (Persistent status banner, audio generation trigger, navigation buttons)
+// Version: 2.6.23 (Verbose API logging, fix mode switching bug)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.22';
+const APP_JS_VERSION = '2.6.23';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3890,17 +3890,27 @@ function switchMode(mode) {
         }
         
     } else if (mode === 'browse') {
-        browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
-        browseBtn.classList.remove('text-gray-600');
+        console.log('📚 Activating Browse mode');
+        
+        if (browseBtn) {
+            browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            browseBtn.classList.remove('text-gray-600');
+        }
         
         // Show browse mode content
-        document.getElementById('browse-mode').classList.remove('hidden');
+        if (browseModeEl) {
+            browseModeEl.classList.remove('hidden');
+            console.log('📚 Browse mode container now visible');
+        } else {
+            console.error('❌ Browse mode element not found!');
+        }
         
         // Load cards list
         loadCardsList();
     }
     
     state.currentMode = mode;
+    console.log(`✅ Mode switched to: ${mode}`);
 }
 
 /**

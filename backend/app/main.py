@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.22 - Persistent status banner, audio generation trigger, navigation buttons
+# Version: 2.6.23 - Verbose API logging for batch generate, fix mode switching
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
