@@ -137,3 +137,23 @@ class StudySession(Base):
     
     # Relationships - Commented out for Cloud SQL
     # user = relationship("User", back_populates="study_sessions")
+
+
+# API Debug Logs - For troubleshooting image/audio generation
+class APIDebugLog(Base):
+    __tablename__ = "api_debug_logs"
+    
+    id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
+    flashcard_id = Column(UNIQUEIDENTIFIER, nullable=True)  # Link to flashcard if applicable
+    operation_type = Column(NVARCHAR(50), nullable=False)  # 'image_generation', 'audio_generation', 'batch_generate'
+    word = Column(NVARCHAR(500), nullable=True)  # The word being processed
+    status = Column(NVARCHAR(20), nullable=False)  # 'started', 'success', 'failed'
+    step = Column(NVARCHAR(100), nullable=True)  # Current processing step
+    input_data = Column(NVARCHAR(None), nullable=True)  # JSON input parameters
+    output_data = Column(NVARCHAR(None), nullable=True)  # JSON output/result
+    error_message = Column(NVARCHAR(None), nullable=True)  # Error message if failed
+    error_traceback = Column(NVARCHAR(None), nullable=True)  # Full traceback if failed
+    duration_ms = Column(Integer, nullable=True)  # How long the operation took
+    api_provider = Column(NVARCHAR(50), nullable=True)  # 'openai', 'google_cloud', etc.
+    api_model = Column(NVARCHAR(50), nullable=True)  # 'dall-e-3', 'gpt-4', etc.
+    created_at = Column(DateTime, server_default=func.getdate())

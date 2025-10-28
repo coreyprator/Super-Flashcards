@@ -9,6 +9,8 @@ from typing import List
 from pydantic import BaseModel
 import logging
 import json
+import time
+import traceback
 
 from ..database import get_db
 from .. import crud, schemas, models
@@ -121,17 +123,99 @@ async def batch_generate_flashcards(
                 # Generate image if requested
                 image_url = None
                 if request.include_images and content.get("image_description"):
+                    # CREATE DEBUG LOG ENTRY - Image generation started
+                    image_log_id = str(models.generate_uuid())
+                    start_time = time.time()
+                    
+                    db.add(models.APIDebugLog(
+                        id=image_log_id,
+                        operation_type='image_generation',
+                        word=word,
+                        status='started',
+                        step='calling_dalle',
+                        input_data=json.dumps({
+                            'image_description': content["image_description"],
+                            'word': word,
+                            'include_images': request.include_images
+                        }),
+                        api_provider='openai',
+                        api_model='dall-e-3'
+                    ))
+                    db.commit()
+                    
                     try:
-                        logger.info(f"🎨 Generating image for '{word}'")
+                        logger.info(f"🎨 ===== IMAGE GENERATION START =====")
+                        logger.info(f"🎨 Word: '{word}'")
+                        logger.info(f"🎨 Include images: {request.include_images}")
+                        logger.info(f"🎨 Has image_description: {bool(content.get('image_description'))}")
+                        logger.info(f"🎨 Image description: {content.get('image_description', 'N/A')[:200]}")
+                        logger.info(f"🎨 Calling generate_image() with verbose=True...")
+                        
                         image_url = generate_image(
                             content["image_description"], 
                             word,
-                            verbose=False
+                            verbose=True  # VERBOSE MODE ON
                         )
-                        logger.info(f"✅ Image generated: {image_url}")
+                        
+                        duration_ms = int((time.time() - start_time) * 1000)
+                        
+                        logger.info(f"✅ IMAGE GENERATION SUCCESS")
+                        logger.info(f"✅ Image URL: {image_url}")
+                        logger.info(f"✅ Duration: {duration_ms}ms")
+                        logger.info(f"🎨 ===== IMAGE GENERATION END =====")
+                        
+                        # UPDATE DEBUG LOG - Success
+                        log_entry = db.query(models.APIDebugLog).filter(models.APIDebugLog.id == image_log_id).first()
+                        if log_entry:
+                            log_entry.status = 'success'
+                            log_entry.step = 'completed'
+                            log_entry.output_data = json.dumps({'image_url': image_url})
+                            log_entry.duration_ms = duration_ms
+                            db.commit()
+                        
                     except Exception as e:
-                        logger.warning(f"⚠️  Image generation failed for '{word}': {e}")
+                        duration_ms = int((time.time() - start_time) * 1000)
+                        error_trace = traceback.format_exc()
+                        
+                        logger.error(f"❌ IMAGE GENERATION FAILED")
+                        logger.error(f"❌ Word: '{word}'")
+                        logger.error(f"❌ Error: {e}")
+                        logger.error(f"❌ Error type: {type(e).__name__}")
+                        logger.error(f"❌ Duration: {duration_ms}ms")
+                        logger.error(f"❌ Traceback:\n{error_trace}")
+                        logger.info(f"🎨 ===== IMAGE GENERATION END (FAILED) =====")
+                        
+                        # UPDATE DEBUG LOG - Failed
+                        log_entry = db.query(models.APIDebugLog).filter(models.APIDebugLog.id == image_log_id).first()
+                        if log_entry:
+                            log_entry.status = 'failed'
+                            log_entry.step = 'error'
+                            log_entry.error_message = str(e)
+                            log_entry.error_traceback = error_trace
+                            log_entry.duration_ms = duration_ms
+                            db.commit()
+                        
                         # Continue without image
+                else:
+                    logger.warning(f"⚠️  Skipping image generation for '{word}'")
+                    logger.warning(f"⚠️  request.include_images: {request.include_images}")
+                    logger.warning(f"⚠️  content.get('image_description'): {content.get('image_description')}")
+                    
+                    # Log the skip reason
+                    db.add(models.APIDebugLog(
+                        id=str(models.generate_uuid()),
+                        operation_type='image_generation',
+                        word=word,
+                        status='skipped',
+                        step='validation',
+                        input_data=json.dumps({
+                            'include_images': request.include_images,
+                            'has_image_description': bool(content.get('image_description')),
+                            'image_description': content.get('image_description', '')[:500] if content.get('image_description') else None
+                        }),
+                        error_message=f"Skipped: include_images={request.include_images}, has_description={bool(content.get('image_description'))}"
+                    ))
+                    db.commit()
                 
                 # Convert related_words list to JSON string
                 related_words_list = content.get("related_words", [])

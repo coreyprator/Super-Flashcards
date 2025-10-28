@@ -165,21 +165,32 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
     from pathlib import Path
     from google.cloud import storage
     from openai import BadRequestError
+    import traceback
     
     try:
         if verbose:
-            logger.info(f"🔍 VERBOSE: === Starting Image Generation ===")
-            logger.info(f"🔍 VERBOSE: Word: {word}")
-            logger.info(f"🔍 VERBOSE: Description: {image_description}")
+            logger.info(f"🔍 VERBOSE: ========================================")
+            logger.info(f"🔍 VERBOSE: === ENTERING generate_image() ===")
+            logger.info(f"🔍 VERBOSE: Word: '{word}'")
+            logger.info(f"🔍 VERBOSE: Description: '{image_description}'")
+            logger.info(f"🔍 VERBOSE: Has definition: {bool(definition)}")
+            logger.info(f"🔍 VERBOSE: ========================================")
         
         # First attempt: Use the word directly in prompt
         prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style."
         
         if verbose:
-            logger.info(f"🔍 VERBOSE: Calling DALL-E 3 (Attempt 1: word-based prompt)...")
-            logger.info(f"🔍 VERBOSE: Prompt: {prompt}")
+            logger.info(f"🔍 VERBOSE: --- Attempt 1: Word-based prompt ---")
+            logger.info(f"🔍 VERBOSE: Full prompt: '{prompt}'")
+            logger.info(f"🔍 VERBOSE: Calling OpenAI client.images.generate()...")
+            logger.info(f"🔍 VERBOSE: Model: dall-e-3")
+            logger.info(f"🔍 VERBOSE: Size: 1024x1024")
+            logger.info(f"🔍 VERBOSE: Quality: standard")
         
         try:
+            if verbose:
+                logger.info(f"🔍 VERBOSE: >>> Sending request to DALL-E API...")
+            
             response = get_openai_client().images.generate(
                 model="dall-e-3",
                 prompt=prompt,
@@ -187,29 +198,43 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                 quality="standard",
                 n=1
             )
+            
+            if verbose:
+                logger.info(f"🔍 VERBOSE: <<< DALL-E API response received!")
+                logger.info(f"🔍 VERBOSE: Response type: {type(response)}")
+                logger.info(f"🔍 VERBOSE: Response data length: {len(response.data)}")
+            
             dalle_url = response.data[0].url
             
             if verbose:
-                logger.info(f"🔍 VERBOSE: ✅ DALL-E response received (Attempt 1 succeeded)")
-                logger.info(f"🔍 VERBOSE: Image URL: {dalle_url[:100]}...")
+                logger.info(f"🔍 VERBOSE: ✅ SUCCESS - Attempt 1 succeeded!")
+                logger.info(f"🔍 VERBOSE: DALL-E image URL: {dalle_url[:100]}...")
+                logger.info(f"🔍 VERBOSE: Full URL: {dalle_url}")
         
         except BadRequestError as policy_error:
             # Check if it's a content policy violation
             error_message = str(policy_error)
+            
+            if verbose:
+                logger.warning(f"🔍 VERBOSE: ⚠️ BadRequestError caught!")
+                logger.warning(f"🔍 VERBOSE: Error message: {error_message}")
+                logger.warning(f"🔍 VERBOSE: Checking if content policy violation...")
+            
             if "content_policy_violation" in error_message.lower():
                 logger.warning(f"⚠️ Content policy violation on first attempt for word '{word}'")
-                logger.warning(f"⚠️ DALL-E content policy rejection for '{word}': {error_message}")
+                logger.warning(f"⚠️ DALL-E content policy rejection: {error_message}")
                 logger.info(f"🔄 Attempting fallback: definition-based prompt without word...")
                 
                 # FALLBACK: Generate prompt based on meaning/definition only
                 if definition:
-                    # Strip the problematic word from the definition to avoid re-triggering policy
-                    # Replace word at start of sentence (e.g., "Gobbledygook refers to...")
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: Using definition for fallback prompt...")
+                    
+                    # Strip the problematic word from the definition
                     safe_definition = definition
                     
                     # Remove the word from beginning if present
                     if safe_definition.lower().startswith(word.lower()):
-                        # Remove word and common following words like "refers to", "is", "means"
                         safe_definition = safe_definition[len(word):].strip()
                         # Remove common connectors at the start
                         for connector in [' refers to', ' is', ' means', ' describes', ' indicates']:
@@ -217,12 +242,12 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                                 safe_definition = safe_definition[len(connector):].strip()
                                 break
                     
-                    # Also replace any other occurrences of the word in the definition
+                    # Also replace any other occurrences of the word
                     safe_definition = safe_definition.replace(word, 'this concept').replace(word.lower(), 'this concept')
                     
-                    logger.info(f"🔍 Safe definition: {safe_definition[:100]}...")
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: Safe definition: {safe_definition[:100]}...")
                     
-                    # Create a visual metaphor prompt without the problematic word
                     fallback_prompt = f"A humorous educational illustration showing: {safe_definition}. A person overwhelmed and confused, surrounded by visual metaphors. Cartoon style, warm colors, educational poster for language learners."
                 else:
                     # Generic fallback based on image description (remove the word)
@@ -230,7 +255,9 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     fallback_prompt = f"An educational illustration depicting: {safe_description}. Warm lighting, cartoon style, educational poster, simple and approachable."
                 
                 if verbose:
+                    logger.info(f"🔍 VERBOSE: --- Attempt 2: Fallback prompt ---")
                     logger.info(f"🔍 VERBOSE: Fallback prompt: {fallback_prompt}")
+                    logger.info(f"🔍 VERBOSE: >>> Sending fallback request to DALL-E API...")
                 
                 try:
                     response = get_openai_client().images.generate(
@@ -244,46 +271,70 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     logger.info(f"✅ Fallback attempt succeeded for '{word}'")
                     
                     if verbose:
+                        logger.info(f"🔍 VERBOSE: <<< Fallback response received!")
                         logger.info(f"🔍 VERBOSE: Fallback image URL: {dalle_url[:100]}...")
                 
                 except Exception as fallback_error:
                     logger.error(f"❌ Fallback image generation also failed for '{word}': {fallback_error}")
+                    if verbose:
+                        logger.error(f"🔍 VERBOSE: Fallback exception: {type(fallback_error).__name__}")
+                        logger.error(f"🔍 VERBOSE: Fallback traceback:\n{traceback.format_exc()}")
                     raise  # Re-raise to be caught by outer exception handler
             else:
                 # Not a content policy issue, re-raise original error
+                if verbose:
+                    logger.error(f"🔍 VERBOSE: Not a content policy violation, re-raising...")
                 raise
         
         # Download the image
         if verbose:
-            logger.info(f"🔍 VERBOSE: Downloading image from DALL-E...")
+            logger.info(f"🔍 VERBOSE: --- Downloading image ---")
+            logger.info(f"🔍 VERBOSE: URL: {dalle_url}")
+            logger.info(f"🔍 VERBOSE: Timeout: 60 seconds")
         
         image_response = requests.get(dalle_url, timeout=60)
         image_response.raise_for_status()
         image_data = image_response.content
         
         if verbose:
-            logger.info(f"🔍 VERBOSE: Downloaded {len(image_data)} bytes")
+            logger.info(f"🔍 VERBOSE: ✅ Downloaded {len(image_data)} bytes")
+            logger.info(f"🔍 VERBOSE: Image size: {len(image_data) / 1024:.2f} KB")
         
         # Generate unique filename: word_uuid.png
         safe_word = "".join(c for c in word if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_word = safe_word.replace(' ', '_')[:50]
         filename = f"{safe_word}_{uuid.uuid4().hex[:8]}.png"
         
+        if verbose:
+            logger.info(f"🔍 VERBOSE: --- Uploading to Cloud Storage ---")
+            logger.info(f"🔍 VERBOSE: Filename: {filename}")
+            logger.info(f"🔍 VERBOSE: Bucket: super-flashcards-media")
+            logger.info(f"🔍 VERBOSE: Path: images/{filename}")
+        
         # Upload to Cloud Storage
         try:
             if verbose:
-                logger.info(f"🔍 VERBOSE: Uploading to Cloud Storage...")
+                logger.info(f"🔍 VERBOSE: Creating storage client...")
             
             storage_client = storage.Client()
             bucket = storage_client.bucket("super-flashcards-media")
             blob = bucket.blob(f"images/{filename}")
             
+            if verbose:
+                logger.info(f"🔍 VERBOSE: Uploading blob...")
+            
             # Upload the image
             blob.upload_from_string(image_data, content_type="image/png")
+            
+            if verbose:
+                logger.info(f"🔍 VERBOSE: Making blob public...")
+            
             blob.make_public()
             
             if verbose:
-                logger.info(f"🔍 VERBOSE: ✓ Uploaded to Cloud Storage: images/{filename}")
+                logger.info(f"🔍 VERBOSE: ✅ Upload complete!")
+                logger.info(f"🔍 VERBOSE: Cloud Storage path: images/{filename}")
+                logger.info(f"🔍 VERBOSE: Returning URL: /images/{filename}")
             
             # Return the URL path (will be proxied by /images/* endpoint)
             return f"/images/{filename}"
@@ -291,6 +342,11 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
         except Exception as storage_error:
             # If Cloud Storage upload fails, try saving locally as fallback
             logger.warning(f"⚠️ Cloud Storage upload failed: {storage_error}, saving locally")
+            
+            if verbose:
+                logger.warning(f"🔍 VERBOSE: Storage error: {type(storage_error).__name__}")
+                logger.warning(f"🔍 VERBOSE: Storage error message: {str(storage_error)}")
+                logger.warning(f"🔍 VERBOSE: Attempting local save fallback...")
             
             images_dir = Path(__file__).parent.parent.parent.parent / "images"
             images_dir.mkdir(exist_ok=True)
@@ -301,10 +357,15 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
             
             if image_path.exists() and image_path.stat().st_size > 0:
                 if verbose:
-                    logger.info(f"🔍 VERBOSE: ✓ Image saved locally (fallback): {filename}")
+                    logger.info(f"🔍 VERBOSE: ✓ Image saved locally: {filename}")
+                    logger.info(f"🔍 VERBOSE: Local path: {image_path}")
                 return f"/images/{filename}"
             else:
                 logger.error("❌ Image file was not created or is empty")
+                if verbose:
+                    logger.error(f"🔍 VERBOSE: File exists: {image_path.exists()}")
+                    if image_path.exists():
+                        logger.error(f"🔍 VERBOSE: File size: {image_path.stat().st_size}")
                 return None
         
     except requests.exceptions.RequestException as e:
@@ -312,10 +373,16 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
         logger.error(f"❌ {error_msg}")
         if verbose:
             logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
-            logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
+            logger.error(f"🔍 VERBOSE: Traceback:\n{traceback.format_exc()}")
         return None
     except Exception as e:
         error_msg = str(e)
+        
+        if verbose:
+            logger.error(f"🔍 VERBOSE: ❌ Exception in generate_image()")
+            logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
+            logger.error(f"🔍 VERBOSE: Exception message: {error_msg}")
+            logger.error(f"🔍 VERBOSE: Full traceback:\n{traceback.format_exc()}")
         
         # Check if this is a DALL-E content policy violation
         if "content_policy_violation" in error_msg or "safety system" in error_msg.lower():
@@ -324,9 +391,6 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
             return "CONTENT_POLICY_VIOLATION"
         
         logger.error(f"❌ Image generation/download failed: {error_msg}")
-        if verbose:
-            logger.error(f"🔍 VERBOSE: Exception type: {type(e).__name__}")
-            logger.error(f"🔍 VERBOSE: Traceback: {traceback.format_exc()}")
         return None
 
 @router.post("/generate", response_model=schemas.Flashcard)

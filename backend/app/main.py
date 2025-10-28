@@ -54,9 +54,9 @@ logger.info("✅ Database connection configured")
 
 
 app = FastAPI(
-    title="Language Learning Flashcards",
-    description="AI-powered flashcard app with offline support",
-    version="1.0.0"
+    title="Super Flashcards API",
+    description="Language learning flashcard application with AI-powered content generation",
+    version="2.6.29"
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
