@@ -612,24 +612,37 @@ async function createFlashcard(data) {
         // Show the newly created card immediately
         console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
         
-        // Find the card in state.flashcards
+        // CRITICAL FIX: Wait for sync to complete and ensure card is in cache
+        console.log('🔄 Force syncing to update cache...');
+        if (window.syncManager) {
+            await window.syncManager.sync();
+        }
+        
+        // Reload flashcards again to get the synced version
+        await loadFlashcards();
+        
+        // Find the card in state.flashcards (now it should definitely be there)
         const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
         if (cardIndex !== -1) {
             state.currentCardIndex = cardIndex;
             console.log('📍 Found card at index:', cardIndex);
+            
+            // Switch to study mode to display the card
+            console.log('🔄 Switching to study mode...');
+            switchMode('study');
+            
+            // Wait a brief moment for mode switch to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Render the specific card
+            if (state.flashcards[state.currentCardIndex]) {
+                console.log('🎨 Rendering flashcard...');
+                renderFlashcard(state.flashcards[state.currentCardIndex]);
+                updateCardCounter();
+            }
         } else {
-            console.warn('⚠️ Newly created card not found in state.flashcards, showing last card');
-            state.currentCardIndex = state.flashcards.length - 1;
-        }
-        
-        // Switch to study mode to display the card
-        backToMain();
-        switchToStudyMode();
-        
-        // Render the specific card
-        if (state.flashcards[state.currentCardIndex]) {
-            renderFlashcard(state.flashcards[state.currentCardIndex]);
-            updateCardCounter();
+            console.error('❌ Newly created card not found in state.flashcards after sync!');
+            showToast('⚠️ Card created but may not be visible yet. Refresh the page.', 5000);
         }
         
         hideLoading();
@@ -2621,6 +2634,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log(`🎨 UI initialized in ${uiTime.toFixed(2)}ms`);
     window.timingCheckpoint?.('T12-ui-initialized', `UI controls ready (${uiTime.toFixed(2)}ms)`);
     
+    // Check for URL parameters to share specific cards
+    const urlParams = new URLSearchParams(window.location.search);
+    const cardId = urlParams.get('cardId');
+    const word = urlParams.get('word');
+    const language = urlParams.get('language');
+    
+    if (cardId || (word && language)) {
+        console.log('🔗 URL parameters detected:', { cardId, word, language });
+        
+        // Wait for languages to load
+        await loadLanguages();
+        
+        try {
+            let targetCard = null;
+            
+            if (cardId) {
+                // Fetch specific card by ID
+                console.log(`🔍 Fetching card by ID: ${cardId}`);
+                const response = await fetch(`/api/flashcards/${cardId}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    targetCard = await response.json();
+                    
+                    // Set language
+                    if (targetCard.language_id) {
+                        state.currentLanguage = targetCard.language_id;
+                        document.getElementById('language-select').value = targetCard.language_id;
+                    }
+                    
+                    // Load flashcards for that language
+                    await loadFlashcards();
+                    
+                    // Find card index in loaded flashcards
+                    const cardIndex = state.flashcards.findIndex(c => c.id === cardId);
+                    if (cardIndex !== -1) {
+                        state.currentCardIndex = cardIndex;
+                        switchMode('study');
+                        renderFlashcard(state.flashcards[cardIndex]);
+                        showToast('📖 Opened shared card!', 3000);
+                    } else {
+                        // Card not in list, add it temporarily
+                        state.flashcards.push(targetCard);
+                        state.currentCardIndex = state.flashcards.length - 1;
+                        switchMode('study');
+                        renderFlashcard(targetCard);
+                        showToast('📖 Opened shared card!', 3000);
+                    }
+                } else {
+                    showToast('❌ Card not found', 5000);
+                }
+            } else if (word && language) {
+                // Search for card by word and language
+                console.log(`🔍 Searching for: ${word} in ${language}`);
+                
+                // Find language ID by name
+                const languageEl = Array.from(document.getElementById('language-select').options)
+                    .find(opt => opt.text.toLowerCase() === language.toLowerCase());
+                
+                if (languageEl) {
+                    state.currentLanguage = languageEl.value;
+                    document.getElementById('language-select').value = languageEl.value;
+                    
+                    // Load flashcards
+                    await loadFlashcards();
+                    
+                    // Find card by word
+                    const cardIndex = state.flashcards.findIndex(c => 
+                        c.word_or_phrase.toLowerCase() === word.toLowerCase()
+                    );
+                    
+                    if (cardIndex !== -1) {
+                        state.currentCardIndex = cardIndex;
+                        switchMode('study');
+                        renderFlashcard(state.flashcards[cardIndex]);
+                        showToast(`📖 Opened: ${word}`, 3000);
+                    } else {
+                        showToast(`❌ Word "${word}" not found`, 5000);
+                    }
+                } else {
+                    showToast(`❌ Language "${language}" not found`, 5000);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading shared card:', error);
+            showToast('❌ Failed to load shared card', 5000);
+        }
+    }
+    
     // Setup debug panel (menu)
     setupDebugButtons();
     
@@ -3971,8 +4074,8 @@ function startBatchStatusPolling() {
 // ========================================
 
 /**
- * Toggle between Study and Browse modes
- * @param {String} mode - 'study' or 'browse'
+ * Toggle between Study, Read, Browse, and Import modes
+ * @param {String} mode - 'study', 'read', 'browse', or 'import'
  */
 function switchMode(mode) {
     console.log(`🔄 Switching to ${mode} mode`);
@@ -3986,16 +4089,18 @@ function switchMode(mode) {
     const studyBtn = document.getElementById('mode-study');
     const readBtn = document.getElementById('mode-read');
     const browseBtn = document.getElementById('mode-browse');
+    const importBtn = document.getElementById('mode-import');
     
     console.log('🔍 Mode containers found:', {
         studyMode: !!document.getElementById('study-mode'),
         readMode: !!document.getElementById('read-mode'),
         browseMode: !!document.getElementById('browse-mode'),
+        importMode: !!document.getElementById('content-import'),
         readContainer: !!document.getElementById('read-card-container')
     });
     
     // Reset all buttons
-    [studyBtn, readBtn, browseBtn].forEach(btn => {
+    [studyBtn, readBtn, browseBtn, importBtn].forEach(btn => {
         if (btn) {
             btn.classList.remove('active', 'bg-indigo-600', 'text-white');
             btn.classList.add('text-gray-600');
@@ -4006,10 +4111,12 @@ function switchMode(mode) {
     const studyModeEl = document.getElementById('study-mode');
     const readModeEl = document.getElementById('read-mode');
     const browseModeEl = document.getElementById('browse-mode');
+    const importModeEl = document.getElementById('content-import');
     
     if (studyModeEl) studyModeEl.classList.add('hidden');
     if (readModeEl) readModeEl.classList.add('hidden');
     if (browseModeEl) browseModeEl.classList.add('hidden');
+    if (importModeEl) importModeEl.classList.add('hidden');
     
     console.log(`🎯 Switching to: ${mode}`);
     
@@ -4068,6 +4175,22 @@ function switchMode(mode) {
         
         // Load cards list
         loadCardsList();
+        
+    } else if (mode === 'import') {
+        console.log('📁 Activating Import mode');
+        
+        if (importBtn) {
+            importBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            importBtn.classList.remove('text-gray-600');
+        }
+        
+        // Show import mode content
+        if (importModeEl) {
+            importModeEl.classList.remove('hidden');
+            console.log('📁 Import mode container now visible');
+        } else {
+            console.error('❌ Import mode element not found!');
+        }
     }
     
     state.currentMode = mode;
@@ -4211,11 +4334,13 @@ function initializeNewUI() {
     const studyBtn = document.getElementById('mode-study');
     const readBtn = document.getElementById('mode-read');
     const browseBtn = document.getElementById('mode-browse');
+    const importBtn = document.getElementById('mode-import');
     
     console.log('🔍 Mode buttons found:', {
         study: !!studyBtn,
         read: !!readBtn,
-        browse: !!browseBtn
+        browse: !!browseBtn,
+        import: !!importBtn
     });
     
     studyBtn?.addEventListener('click', () => {
@@ -4231,6 +4356,11 @@ function initializeNewUI() {
     browseBtn?.addEventListener('click', () => {
         console.log('📖 Browse button clicked');
         switchMode('browse');
+    });
+    
+    importBtn?.addEventListener('click', () => {
+        console.log('📁 Import button clicked');
+        switchMode('import');
     });
     
     // Primary action button
