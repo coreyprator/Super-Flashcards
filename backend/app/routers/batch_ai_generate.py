@@ -91,7 +91,7 @@ async def batch_generate_flashcards(
                     errors.append({
                         "word": word,
                         "error": "Duplicate flashcard already exists",
-                        "flashcard_id": existing.id
+                        "flashcard_id": str(existing.id)  # Convert UUID to string
                     })
                     failed += 1
                     continue
@@ -145,7 +145,7 @@ async def batch_generate_flashcards(
                 )
                 
                 flashcard = crud.create_flashcard(db=db, flashcard=flashcard_data)
-                flashcard_ids.append(flashcard.id)
+                flashcard_ids.append(str(flashcard.id))  # Convert UUID to string
                 successful += 1
                 
                 logger.info(f"✅ Created flashcard {index}/{len(request.words)}: '{word}' (ID: {flashcard.id})")

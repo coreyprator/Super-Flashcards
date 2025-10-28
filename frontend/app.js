@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.23 (Verbose API logging, fix mode switching bug)
+// Version: 2.6.24 (Fix UUID string conversion in batch generate)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.23';
+const APP_JS_VERSION = '2.6.24';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
