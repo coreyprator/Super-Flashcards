@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.25 (Word-by-word status table, persistent banner)
+// Version: 2.6.26 (Fix navigation buttons, clickable word status)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.25';
+const APP_JS_VERSION = '2.6.26';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3126,7 +3126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (importToBrowseBtn) {
         importToBrowseBtn.addEventListener('click', () => {
             console.log('📚 Navigate to Browse from Import');
-            switchToBrowseMode();
+            switchMode('browse');
         });
     }
     
@@ -3535,8 +3535,36 @@ function showBatchGenerationResults(result) {
             const status = wordStatusMap.get(word) || { status: 'unknown', message: '❓ Unknown' };
             
             const row = document.createElement('tr');
-            row.className = status.status === 'success' ? 'bg-green-50' : 
+            row.className = status.status === 'success' ? 'bg-green-50 hover:bg-green-100 cursor-pointer' : 
                            status.status === 'error' ? 'bg-red-50' : 'bg-gray-50';
+            
+            // Make successful rows clickable
+            if (status.status === 'success' && status.flashcard_id) {
+                row.style.cursor = 'pointer';
+                row.title = 'Click to view this card in Browse mode';
+                row.onclick = () => {
+                    // Store the flashcard ID to highlight
+                    window.lastGeneratedFlashcardId = status.flashcard_id;
+                    // Close the results panel
+                    document.getElementById('batch-generation-results').classList.add('hidden');
+                    // Switch to Browse mode
+                    switchMode('browse');
+                    // Refresh and scroll to the card
+                    if (typeof populateBrowseList === 'function') {
+                        populateBrowseList().then(() => {
+                            // Try to scroll to and highlight the card
+                            setTimeout(() => {
+                                const cardElement = document.querySelector(`[data-flashcard-id="${status.flashcard_id}"]`);
+                                if (cardElement) {
+                                    cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    cardElement.classList.add('ring-4', 'ring-green-400');
+                                    setTimeout(() => cardElement.classList.remove('ring-4', 'ring-green-400'), 3000);
+                                }
+                            }, 300);
+                        });
+                    }
+                };
+            }
             
             row.innerHTML = `
                 <td class="px-3 py-2 text-gray-900">${index + 1}</td>
@@ -3607,13 +3635,29 @@ function showBatchGenerationResults(result) {
     
     // Set up buttons
     document.getElementById('view-generated-cards').onclick = () => {
-        switchToBrowseMode();
+        // Close the results panel
+        document.getElementById('batch-generation-results').classList.add('hidden');
+        // Switch to Browse mode to view the cards
+        switchMode('browse');
+        // Refresh the browse list to show new cards
+        if (typeof populateBrowseList === 'function') {
+            populateBrowseList();
+        }
     };
     
     document.getElementById('batch-another').onclick = () => {
         document.getElementById('batch-generation-results').classList.add('hidden');
         document.getElementById('parser-upload-section').classList.remove('hidden');
     };
+    
+    // "Start Studying" button
+    const batchToStudyBtn = document.getElementById('batch-to-study');
+    if (batchToStudyBtn) {
+        batchToStudyBtn.onclick = () => {
+            document.getElementById('batch-generation-results').classList.add('hidden');
+            switchMode('study');
+        };
+    }
 }
 
 /**
