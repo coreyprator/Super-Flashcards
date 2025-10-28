@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.26 - Fix navigation buttons, make word status clickable
+# Version: 2.6.27 - Fix clickable words (innerHTML timing), sync before browse
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

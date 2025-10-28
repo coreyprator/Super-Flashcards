@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.26 (Fix navigation buttons, clickable word status)
+// Version: 2.6.27 (Fix clickable words, sync before browse mode switch)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.26';
+const APP_JS_VERSION = '2.6.27';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3483,7 +3483,7 @@ async function batchGenerateFlashcards() {
     }
 }
 
-function showBatchGenerationResults(result) {
+async function showBatchGenerationResults(result) {
     // Hide progress, show results
     document.getElementById('batch-generation-progress').classList.add('hidden');
     document.getElementById('batch-generation-results').classList.remove('hidden');
@@ -3538,11 +3538,19 @@ function showBatchGenerationResults(result) {
             row.className = status.status === 'success' ? 'bg-green-50 hover:bg-green-100 cursor-pointer' : 
                            status.status === 'error' ? 'bg-red-50' : 'bg-gray-50';
             
-            // Make successful rows clickable
+            // Set HTML content first
+            row.innerHTML = `
+                <td class="px-3 py-2 text-gray-900">${index + 1}</td>
+                <td class="px-3 py-2 font-medium text-gray-900">${word}</td>
+                <td class="px-3 py-2 text-sm ${status.status === 'success' ? 'text-green-700' : status.status === 'error' ? 'text-red-700' : 'text-gray-700'}">${status.message}</td>
+            `;
+            
+            // THEN add click handler after innerHTML (so it doesn't get wiped out)
             if (status.status === 'success' && status.flashcard_id) {
                 row.style.cursor = 'pointer';
                 row.title = 'Click to view this card in Browse mode';
-                row.onclick = () => {
+                row.addEventListener('click', () => {
+                    console.log(`🔍 Clicked on word: ${word}, flashcard_id: ${status.flashcard_id}`);
                     // Store the flashcard ID to highlight
                     window.lastGeneratedFlashcardId = status.flashcard_id;
                     // Close the results panel
@@ -3550,27 +3558,19 @@ function showBatchGenerationResults(result) {
                     // Switch to Browse mode
                     switchMode('browse');
                     // Refresh and scroll to the card
-                    if (typeof populateBrowseList === 'function') {
-                        populateBrowseList().then(() => {
-                            // Try to scroll to and highlight the card
-                            setTimeout(() => {
-                                const cardElement = document.querySelector(`[data-flashcard-id="${status.flashcard_id}"]`);
-                                if (cardElement) {
-                                    cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    cardElement.classList.add('ring-4', 'ring-green-400');
-                                    setTimeout(() => cardElement.classList.remove('ring-4', 'ring-green-400'), 3000);
-                                }
-                            }, 300);
-                        });
-                    }
-                };
+                    setTimeout(() => {
+                        const cardElement = document.querySelector(`[data-flashcard-id="${status.flashcard_id}"]`);
+                        console.log(`🔍 Looking for card element with ID: ${status.flashcard_id}`, cardElement);
+                        if (cardElement) {
+                            cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            cardElement.classList.add('ring-4', 'ring-green-400');
+                            setTimeout(() => cardElement.classList.remove('ring-4', 'ring-green-400'), 3000);
+                        } else {
+                            console.warn(`⚠️ Card element not found for ID: ${status.flashcard_id}`);
+                        }
+                    }, 500);
+                });
             }
-            
-            row.innerHTML = `
-                <td class="px-3 py-2 text-gray-900">${index + 1}</td>
-                <td class="px-3 py-2 font-medium text-gray-900">${word}</td>
-                <td class="px-3 py-2 text-sm ${status.status === 'success' ? 'text-green-700' : status.status === 'error' ? 'text-red-700' : 'text-gray-700'}">${status.message}</td>
-            `;
             
             wordStatusList.appendChild(row);
         });
@@ -3628,21 +3628,25 @@ function showBatchGenerationResults(result) {
     
     // Trigger sync to update the UI with new cards
     if (result.successful > 0 && window.syncManager) {
-        setTimeout(() => {
-            window.syncManager.performSync();
-        }, 1000);
+        console.log('🔄 Triggering sync to load new flashcards...');
+        await window.syncManager.sync();
+        console.log('✅ Sync complete, flashcards count:', state.flashcards.length);
     }
     
     // Set up buttons
-    document.getElementById('view-generated-cards').onclick = () => {
+    document.getElementById('view-generated-cards').onclick = async () => {
+        console.log('📚 View Generated Cards clicked');
+        // Make sure we have the latest data
+        if (window.syncManager) {
+            console.log('🔄 Syncing before switching to Browse...');
+            await window.syncManager.sync();
+            console.log('✅ Sync complete, flashcards count:', state.flashcards.length);
+        }
         // Close the results panel
         document.getElementById('batch-generation-results').classList.add('hidden');
         // Switch to Browse mode to view the cards
         switchMode('browse');
-        // Refresh the browse list to show new cards
-        if (typeof populateBrowseList === 'function') {
-            populateBrowseList();
-        }
+        console.log('📚 Switched to Browse mode');
     };
     
     document.getElementById('batch-another').onclick = () => {
