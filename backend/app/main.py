@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.27 - Fix clickable words (innerHTML timing), sync before browse
+# Version: 2.6.28 - Fetch new cards directly by ID after batch generation
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

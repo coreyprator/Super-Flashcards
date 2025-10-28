@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.27 (Fix clickable words, sync before browse mode switch)
+// Version: 2.6.28 (Fetch new cards by ID immediately after batch generation)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.27';
+const APP_JS_VERSION = '2.6.28';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3627,26 +3627,57 @@ async function showBatchGenerationResults(result) {
     }
     
     // Trigger sync to update the UI with new cards
-    if (result.successful > 0 && window.syncManager) {
-        console.log('🔄 Triggering sync to load new flashcards...');
-        await window.syncManager.sync();
-        console.log('✅ Sync complete, flashcards count:', state.flashcards.length);
+    if (result.successful > 0) {
+        console.log('🔄 Fetching newly created flashcards...');
+        
+        // Fetch the new flashcards directly using their IDs
+        if (result.flashcard_ids && result.flashcard_ids.length > 0) {
+            const newCards = [];
+            for (const id of result.flashcard_ids) {
+                try {
+                    const response = await fetch(`/api/flashcards/${id}`, {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const card = await response.json();
+                        newCards.push(card);
+                        // Save to IndexedDB
+                        if (offlineDB) {
+                            await offlineDB.saveFlashcard(card);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch flashcard ${id}:`, error);
+                }
+            }
+            
+            // Add new cards to state immediately
+            if (newCards.length > 0) {
+                state.flashcards = [...state.flashcards, ...newCards];
+                console.log(`✅ Added ${newCards.length} new flashcards to state. Total: ${state.flashcards.length}`);
+                
+                // Refresh browse list if we're in browse mode
+                if (state.currentMode === 'browse') {
+                    renderFlashcardList();
+                }
+            }
+        }
+        
+        // Also trigger a full sync to be safe
+        if (window.syncManager) {
+            console.log('🔄 Triggering background sync...');
+            window.syncManager.sync().catch(err => console.error('Background sync failed:', err));
+        }
     }
     
     // Set up buttons
-    document.getElementById('view-generated-cards').onclick = async () => {
+    document.getElementById('view-generated-cards').onclick = () => {
         console.log('📚 View Generated Cards clicked');
-        // Make sure we have the latest data
-        if (window.syncManager) {
-            console.log('🔄 Syncing before switching to Browse...');
-            await window.syncManager.sync();
-            console.log('✅ Sync complete, flashcards count:', state.flashcards.length);
-        }
         // Close the results panel
         document.getElementById('batch-generation-results').classList.add('hidden');
         // Switch to Browse mode to view the cards
         switchMode('browse');
-        console.log('📚 Switched to Browse mode');
+        console.log('📚 Switched to Browse mode, flashcards count:', state.flashcards.length);
     };
     
     document.getElementById('batch-another').onclick = () => {
