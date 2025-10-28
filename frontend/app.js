@@ -3,7 +3,7 @@
 // Version: 2.6.28 (Fetch new cards by ID immediately after batch generation)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.28';
+const APP_JS_VERSION = '2.6.30';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3611,12 +3611,33 @@ async function showBatchGenerationResults(result) {
         const errorsList = document.getElementById('batch-errors-list');
         errorsList.innerHTML = '';
         
+        // Add countdown message at the top
+        const countdownDiv = document.createElement('div');
+        countdownDiv.className = 'p-2 bg-yellow-50 rounded border border-yellow-300 text-sm text-yellow-800 mb-2';
+        countdownDiv.innerHTML = '⏰ This panel will auto-close in <span id="error-countdown">30</span> seconds. Copy any errors you need now!';
+        errorsList.appendChild(countdownDiv);
+        
         result.errors.forEach(error => {
             const errorDiv = document.createElement('div');
             errorDiv.className = 'p-2 bg-red-50 rounded border border-red-200';
             errorDiv.textContent = `${error.word}: ${error.error}`;
             errorsList.appendChild(errorDiv);
         });
+        
+        // Auto-dismiss after 30 seconds with countdown
+        let timeLeft = 30;
+        const countdownSpan = document.getElementById('error-countdown');
+        const countdownInterval = setInterval(() => {
+            timeLeft--;
+            if (countdownSpan) {
+                countdownSpan.textContent = timeLeft;
+            }
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                document.getElementById('batch-generation-results').classList.add('hidden');
+                showToast('Error panel auto-closed', 3000);
+            }
+        }, 1000);
         
         // Also show toast for errors
         if (result.failed > 0) {

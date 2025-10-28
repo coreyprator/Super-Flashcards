@@ -254,7 +254,6 @@ async def batch_generate_flashcards(
                 logger.error(f"❌ Failed to generate flashcard for '{word}': {e}")
                 logger.error(f"❌ Exception type: {type(e).__name__}")
                 logger.error(f"❌ Exception details: {str(e)}")
-                import traceback
                 logger.error(f"❌ Traceback: {traceback.format_exc()}")
                 error_msg = str(e)
                 errors.append({
