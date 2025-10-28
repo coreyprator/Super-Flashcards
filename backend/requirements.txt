@@ -38,6 +38,7 @@ google-cloud-texttospeech==2.14.1
 # Additional utilities
 python-dotenv==1.0.0
 pydantic-settings==2.1.0
+packaging==24.0  # Required by OpenAI and other libraries
 
 # Image handling (Phase 2)
 # Pillow==10.1.0

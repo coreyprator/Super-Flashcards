@@ -291,7 +291,6 @@ async def batch_generate_flashcards(
         logger.error("❌ CRITICAL ERROR IN BATCH GENERATE")
         logger.error(f"❌ Exception type: {type(e).__name__}")
         logger.error(f"❌ Exception message: {str(e)}")
-        import traceback
         logger.error(f"❌ Full traceback:")
         logger.error(traceback.format_exc())
         logger.error("=" * 80)

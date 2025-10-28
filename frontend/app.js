@@ -3,7 +3,7 @@
 // Version: 2.6.28 (Fetch new cards by ID immediately after batch generation)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.30';
+const APP_JS_VERSION = '2.6.31';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
