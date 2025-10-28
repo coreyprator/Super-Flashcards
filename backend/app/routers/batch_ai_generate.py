@@ -30,6 +30,7 @@ class BatchGenerateResponse(BaseModel):
     failed: int
     flashcard_ids: List[str]  # UUID strings
     errors: List[dict]
+    word_results: List[dict]  # NEW: Detailed status for each word
 
 @router.post("/batch-generate", response_model=BatchGenerateResponse)
 async def batch_generate_flashcards(
@@ -68,6 +69,7 @@ async def batch_generate_flashcards(
         # Track results
         flashcard_ids = []
         errors = []
+        word_results = []  # NEW: Track status for each word
         successful = 0
         failed = 0
         
@@ -88,10 +90,16 @@ async def batch_generate_flashcards(
                 
                 if existing:
                     logger.warning(f"⚠️  Duplicate found: '{word}' (ID: {existing.id})")
+                    error_msg = "Duplicate flashcard already exists"
                     errors.append({
                         "word": word,
-                        "error": "Duplicate flashcard already exists",
+                        "error": error_msg,
                         "flashcard_id": str(existing.id)  # Convert UUID to string
+                    })
+                    word_results.append({
+                        "word": word,
+                        "status": "failed",
+                        "error": error_msg
                     })
                     failed += 1
                     continue
@@ -145,8 +153,16 @@ async def batch_generate_flashcards(
                 )
                 
                 flashcard = crud.create_flashcard(db=db, flashcard=flashcard_data)
-                flashcard_ids.append(str(flashcard.id))  # Convert UUID to string
+                flashcard_id_str = str(flashcard.id)
+                flashcard_ids.append(flashcard_id_str)  # Convert UUID to string
                 successful += 1
+                
+                # Track word result
+                word_results.append({
+                    "word": word,
+                    "status": "success",
+                    "flashcard_id": flashcard_id_str
+                })
                 
                 logger.info(f"✅ Created flashcard {index}/{len(request.words)}: '{word}' (ID: {flashcard.id})")
                 
@@ -156,9 +172,15 @@ async def batch_generate_flashcards(
                 logger.error(f"❌ Exception details: {str(e)}")
                 import traceback
                 logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                error_msg = str(e)
                 errors.append({
                     "word": word,
-                    "error": str(e)
+                    "error": error_msg
+                })
+                word_results.append({
+                    "word": word,
+                    "status": "failed",
+                    "error": error_msg
                 })
                 failed += 1
                 continue
@@ -169,6 +191,7 @@ async def batch_generate_flashcards(
         logger.info(f"❌ Failed: {failed}")
         logger.info(f"📊 Total flashcard IDs: {len(flashcard_ids)}")
         logger.info(f"📊 Total errors: {len(errors)}")
+        logger.info(f"📊 Word results: {len(word_results)}")
         logger.info("=" * 80)
         
         return BatchGenerateResponse(
@@ -176,7 +199,8 @@ async def batch_generate_flashcards(
             successful=successful,
             failed=failed,
             flashcard_ids=flashcard_ids,
-            errors=errors
+            errors=errors,
+            word_results=word_results  # NEW: Return detailed word status
         )
     
     except Exception as e:

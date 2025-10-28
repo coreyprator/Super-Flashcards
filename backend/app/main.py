@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.24 - Fix UUID to string conversion in batch generate response
+# Version: 2.6.25 - Word-by-word status table, persistent status banner
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware

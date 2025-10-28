@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.24 (Fix UUID string conversion in batch generate)
+// Version: 2.6.25 (Word-by-word status table, persistent banner)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.24';
+const APP_JS_VERSION = '2.6.25';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3408,6 +3408,9 @@ async function batchGenerateFlashcards() {
         return;
     }
     
+    // Store selected words globally so we can track status
+    window.selectedWords = selectedWords;
+    
     console.log('🪄 Starting batch AI generation for', selectedWords.length, 'words');
     
     // Get current language from state (no dropdown in parser)
@@ -3489,13 +3492,69 @@ function showBatchGenerationResults(result) {
     document.getElementById('batch-successful-count').textContent = result.successful;
     document.getElementById('batch-failed-count').textContent = result.failed;
     
-    // Update status banner with final result
+    // Populate word status list
+    const wordStatusList = document.getElementById('batch-word-status-list');
+    wordStatusList.innerHTML = '';
+    
+    // Create a map of words to their status
+    const wordStatusMap = new Map();
+    
+    // Use word_results from backend if available
+    if (result.word_results && result.word_results.length > 0) {
+        result.word_results.forEach(wr => {
+            const statusMessage = wr.status === 'success' 
+                ? `✅ Generated` 
+                : `❌ ${wr.error || 'Failed'}`;
+            
+            wordStatusMap.set(wr.word, { 
+                status: wr.status, 
+                message: statusMessage,
+                flashcard_id: wr.flashcard_id 
+            });
+        });
+    } else {
+        // Fallback: Mark successful words (old logic for backward compatibility)
+        if (result.flashcard_ids && result.flashcard_ids.length > 0) {
+            const successfulWords = window.selectedWords ? window.selectedWords.slice(0, result.successful) : [];
+            successfulWords.forEach(word => {
+                wordStatusMap.set(word, { status: 'success', message: '✅ Generated' });
+            });
+        }
+        
+        // Mark failed words from errors
+        if (result.errors && result.errors.length > 0) {
+            result.errors.forEach(error => {
+                wordStatusMap.set(error.word, { status: 'error', message: `❌ ${error.error}` });
+            });
+        }
+    }
+    
+    // If we have the original word list, use it
+    if (window.selectedWords) {
+        window.selectedWords.forEach((word, index) => {
+            const status = wordStatusMap.get(word) || { status: 'unknown', message: '❓ Unknown' };
+            
+            const row = document.createElement('tr');
+            row.className = status.status === 'success' ? 'bg-green-50' : 
+                           status.status === 'error' ? 'bg-red-50' : 'bg-gray-50';
+            
+            row.innerHTML = `
+                <td class="px-3 py-2 text-gray-900">${index + 1}</td>
+                <td class="px-3 py-2 font-medium text-gray-900">${word}</td>
+                <td class="px-3 py-2 text-sm ${status.status === 'success' ? 'text-green-700' : status.status === 'error' ? 'text-red-700' : 'text-gray-700'}">${status.message}</td>
+            `;
+            
+            wordStatusList.appendChild(row);
+        });
+    }
+    
+    // Update status banner with final result - DON'T auto-dismiss
     if (result.successful > 0 && result.failed === 0) {
         showStatusBanner(
             `✅ Success! Generated ${result.successful} flashcard${result.successful !== 1 ? 's' : ''}!`,
             'All flashcards were created successfully. Audio will be generated in the background.',
             'success',
-            15000 // Auto-dismiss after 15 seconds
+            0 // DON'T auto-dismiss - keep visible
         );
     } else if (result.successful > 0 && result.failed > 0) {
         showStatusBanner(
