@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.32 (Fix card click navigation, audio endpoint, auto-browse after batch)
+// Version: 2.6.33 (Fix source field, delete buttons, card navigation, URL sharing)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.32';
+const APP_JS_VERSION = '2.6.33';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1001,7 +1001,7 @@ function renderFlashcard(flashcard) {
                 <div class="flashcard-front bg-white rounded-xl shadow-xl p-8 min-h-[400px] hover:shadow-2xl transition">
                     <div class="flex justify-between items-start mb-6">
                         <div class="text-sm text-gray-500">
-                            ${flashcard.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}
+                            ${flashcard.source && flashcard.source.startsWith('ai_generated') ? '🤖 AI Generated' : '✍️ Manual'}
                         </div>
                         <div class="flex items-center gap-3">
                             <button onclick="editCard('${flashcard.id}')" 
@@ -1293,7 +1293,7 @@ function renderReadCard(flashcard) {
                             
                             <!-- Stats -->
                             <div class="mt-3 flex items-center gap-4 text-xs text-indigo-700">
-                                <span>${flashcard.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}</span>
+                                <span>${flashcard.source && flashcard.source.startsWith('ai_generated') ? '🤖 AI Generated' : '✍️ Manual'}</span>
                                 <span>•</span>
                                 <span>Reviewed ${flashcard.times_reviewed} times</span>
                             </div>
@@ -1544,7 +1544,7 @@ function renderFlashcardList() {
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                     </button>
-                    <span class="text-sm text-gray-500">${card.source === 'ai_generated' ? '🤖' : '✍️'}</span>
+                    <span class="text-sm text-gray-500">${card.source && card.source.startsWith('ai_generated') ? '🤖' : '✍️'}</span>
                 </div>
             </div>
         </div>
@@ -4099,7 +4099,7 @@ function loadCardsList() {
                     <h3 class="font-semibold text-lg mb-2">${card.word_or_phrase}</h3>
                     ${card.definition ? `<p class="text-gray-600 text-sm mb-2">${card.definition}</p>` : ''}
                     <div class="flex items-center gap-2 text-xs text-gray-500">
-                        <span>${card.source === 'ai_generated' ? '🤖 AI Generated' : '✍️ Manual'}</span>
+                        <span>${card.source && card.source.startsWith('ai_generated') ? '🤖 AI Generated' : '✍️ Manual'}</span>
                         <span>•</span>
                         <span>Reviewed ${card.times_reviewed} times</span>
                     </div>
@@ -4114,6 +4114,10 @@ function loadCardsList() {
                     <button onclick="editCard('${card.id}'); event.stopPropagation();" 
                             class="p-2 text-gray-600 hover:bg-gray-50 rounded">
                         ✏️
+                    </button>
+                    <button onclick="confirmDelete(state.flashcards[${index}]); event.stopPropagation();" 
+                            class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete">
+                        🗑️
                     </button>
                 </div>
             </div>

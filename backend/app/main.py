@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.32 - Fix audio endpoint, auto-navigate to Browse after batch
+# Version: 2.6.33 - Fix source field, delete buttons, card navigation, URL sharing
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,7 +56,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.6.32"
+    version="2.6.33"
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
