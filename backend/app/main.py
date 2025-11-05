@@ -203,6 +203,10 @@ app.include_router(document_parser.router, prefix="/api/document", tags=["docume
 from .routers import batch_ai_generate
 app.include_router(batch_ai_generate.router, prefix="/api/ai", tags=["batch-ai-generation"])  # Batch AI flashcard generation
 
+# Import batch progress router (SSE streaming)
+from .routers import batch_progress
+app.include_router(batch_progress.router, prefix="/api/ai", tags=["batch-progress"])  # Real-time batch progress via SSE
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
@@ -211,6 +215,17 @@ if not os.path.exists(frontend_path):
     
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+# Serve manifest.json from root path
+@app.get("/manifest.json")
+async def serve_manifest():
+    """Serve manifest.json from frontend directory for PWA support"""
+    from fastapi.responses import FileResponse
+    manifest_path = os.path.join(frontend_path, "manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path, media_type="application/json")
+    else:
+        raise HTTPException(status_code=404, detail="manifest.json not found")
 
 # Cloud Storage configuration for media files
 CLOUD_STORAGE_BUCKET = "super-flashcards-media"
@@ -402,6 +417,15 @@ async def serve_first_time_loader_js():
     js_file = os.path.join(frontend_path, "first-time-loader.js")
     if os.path.exists(js_file):
         return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
+@app.get("/oauth-simple-test.html", response_class=HTMLResponse)
+async def serve_oauth_simple_test():
+    """Serve OAuth simple test page (debugging tool)"""
+    from fastapi.responses import FileResponse
+    html_file = os.path.join(frontend_path, "oauth-simple-test.html")
+    if os.path.exists(html_file):
+        return FileResponse(html_file, media_type="text/html")
     return {"error": "File not found"}
 
 # Removed development/testing HTML endpoints to optimize startup

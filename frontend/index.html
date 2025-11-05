@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.6.33';
+        window.APP_VERSION = '2.6.41';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -368,7 +368,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.33</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.41</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -570,7 +570,7 @@
                     </div>
 
                     <!-- Manual Entry Form -->
-                    <div id="manual-form">
+                    <div id="manual-form" class="hidden">
                         <form id="create-flashcard-form" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -675,7 +675,7 @@
                     </div>
 
                     <!-- AI Generation Form -->
-                    <div id="ai-form" class="hidden">
+                    <div id="ai-form">
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">

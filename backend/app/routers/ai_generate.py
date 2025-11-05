@@ -279,7 +279,38 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     if verbose:
                         logger.error(f"🔍 VERBOSE: Fallback exception: {type(fallback_error).__name__}")
                         logger.error(f"🔍 VERBOSE: Fallback traceback:\n{traceback.format_exc()}")
-                    raise  # Re-raise to be caught by outer exception handler
+                    
+                    # THIRD FALLBACK: Ultra-generic language learning image
+                    logger.warning(f"⚠️ Both attempts failed for '{word}', trying ultra-generic fallback...")
+                    
+                    ultra_generic_prompt = "A colorful educational poster for language learning. Show an open book with floating letters and words, a lightbulb representing ideas, and small icons of different languages. Warm, inviting colors, friendly cartoon style, simple and clean design for vocabulary learning."
+                    
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: --- Attempt 3: Ultra-generic fallback ---")
+                        logger.info(f"🔍 VERBOSE: Ultra-generic prompt: {ultra_generic_prompt}")
+                        logger.info(f"🔍 VERBOSE: >>> Sending ultra-generic request to DALL-E API...")
+                    
+                    try:
+                        response = get_openai_client().images.generate(
+                            model="dall-e-3",
+                            prompt=ultra_generic_prompt,
+                            size="1024x1024",
+                            quality="standard",
+                            n=1
+                        )
+                        dalle_url = response.data[0].url
+                        logger.info(f"✅ Ultra-generic fallback succeeded for '{word}'")
+                        
+                        if verbose:
+                            logger.info(f"🔍 VERBOSE: <<< Ultra-generic response received!")
+                            logger.info(f"🔍 VERBOSE: Generic image URL: {dalle_url[:100]}...")
+                    
+                    except Exception as final_error:
+                        logger.error(f"❌ Even ultra-generic fallback failed for '{word}': {final_error}")
+                        if verbose:
+                            logger.error(f"🔍 VERBOSE: Final exception: {type(final_error).__name__}")
+                            logger.error(f"🔍 VERBOSE: Final traceback:\n{traceback.format_exc()}")
+                        raise  # Re-raise to be caught by outer exception handler
             else:
                 # Not a content policy issue, re-raise original error
                 if verbose:

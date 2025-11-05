@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.33 (Fix source field, delete buttons, card navigation, URL sharing)
+// Version: 2.6.41 (Add enhanced image fallback for Greek root prefixes)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.33';
+const APP_JS_VERSION = '2.6.41';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -453,7 +453,7 @@ async function loadLanguages() {
 // Flashcard CRUD Functions
 // ========================================
 
-async function loadFlashcards() {
+async function loadFlashcards(options = {}) {
     // During first-time progressive load, we might not have a language selected yet
     // Allow loading without language filter in this case
     const hasLanguages = state.languages && state.languages.length > 0;
@@ -469,8 +469,8 @@ async function loadFlashcards() {
         let flashcards;
         if (apiClient) {
             try {
-                // New offline-first approach
-                flashcards = await apiClient.getFlashcards();
+                // New offline-first approach - pass through forceFresh option if provided
+                flashcards = await apiClient.getFlashcards(options);
                 
                 // IMPORTANT: Only filter by language if we have actual language data
                 // During progressive first-time load, languages may not be loaded yet
@@ -589,9 +589,6 @@ async function createFlashcard(data) {
         
         showToast('✅ Flashcard created successfully!');
         
-        // Reload flashcards first so the new card is in state.flashcards
-        await loadFlashcards();
-        
         // Generate audio for the new flashcard using the word from the response
         if (flashcard && flashcard.id && flashcard.word_or_phrase) {
             try {
@@ -612,16 +609,11 @@ async function createFlashcard(data) {
         // Show the newly created card immediately
         console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
         
-        // CRITICAL FIX: Wait for sync to complete and ensure card is in cache
-        console.log('🔄 Force syncing to update cache...');
-        if (window.syncManager) {
-            await window.syncManager.sync();
-        }
+        // ✅ FIX: Force fresh fetch from server to get the newly created card
+        console.log('🔄 Force reloading flashcards from server...');
+        await loadFlashcards({ forceFresh: true });
         
-        // Reload flashcards again to get the synced version
-        await loadFlashcards();
-        
-        // Find the card in state.flashcards (now it should definitely be there)
+        // Find the card in state.flashcards
         const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
         if (cardIndex !== -1) {
             state.currentCardIndex = cardIndex;
@@ -688,6 +680,18 @@ async function generateAIFlashcard(word, includeImage = true) {
         console.log('✅ AI flashcard received:', flashcard);
         console.log('📷 Image URL:', flashcard?.image_url);
         console.log('🔊 Audio URL:', flashcard?.audio_url);
+        console.log('🖼️ Include image was requested:', includeImage);
+        console.log('📝 Image description from AI:', flashcard?.image_description);
+        
+        // Check if image generation was requested but failed
+        if (includeImage && !flashcard?.image_url) {
+            console.warn('⚠️ Image was requested but not generated!');
+            if (!flashcard?.image_description) {
+                console.error('❌ No image_description returned from AI - this is why image generation failed');
+            } else {
+                console.error('❌ Image description exists but image_url is null - generation or upload failed');
+            }
+        }
         
         // TODO: Add better error handling with user-friendly messages
         // Don't expose technical errors to users
@@ -695,8 +699,9 @@ async function generateAIFlashcard(word, includeImage = true) {
         hideLoading();
         showToast('✅ AI Flashcard generated successfully!');
         
-        // Reload flashcards first so the new card is in state.flashcards
-        await loadFlashcards();
+        // ✅ FIX: Force fresh fetch from server to get the newly created card
+        console.log('📍 Reloading flashcards with forceFresh to include newly created card:', flashcard.word_or_phrase);
+        await loadFlashcards({ forceFresh: true });
         
         // Generate audio for the new flashcard using the word from the response
         if (flashcard && flashcard.id && flashcard.word_or_phrase) {
@@ -715,10 +720,6 @@ async function generateAIFlashcard(word, includeImage = true) {
                 showToast('⚠️ Card created but audio generation failed. Use the Generate Audio button.', 5000);
             }
         }
-        
-        // ✅ FIX: Reload flashcards to get the newly created card into state.flashcards
-        console.log('📍 Reloading flashcards to include newly created card:', flashcard.word_or_phrase);
-        await loadFlashcards();
         
         // Now find the card in the refreshed state.flashcards
         const cardIndex = state.flashcards.findIndex(c => c.id === flashcard.id);
@@ -996,6 +997,33 @@ function removeEditImage() {
 // UI Rendering Functions
 // ========================================
 
+/**
+ * Copy share link for a flashcard to clipboard
+ */
+async function copyShareLink(cardId) {
+    const shareUrl = `${window.location.origin}/?cardId=${cardId}`;
+    
+    try {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast('📋 Share link copied to clipboard!', 3000);
+        console.log('📋 Copied share link:', shareUrl);
+    } catch (error) {
+        console.error('Failed to copy link:', error);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast('📋 Share link copied to clipboard!', 3000);
+        } catch (err) {
+            showToast('❌ Failed to copy link', 'error');
+        }
+        document.body.removeChild(textArea);
+    }
+}
+
 function renderFlashcard(flashcard) {
     const container = document.getElementById('flashcard-container');
     
@@ -1017,6 +1045,11 @@ function renderFlashcard(flashcard) {
                             ${flashcard.source && flashcard.source.startsWith('ai_generated') ? '🤖 AI Generated' : '✍️ Manual'}
                         </div>
                         <div class="flex items-center gap-3">
+                            <button onclick="copyShareLink('${flashcard.id}')" 
+                                    class="px-3 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-sm transition-colors" 
+                                    title="Copy share link">
+                                🔗 Share
+                            </button>
                             <button onclick="editCard('${flashcard.id}')" 
                                     class="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm transition-colors" 
                                     title="Edit this card">
@@ -1082,11 +1115,18 @@ function renderFlashcard(flashcard) {
                         <div class="text-center border-b border-indigo-200 pb-4 mb-6">
                             <div class="flex justify-between items-start mb-2">
                                 <div></div>
-                                <button onclick="editCard('${flashcard.id}')" 
-                                        class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors" 
-                                        title="Edit this card">
-                                    ✏️ Edit
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="copyShareLink('${flashcard.id}')" 
+                                            class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm transition-colors" 
+                                            title="Copy share link">
+                                        🔗 Share
+                                    </button>
+                                    <button onclick="editCard('${flashcard.id}')" 
+                                            class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors" 
+                                            title="Edit this card">
+                                        ✏️ Edit
+                                    </button>
+                                </div>
                             </div>
                             <h2 class="text-2xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
                             <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
@@ -1543,6 +1583,13 @@ function renderFlashcardList() {
                     <p class="text-gray-600 text-sm line-clamp-2">${card.definition || 'No definition'}</p>
                 </div>
                 <div class="ml-4 flex space-x-2 items-center">
+                    <button onclick="copyShareLink('${card.id}'); event.stopPropagation();" 
+                        class="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Copy share link">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                        </svg>
+                    </button>
                     <button onclick="showEditModal(state.flashcards[${originalIndex}]); event.stopPropagation();" 
                         class="p-2 text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2064,13 +2111,22 @@ function closeEditModal() {
 }
 
 async function saveEditedFlashcard() {
-    if (!currentEditingId) return;
+    console.log('💾 === SAVE EDITED FLASHCARD ===');
+    console.log('Current editing ID:', currentEditingId);
+    
+    if (!currentEditingId) {
+        console.error('❌ No currentEditingId set!');
+        showToast('Error: No card selected for editing', 'error');
+        return;
+    }
     
     const word = document.getElementById('edit-word').value.trim();
     const definition = document.getElementById('edit-definition').value.trim();
     const etymology = document.getElementById('edit-etymology').value.trim();
     const cognates = document.getElementById('edit-cognates').value.trim();
     const relatedInput = document.getElementById('edit-related').value.trim();
+    
+    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput });
     
     if (!word) {
         showToast('Word or phrase is required', 'error');
@@ -2106,22 +2162,71 @@ async function saveEditedFlashcard() {
             updateData.image_description = editImageData.description;
         }
         
+        console.log('📤 Sending update request:', updateData);
+        console.log('🎯 Target endpoint:', `/flashcards/${currentEditingId}`);
+        
         const updated = await apiRequest(`/flashcards/${currentEditingId}`, {
             method: 'PUT',
             body: JSON.stringify(updateData)
         });
+        
+        console.log('✅ Update successful! Response:', updated);
+        
+        // ⚠️ CRITICAL: Save the card ID BEFORE closing modal (which sets currentEditingId to null!)
+        const savedCardId = currentEditingId;
+        console.log(`💾 Saved card ID for later use: ${savedCardId}`);
         
         hideLoading();
         showToast('✅ Flashcard updated successfully!');
         closeEditModal();
         
         // Refresh the display
-        await loadFlashcards();
+        console.log('🔄 Reloading flashcards with forceFresh...');
+        await loadFlashcards({ forceFresh: true });
+        
+        // Find the edited card by ID (not by index, as order may have changed)
+        console.log(`🔍 Searching for card ID: ${savedCardId}`);
+        console.log(`🔍 Total flashcards loaded: ${state.flashcards.length}`);
+        console.log(`🔍 First 3 card IDs:`, state.flashcards.slice(0, 3).map(c => c.id));
+        
+        const editedCardIndex = state.flashcards.findIndex(card => card.id === savedCardId);
+        console.log(`🔍 Found edited card at index: ${editedCardIndex}`);
+        
+        if (editedCardIndex !== -1) {
+            // Update the current index to the edited card
+            state.currentCardIndex = editedCardIndex;
+            console.log('🎨 Re-rendering edited card at new index');
+            renderFlashcard(state.flashcards[editedCardIndex]);
+            
+            // Flip to show the back (details) since that's what was edited
+            setTimeout(() => {
+                const card = document.querySelector('.flashcard');
+                if (card && !card.classList.contains('flipped')) {
+                    card.classList.add('flipped');
+                    state.isFlipped = true;
+                    console.log('🔄 Flipped card to show edited details');
+                }
+            }, 100);
+        } else {
+            console.warn('⚠️ Edited card not found after reload');
+            // Still render the current card if available
+            if (state.flashcards[state.currentCardIndex]) {
+                renderFlashcard(state.flashcards[state.currentCardIndex]);
+            }
+        }
+        
+        // If we're in browse mode, refresh the list
+        if (document.getElementById('browse-mode').classList.contains('mode-content') && 
+            !document.getElementById('browse-mode').classList.contains('hidden')) {
+            console.log('📋 Refreshing browse list');
+            renderFlashcardList();
+        }
         
     } catch (error) {
         hideLoading();
-        showToast('Failed to update flashcard', 'error');
-        console.error('Update error:', error);
+        console.error('❌ Update error:', error);
+        console.error('Error stack:', error.stack);
+        showToast(`Failed to update flashcard: ${error.message}`, 'error');
     }
 }
 
@@ -2634,7 +2739,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log(`🎨 UI initialized in ${uiTime.toFixed(2)}ms`);
     window.timingCheckpoint?.('T12-ui-initialized', `UI controls ready (${uiTime.toFixed(2)}ms)`);
     
-    // Check for URL parameters to share specific cards
+    // Setup debug panel (menu)
+    setupDebugButtons();
+    
+    // Debug: Check if all tab elements exist
+    const tabs = ['study', 'add', 'import', 'browse'];
+    tabs.forEach(tab => {
+        const button = document.getElementById(`tab-${tab}`);
+        const content = document.getElementById(`content-${tab}`);
+        console.log(`🔍 Tab "${tab}":`, {
+            button: !!button,
+            content: !!content,
+            buttonElement: button,
+            contentElement: content
+        });
+    });
+    
+    console.log('\n📚 Loading languages and initializing batch IPA...');
+    const languagesStart = performance.now();
+    
+    await loadLanguages();  // ✅ FIX: Added await so URL parameters can work correctly
+    initializeBatchIPA();
+    
+    const languagesTime = performance.now() - languagesStart;
+    console.log(`📚 Languages loaded in ${languagesTime.toFixed(2)}ms`);
+    
+    // ✅ FIX: Check for URL parameters AFTER languages are loaded
     const urlParams = new URLSearchParams(window.location.search);
     const cardId = urlParams.get('cardId');
     const word = urlParams.get('word');
@@ -2642,9 +2772,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (cardId || (word && language)) {
         console.log('🔗 URL parameters detected:', { cardId, word, language });
-        
-        // Wait for languages to load
-        await loadLanguages();
         
         try {
             let targetCard = null;
@@ -2723,31 +2850,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('❌ Failed to load shared card', 5000);
         }
     }
-    
-    // Setup debug panel (menu)
-    setupDebugButtons();
-    
-    // Debug: Check if all tab elements exist
-    const tabs = ['study', 'add', 'import', 'browse'];
-    tabs.forEach(tab => {
-        const button = document.getElementById(`tab-${tab}`);
-        const content = document.getElementById(`content-${tab}`);
-        console.log(`🔍 Tab "${tab}":`, {
-            button: !!button,
-            content: !!content,
-            buttonElement: button,
-            contentElement: content
-        });
-    });
-    
-    console.log('\n📚 Loading languages and initializing batch IPA...');
-    const languagesStart = performance.now();
-    
-    loadLanguages();
-    initializeBatchIPA();
-    
-    const languagesTime = performance.now() - languagesStart;
-    console.log(`📚 Languages loaded in ${languagesTime.toFixed(2)}ms`);
     
     // CRITICAL MILESTONE: Calculate total time to this point
     const totalTime = performance.now() - (window.pageLoadStart || 0);
@@ -2933,6 +3035,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 btnManual.classList.add('bg-gray-200', 'text-gray-700');
             }
         });
+    }
+    
+    // ✅ FIX: Initialize button states based on which form is currently visible
+    if (btnManual && btnAI) {
+        const manualForm = document.getElementById('manual-form');
+        const aiForm = document.getElementById('ai-form');
+        
+        if (manualForm && aiForm) {
+            // Check which form is visible (not hidden)
+            if (!manualForm.classList.contains('hidden')) {
+                // Manual form is visible
+                btnManual.classList.add('bg-indigo-600', 'text-white');
+                btnManual.classList.remove('bg-gray-200', 'text-gray-700');
+                btnAI.classList.remove('bg-indigo-600', 'text-white');
+                btnAI.classList.add('bg-gray-200', 'text-gray-700');
+                console.log('📋 Initialized button state: Manual form visible');
+            } else if (!aiForm.classList.contains('hidden')) {
+                // AI form is visible
+                btnAI.classList.add('bg-indigo-600', 'text-white');
+                btnAI.classList.remove('bg-gray-200', 'text-gray-700');
+                btnManual.classList.remove('bg-indigo-600', 'text-white');
+                btnManual.classList.add('bg-gray-200', 'text-gray-700');
+                console.log('📋 Initialized button state: AI form visible');
+            }
+        }
     }
     
     // Check online status on load
@@ -3286,6 +3413,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             selectImportMethod('parser');
         });
     }
+    
+    // Clear batch import when language changes
+    document.addEventListener('languageChanged', () => {
+        console.log('🌍 Language changed - clearing batch import');
+        
+        // Clear parsed entries display
+        const entriesContainer = document.getElementById('parsed-entries-container');
+        if (entriesContainer) {
+            entriesContainer.innerHTML = '';
+        }
+        
+        // Hide results section, show upload section
+        const resultsSection = document.getElementById('parser-results-section');
+        const uploadSection = document.getElementById('parser-upload-section');
+        if (resultsSection) resultsSection.classList.add('hidden');
+        if (uploadSection) uploadSection.classList.remove('hidden');
+        
+        // Reset file input
+        const fileInput = document.getElementById('document-file');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    });
 });
 
 // Document Parser Functions
@@ -3531,43 +3681,77 @@ async function batchGenerateFlashcards() {
     document.getElementById('parser-results').classList.add('hidden');
     document.getElementById('batch-generation-progress').classList.remove('hidden');
     
+    // Reset progress UI
+    updateBatchProgress(0, selectedWords.length, null, 0);
+    
     try {
-        // Start polling for progress (we'll show progress as we go)
-        const response = await fetch('/api/ai/batch-generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                words: selectedWords,
-                language_id: languageId,
-                include_images: true
-            })
-        });
+        // Use Server-Sent Events for real-time progress
+        const wordsParam = encodeURIComponent(selectedWords.join(','));
+        const eventSource = new EventSource(
+            `/api/ai/batch-generate-stream?words=${wordsParam}&language_id=${languageId}&include_images=true`
+        );
         
-        if (!response.ok) {
-            // Try to get error details from response
-            let errorDetail = response.statusText;
+        let finalResult = null;
+        
+        eventSource.onmessage = (event) => {
             try {
-                const errorData = await response.json();
-                errorDetail = errorData.detail || errorData.message || JSON.stringify(errorData);
+                const data = JSON.parse(event.data);
+                console.log('📡 Progress update:', data);
+                
+                if (data.status === 'processing') {
+                    // Update progress bar and ETA
+                    updateBatchProgress(
+                        data.current - 1, // Completed count
+                        data.total,
+                        data.word,
+                        data.eta_seconds,
+                        data.successful,
+                        data.failed
+                    );
+                } else if (data.status === 'word_complete') {
+                    console.log(`✅ Word completed: ${data.word} (image: ${data.has_image})`);
+                } else if (data.status === 'word_failed') {
+                    console.log(`❌ Word failed: ${data.word} (${data.reason})`);
+                } else if (data.status === 'complete') {
+                    // Store final result
+                    finalResult = data;
+                    console.log('✅ Batch generation complete:', data);
+                    eventSource.close();
+                    
+                    // Show results
+                    showBatchGenerationResults(finalResult);
+                    
+                    // Trigger audio generation for successful cards
+                    if (finalResult.successful > 0 && finalResult.flashcard_ids && finalResult.flashcard_ids.length > 0) {
+                        console.log(`🎵 Triggering audio generation for ${finalResult.flashcard_ids.length} flashcards`);
+                        triggerBatchAudioGeneration(finalResult.flashcard_ids);
+                    }
+                } else if (data.status === 'error') {
+                    console.error('❌ Batch error:', data.error);
+                    eventSource.close();
+                    throw new Error(data.error);
+                }
             } catch (e) {
-                // If response is not JSON, use statusText
+                console.error('❌ Error parsing SSE message:', e);
             }
-            throw new Error(`Batch generation failed (${response.status}): ${errorDetail}`);
-        }
+        };
         
-        const result = await response.json();
-        console.log('✅ Batch generation complete:', result);
-        
-        // Show results
-        showBatchGenerationResults(result);
-        
-        // Trigger audio generation for successful cards
-        if (result.successful > 0 && result.flashcard_ids && result.flashcard_ids.length > 0) {
-            console.log(`🎵 Triggering audio generation for ${result.flashcard_ids.length} flashcards`);
-            triggerBatchAudioGeneration(result.flashcard_ids);
-        }
+        eventSource.onerror = (error) => {
+            console.error('❌ SSE connection error:', error);
+            eventSource.close();
+            
+            // Update status banner to show error
+            showStatusBanner(
+                'Batch generation failed',
+                'Connection to server lost',
+                'error',
+                10000
+            );
+            
+            showToast('❌ Batch generation failed: Connection error', 5000);
+            document.getElementById('batch-generation-progress').classList.add('hidden');
+            document.getElementById('parser-results').classList.remove('hidden');
+        };
         
     } catch (error) {
         console.error('❌ Batch generation error:', error);
@@ -3583,6 +3767,53 @@ async function batchGenerateFlashcards() {
         showToast(`❌ Batch generation failed: ${error.message}`, 5000);
         document.getElementById('batch-generation-progress').classList.add('hidden');
         document.getElementById('parser-results').classList.remove('hidden');
+    }
+}
+
+function updateBatchProgress(completed, total, currentWord, etaSeconds, successful = 0, failed = 0) {
+    const percentage = Math.round((completed / total) * 100);
+    
+    // Update progress bar
+    const progressBar = document.getElementById('batch-progress-bar');
+    const progressPercentage = document.getElementById('batch-progress-percentage');
+    const progressText = document.getElementById('batch-progress-text');
+    const progressDetails = document.getElementById('batch-progress-details');
+    
+    if (progressBar) progressBar.style.width = `${percentage}%`;
+    if (progressPercentage) progressPercentage.textContent = `${percentage}%`;
+    
+    // Update progress text with current word
+    if (progressText) {
+        if (currentWord) {
+            progressText.textContent = `Processing "${currentWord}" (${completed}/${total})`;
+        } else {
+            progressText.textContent = `Preparing... (${completed}/${total})`;
+        }
+    }
+    
+    // Update details with ETA and stats
+    if (progressDetails) {
+        const etaMinutes = Math.floor(etaSeconds / 60);
+        const etaSecondsRemaining = Math.round(etaSeconds % 60);
+        
+        let etaText = '';
+        if (etaSeconds > 0) {
+            if (etaMinutes > 0) {
+                etaText = `⏱️ ETA: ~${etaMinutes}m ${etaSecondsRemaining}s`;
+            } else {
+                etaText = `⏱️ ETA: ~${etaSecondsRemaining}s`;
+            }
+        }
+        
+        const statsText = successful > 0 || failed > 0 
+            ? `<div class="mt-2">✅ ${successful} succeeded, ❌ ${failed} failed</div>`
+            : '';
+        
+        progressDetails.innerHTML = `
+            <div class="font-medium text-purple-700">${etaText}</div>
+            ${statsText}
+            <div class="text-xs text-gray-500 mt-1">☕ ${etaSeconds > 60 ? 'Grab a coffee!' : 'Almost done...'}</div>
+        `;
     }
 }
 
@@ -3809,6 +4040,13 @@ async function showBatchGenerationResults(result) {
     document.getElementById('batch-another').onclick = () => {
         document.getElementById('batch-generation-results').classList.add('hidden');
         document.getElementById('parser-upload-section').classList.remove('hidden');
+        
+        // Reset file input to allow re-upload
+        const fileInput = document.getElementById('document-file');
+        if (fileInput) {
+            fileInput.value = '';
+            console.log('🔄 File input reset for next upload');
+        }
     };
     
     // "Start Studying" button
@@ -3832,9 +4070,14 @@ async function triggerBatchAudioGeneration(flashcardIds) {
     
     console.log(`🎵 Starting background audio generation for ${flashcardIds.length} flashcards`);
     
-    // Trigger audio generation in parallel (but don't wait for completion)
-    flashcardIds.forEach(async (flashcardId) => {
+    // Show initial progress toast
+    showToast(`🎵 Generating audio for ${flashcardIds.length} flashcard${flashcardIds.length !== 1 ? 's' : ''}...`, 3000);
+    
+    // Trigger audio generation in parallel using Promise.allSettled
+    const audioPromises = flashcardIds.map(async (flashcardId, index) => {
         try {
+            console.log(`🎵 [${index + 1}/${flashcardIds.length}] Generating audio for ${flashcardId}...`);
+            
             const response = await fetch(`/api/audio/generate/${flashcardId}`, {
                 method: 'POST',
                 headers: {
@@ -3842,18 +4085,66 @@ async function triggerBatchAudioGeneration(flashcardIds) {
                 }
             });
             
-            if (response.ok) {
-                console.log(`🎵 ✅ Audio generated for flashcard ${flashcardId}`);
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                console.log(`🎵 ✅ [${index + 1}/${flashcardIds.length}] Audio generated for ${data.word || flashcardId}`);
+                return { 
+                    flashcardId, 
+                    success: true, 
+                    word: data.word,
+                    audio_url: data.audio_url 
+                };
             } else {
-                console.warn(`🎵 ⚠️ Audio generation failed for flashcard ${flashcardId}: ${response.status}`);
+                console.warn(`🎵 ⚠️ [${index + 1}/${flashcardIds.length}] Audio generation failed: ${response.status}`, data);
+                return { 
+                    flashcardId, 
+                    success: false, 
+                    error: data.error || `HTTP ${response.status}`,
+                    word: data.word
+                };
             }
         } catch (error) {
-            console.error(`🎵 ❌ Error generating audio for flashcard ${flashcardId}:`, error);
+            console.error(`🎵 ❌ [${index + 1}/${flashcardIds.length}] Error generating audio:`, error);
+            return { 
+                flashcardId, 
+                success: false, 
+                error: error.message 
+            };
         }
     });
     
-    // Show a toast to inform user that audio is being generated
-    showToast(`🎵 Generating audio for ${flashcardIds.length} flashcard${flashcardIds.length !== 1 ? 's' : ''} in the background...`, 5000);
+    // Wait for all audio generation to complete
+    const results = await Promise.allSettled(audioPromises);
+    
+    // Process results
+    const fulfilled = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    const successful = fulfilled.filter(r => r.success);
+    const failed = fulfilled.filter(r => !r.success);
+    
+    console.log(`🎵 Audio generation complete: ${successful.length} successful, ${failed.length} failed`);
+    
+    // Show summary toast
+    if (failed.length === 0) {
+        showToast(`✅ Audio generated successfully for all ${successful.length} cards`, 5000);
+        
+        // Refresh flashcards to update audio URLs
+        await loadFlashcards();
+    } else {
+        const failedWords = failed.map(f => f.word || f.flashcardId.substring(0, 8)).join(', ');
+        showToast(
+            `⚠️ Audio generation: ${successful.length} succeeded, ${failed.length} failed (${failedWords}). ` +
+            `You can manually generate audio by clicking the 🔊 button on each card.`,
+            10000
+        );
+        
+        console.error('Failed audio generations:', failed);
+        
+        // Still refresh to update the successful ones
+        if (successful.length > 0) {
+            await loadFlashcards();
+        }
+    }
 }
 
 async function importParsedEntries() {
@@ -4173,8 +4464,8 @@ function switchMode(mode) {
             console.error('❌ Browse mode element not found!');
         }
         
-        // Load cards list
-        loadCardsList();
+        // Load cards list with proper sorting
+        renderFlashcardList();
         
     } else if (mode === 'import') {
         console.log('📁 Activating Import mode');
@@ -4282,18 +4573,30 @@ function toggleMenu() {
  */
 function showContent(contentId) {
     // Hide main content
-    document.getElementById('main-content').classList.add('hidden');
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        mainContent.classList.add('hidden');
+    }
     
     // Hide other content areas
     ['content-add', 'content-import', 'content-batch'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.add('hidden');
+        }
     });
     
     // Show requested content
-    document.getElementById(contentId).classList.remove('hidden');
+    const targetContent = document.getElementById(contentId);
+    if (targetContent) {
+        targetContent.classList.remove('hidden');
+    }
     
-    // Close dropdown menu
-    document.getElementById('dropdown-menu').classList.add('hidden');
+    // Close dropdown menu (if it exists)
+    const dropdown = document.getElementById('dropdown-menu');
+    if (dropdown) {
+        dropdown.classList.add('hidden');
+    }
 }
 
 /**
@@ -4363,28 +4666,36 @@ function initializeNewUI() {
         switchMode('import');
     });
     
-    // Primary action button
-    document.getElementById('add-card-btn')?.addEventListener('click', () => {
-        showContent('content-add');
-        // Default to AI form (make sure it's visible)
-        setTimeout(() => {
-            const aiForm = document.getElementById('ai-form');
-            const manualForm = document.getElementById('manual-form');
-            const btnAI = document.getElementById('btn-ai');
-            const btnManual = document.getElementById('btn-manual');
-            
-            if (aiForm && manualForm && btnAI && btnManual) {
-                aiForm.classList.remove('hidden');
-                manualForm.classList.add('hidden');
-                btnAI.classList.add('bg-indigo-600', 'text-white');
-                btnAI.classList.remove('bg-gray-200', 'text-gray-700');
-                btnManual.classList.remove('bg-indigo-600', 'text-white');
-                btnManual.classList.add('bg-gray-200', 'text-gray-700');
-            }
-        }, 50);
-    });
+    // Primary action button - show the add card form
+document.getElementById('add-card-btn')?.addEventListener('click', () => {
+    // Use the showContent function to properly show the add card form
+    showContent('content-add');
     
-    // Hamburger menu
+    // Scroll to the form
+    setTimeout(() => {
+        const addCardContent = document.getElementById('content-add');
+        if (addCardContent) {
+            addCardContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
+    
+    // Default to AI form (make sure it's visible)
+    setTimeout(() => {
+        const aiForm = document.getElementById('ai-form');
+        const manualForm = document.getElementById('manual-form');
+        const btnAI = document.getElementById('btn-ai');
+        const btnManual = document.getElementById('btn-manual');
+        
+        if (aiForm && manualForm && btnAI && btnManual) {
+            aiForm.classList.remove('hidden');
+            manualForm.classList.add('hidden');
+            btnAI.classList.add('bg-indigo-600', 'text-white');
+            btnAI.classList.remove('bg-gray-200', 'text-gray-700');
+            btnManual.classList.remove('bg-indigo-600', 'text-white');
+            btnManual.classList.add('bg-gray-200', 'text-gray-700');
+        }
+    }, 50);
+});    // Hamburger menu
     document.getElementById('menu-toggle')?.addEventListener('click', (e) => {
         e.preventDefault();
         toggleMenu();
