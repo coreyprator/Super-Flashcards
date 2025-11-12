@@ -1,0 +1,19 @@
+steps:
+  # Build QA container with :qa tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:qa'
+      - '-f'
+      - 'backend/Dockerfile'
+      - '.'
+  
+  # Push QA image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:qa'
+
+images:
+  - 'gcr.io/super-flashcards-475210/super-flashcards:qa'
