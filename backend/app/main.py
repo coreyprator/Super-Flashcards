@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.6.33 - Fix source field, delete buttons, card navigation, URL sharing
+# Version: 2.7.0 - Sprint 7: QA environment support + subscription infrastructure
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +22,21 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Kept: audio (production TTS functionality)
 # Added: auth (Google OAuth + email/password authentication)
 
+# Environment detection (QA vs Production)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+IS_QA = ENVIRONMENT == "qa"
+
+# Configure logging based on environment
 logger = logging.getLogger(__name__)
+if IS_QA:
+    # QA: Enable debug logging
+    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
+    logger.info("🧪 QA ENVIRONMENT DETECTED - Debug logging enabled")
+else:
+    # Production: Standard logging
+    logging.basicConfig(level=logging.INFO)
+    logger.setLevel(logging.INFO)
 
 # Basic Auth configuration - DISABLED now that JWT OAuth is active
 # Set BASIC_AUTH_ENABLED=true in environment to re-enable for testing
@@ -56,12 +70,15 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.6.33"
+    version="2.7.0" + (" [QA]" if IS_QA else "")
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
 sql_password = os.getenv("SQL_PASSWORD", "")
 logger.info(f"🔍 SQL_PASSWORD environment variable: {'SET (' + str(len(sql_password)) + ' chars)' if sql_password else 'NOT SET'}")
+if IS_QA:
+    sql_db = os.getenv("SQL_DATABASE", "")
+    logger.debug(f"🧪 QA Database: {sql_db}")
 
 # Session middleware for OAuth (required by authlib)
 from starlette.middleware.sessions import SessionMiddleware
@@ -92,14 +109,19 @@ app.add_middleware(ProxyHeaderMiddleware)
 # CORS configuration for Cloud Run deployment
 # CRITICAL: When allow_credentials=True, allow_origins cannot be ["*"]
 # Must specify actual origins for credentials to work
+# QA environment includes QA URLs
+qa_origins = [
+    "https://super-flashcards-qa-57478301787.us-central1.run.app",  # QA Cloud Run URL
+] if IS_QA else []
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://super-flashcards-57478301787.us-central1.run.app",  # Cloud Run URL
+        "https://super-flashcards-57478301787.us-central1.run.app",  # Production Cloud Run URL
         "https://learn.rentyourcio.com",  # Custom domain
         "http://localhost:8000",  # Local development
         "http://127.0.0.1:8000"  # Local development alt
-    ],
+    ] + qa_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
