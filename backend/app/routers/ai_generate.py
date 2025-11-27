@@ -154,10 +154,37 @@ Format your response as valid JSON only, no additional text:
         logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=error_detail)
 
+# ============================================================
+# DALL-E TEXT-FREE IMAGE GENERATION (ChatGPT/Claude Validated)
+# ============================================================
+
+# Words that trigger DALL-E's text generation - must be removed
+TEXT_TRIGGER_WORDS = [
+    "educational", "diagram", "instructional", "poster", 
+    "learning", "infographic", "flashcard", "labelled",
+    "chart", "guide", "tutorial"
+]
+
+def clean_prompt_text(text: str) -> str:
+    """Remove words that trigger DALL-E text generation."""
+    result = text
+    for word in TEXT_TRIGGER_WORDS:
+        result = result.replace(word, "")
+        result = result.replace(word.capitalize(), "")
+    return " ".join(result.split())  # Clean up extra spaces
+
+
 def generate_image(image_description: str, word: str, definition: str = None, verbose: bool = False) -> str:
     """
     Generate an image using DALL-E, save locally, and upload to Cloud Storage
-    Implements intelligent fallback for content policy violations
+    
+    Strategy (validated by ChatGPT/DALL-E testing):
+    - Use children's book watercolor style (naturally text-free)
+    - Positive declarations ("text-free") not prohibitions ("DO NOT")
+    - Fill frame to eliminate dead space where text appears
+    - Use style="natural" in API call to reduce poster aesthetics
+    
+    Implements 3-level intelligent fallback for content policy violations
     Returns the image URL path or None if failed
     """
     import requests
@@ -176,15 +203,23 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
             logger.info(f"🔍 VERBOSE: Has definition: {bool(definition)}")
             logger.info(f"🔍 VERBOSE: ========================================")
         
-        # First attempt: Use the word directly in prompt
-        # IMPORTANT: Explicitly instruct DALL-E to NOT include any text, words, letters, or spelling in the image
-        prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style. DO NOT include any text, words, letters, labels, or spelling in the image. Pure visual representation only, no typography or written words."
+        # Level 1: Primary prompt - Watercolor children's book style
+        # Clean description - remove educational trigger words
+        clean_description = clean_prompt_text(image_description)
+        
+        prompt = f"""Watercolor children's-book illustration of {clean_description}.
+
+Soft edges, simple shapes, bright colors.
+Single centered subject on a plain pale background, subject fills 80% of frame.
+Text-free artwork. No letters, symbols, signage, labels, or written marks.
+Pure imagery only."""
         
         if verbose:
-            logger.info(f"🔍 VERBOSE: --- Attempt 1: Word-based prompt ---")
+            logger.info(f"🔍 VERBOSE: --- Attempt 1: Watercolor children's-book style ---")
+            logger.info(f"🔍 VERBOSE: Cleaned description: '{clean_description}'")
             logger.info(f"🔍 VERBOSE: Full prompt: '{prompt}'")
             logger.info(f"🔍 VERBOSE: Calling OpenAI client.images.generate()...")
-            logger.info(f"🔍 VERBOSE: Model: dall-e-3")
+            logger.info(f"🔍 VERBOSE: Model: dall-e-3, Style: natural (reduces text)")
             logger.info(f"🔍 VERBOSE: Size: 1024x1024")
             logger.info(f"🔍 VERBOSE: Quality: standard")
         
@@ -197,6 +232,7 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                 prompt=prompt,
                 size="1024x1024",
                 quality="standard",
+                style="natural",  # KEY: Reduces text hallucination
                 n=1
             )
             
@@ -224,12 +260,12 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
             if "content_policy_violation" in error_message.lower():
                 logger.warning(f"⚠️ Content policy violation on first attempt for word '{word}'")
                 logger.warning(f"⚠️ DALL-E content policy rejection: {error_message}")
-                logger.info(f"🔄 Attempting fallback: definition-based prompt without word...")
+                logger.info(f"🔄 Level 2 Fallback: 3D clay-style render...")
                 
-                # FALLBACK: Generate prompt based on meaning/definition only
+                # Level 2 Fallback: 3D clay style (very low text generation rate)
                 if definition:
                     if verbose:
-                        logger.info(f"🔍 VERBOSE: Using definition for fallback prompt...")
+                        logger.info(f"🔍 VERBOSE: Using definition for Level 2 fallback...")
                     
                     # Strip the problematic word from the definition
                     safe_definition = definition
@@ -246,14 +282,27 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     # Also replace any other occurrences of the word
                     safe_definition = safe_definition.replace(word, 'this concept').replace(word.lower(), 'this concept')
                     
-                    if verbose:
-                        logger.info(f"🔍 VERBOSE: Safe definition: {safe_definition[:100]}...")
+                    # Clean trigger words
+                    safe_definition = clean_prompt_text(safe_definition)
                     
-                    fallback_prompt = f"A humorous educational illustration showing: {safe_definition}. A person overwhelmed and confused, surrounded by visual metaphors. Cartoon style, warm colors, educational poster for language learners. DO NOT include any text, words, letters, or spelling in the image."
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: Cleaned definition: {safe_definition[:100]}...")
+                    
+                    fallback_prompt = f"""Soft 3D clay-style render representing: {safe_definition}
+
+Cute, rounded forms, simple geometry.
+Single subject centered on neutral studio background.
+No text, letters, numbers, or symbols anywhere.
+Typographic-free artwork only."""
                 else:
                     # Generic fallback based on image description (remove the word)
                     safe_description = image_description.replace(word, 'this concept').replace(word.lower(), 'this concept')
-                    fallback_prompt = f"An educational illustration depicting: {safe_description}. Warm lighting, cartoon style, educational poster, simple and approachable. DO NOT include any text, words, or letters in the image."
+                    safe_description = clean_prompt_text(safe_description)
+                    fallback_prompt = f"""Soft 3D clay-style render of {safe_description}
+
+Cute, rounded forms, simple geometry.
+Single subject centered on neutral studio background.
+Text-free artwork with no letters or symbols."""
                 
                 if verbose:
                     logger.info(f"🔍 VERBOSE: --- Attempt 2: Fallback prompt ---")
@@ -266,6 +315,7 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                         prompt=fallback_prompt,
                         size="1024x1024",
                         quality="standard",
+                        style="natural",  # Reduces poster aesthetics that trigger text
                         n=1
                     )
                     dalle_url = response.data[0].url
@@ -281,13 +331,19 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                         logger.error(f"🔍 VERBOSE: Fallback exception: {type(fallback_error).__name__}")
                         logger.error(f"🔍 VERBOSE: Fallback traceback:\n{traceback.format_exc()}")
                     
-                    # THIRD FALLBACK: Ultra-generic language learning image
-                    logger.warning(f"⚠️ Both attempts failed for '{word}', trying ultra-generic fallback...")
+                    # THIRD FALLBACK: Ultra-generic cut-paper illustration
+                    # Per ChatGPT: Children's picture book framing has highest success rate for text-free images
+                    logger.warning(f"⚠️ Both attempts failed for '{word}', trying ultra-generic fallback (cut-paper style)...")
                     
-                    ultra_generic_prompt = "A colorful educational poster for language learning. Show an open book with floating abstract symbols, a lightbulb representing ideas, and small icons of different languages. Warm, inviting colors, friendly cartoon style, simple and clean design for vocabulary learning. DO NOT include any readable text, words, letters, or spelling in the image."
+                    ultra_generic_prompt = """Cut-paper illustration of an open book with floating colorful geometric shapes representing learning and discovery.
+
+Layered paper textures, clean shapes, warm solid colors.
+Centered composition, subject fills frame, no empty margins or borders.
+Completely text-free imagery with no markings or symbols.
+Imagine this is artwork for a children's picture book where text will be added separately, so the image must contain absolutely no writing of any kind."""
                     
                     if verbose:
-                        logger.info(f"🔍 VERBOSE: --- Attempt 3: Ultra-generic fallback ---")
+                        logger.info(f"🔍 VERBOSE: --- Attempt 3: Ultra-generic fallback (cut-paper children's book style) ---")
                         logger.info(f"🔍 VERBOSE: Ultra-generic prompt: {ultra_generic_prompt}")
                         logger.info(f"🔍 VERBOSE: >>> Sending ultra-generic request to DALL-E API...")
                     
@@ -297,10 +353,11 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                             prompt=ultra_generic_prompt,
                             size="1024x1024",
                             quality="standard",
+                            style="natural",  # Reduces poster aesthetics that trigger text
                             n=1
                         )
                         dalle_url = response.data[0].url
-                        logger.info(f"✅ Ultra-generic fallback succeeded for '{word}'")
+                        logger.info(f"✅ Ultra-generic fallback (cut-paper style) succeeded for '{word}'")
                         
                         if verbose:
                             logger.info(f"🔍 VERBOSE: <<< Ultra-generic response received!")
