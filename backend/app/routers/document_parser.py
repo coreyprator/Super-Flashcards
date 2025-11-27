@@ -266,23 +266,31 @@ async def parse_document(
     # ✅ FIX: Check if it's a simple word list (no definitions, just words)
     # If it's just a list of words separated by whitespace/newlines, treat it differently
     if not any(keyword in file_content.lower() for keyword in ['étymologie', 'definition', 'origine', ':']) and len(file_content.split()) > 5:
-        # Simple word list mode - split by whitespace and newlines
-        words = []
+        # Simple word/phrase list mode - treat each line as a complete phrase
+        phrases = []
+        seen_phrases = set()  # Track unique phrases for deduplication
+        
         for line in file_content.split('\n'):
             line = line.strip()
-            if line:
-                # Split by spaces, commas, semicolons
-                line_words = re.split(r'[,;\s]+', line)
-                words.extend([w.strip() for w in line_words if w.strip() and len(w.strip()) > 1])
+            if line and len(line) > 1:
+                # Treat the ENTIRE line as a single phrase (don't split on spaces)
+                # This allows multi-word phrases like "el arreglo", "bajo presión", etc.
+                phrase_lower = line.lower()
+                
+                # Skip duplicates
+                if phrase_lower not in seen_phrases:
+                    phrases.append(line)
+                    seen_phrases.add(phrase_lower)
         
-        # Create minimal entries for each word (AI will fill in the rest)
+        # Create minimal entries for each phrase (AI will fill in the rest)
+        # Remove the 100-item limit to handle large vocabulary lists
         entries = []
-        for word in words[:100]:  # Limit to 100 words per upload
+        for phrase in phrases:  # No limit - process all phrases
             entry = VocabularyEntry(
-                word_or_phrase=word,
-                definition=f"[AI will generate definition for: {word}]",
+                word_or_phrase=phrase,
+                definition=f"[AI will generate definition for: {phrase}]",
                 language=language,
-                confidence_score=0.99  # High confidence - it's a clean word list
+                confidence_score=0.99  # High confidence - it's a clean phrase list
             )
             entries.append(entry)
     else:
