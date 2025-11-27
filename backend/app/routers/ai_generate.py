@@ -177,7 +177,8 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
             logger.info(f"🔍 VERBOSE: ========================================")
         
         # First attempt: Use the word directly in prompt
-        prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style."
+        # IMPORTANT: Explicitly instruct DALL-E to NOT include any text, words, letters, or spelling in the image
+        prompt = f"Educational illustration for language learning: {image_description}. Simple, clear, educational style. DO NOT include any text, words, letters, labels, or spelling in the image. Pure visual representation only, no typography or written words."
         
         if verbose:
             logger.info(f"🔍 VERBOSE: --- Attempt 1: Word-based prompt ---")
@@ -248,11 +249,11 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     if verbose:
                         logger.info(f"🔍 VERBOSE: Safe definition: {safe_definition[:100]}...")
                     
-                    fallback_prompt = f"A humorous educational illustration showing: {safe_definition}. A person overwhelmed and confused, surrounded by visual metaphors. Cartoon style, warm colors, educational poster for language learners."
+                    fallback_prompt = f"A humorous educational illustration showing: {safe_definition}. A person overwhelmed and confused, surrounded by visual metaphors. Cartoon style, warm colors, educational poster for language learners. DO NOT include any text, words, letters, or spelling in the image."
                 else:
                     # Generic fallback based on image description (remove the word)
                     safe_description = image_description.replace(word, 'this concept').replace(word.lower(), 'this concept')
-                    fallback_prompt = f"An educational illustration depicting: {safe_description}. Warm lighting, cartoon style, educational poster, simple and approachable."
+                    fallback_prompt = f"An educational illustration depicting: {safe_description}. Warm lighting, cartoon style, educational poster, simple and approachable. DO NOT include any text, words, or letters in the image."
                 
                 if verbose:
                     logger.info(f"🔍 VERBOSE: --- Attempt 2: Fallback prompt ---")
@@ -283,7 +284,7 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
                     # THIRD FALLBACK: Ultra-generic language learning image
                     logger.warning(f"⚠️ Both attempts failed for '{word}', trying ultra-generic fallback...")
                     
-                    ultra_generic_prompt = "A colorful educational poster for language learning. Show an open book with floating letters and words, a lightbulb representing ideas, and small icons of different languages. Warm, inviting colors, friendly cartoon style, simple and clean design for vocabulary learning."
+                    ultra_generic_prompt = "A colorful educational poster for language learning. Show an open book with floating abstract symbols, a lightbulb representing ideas, and small icons of different languages. Warm, inviting colors, friendly cartoon style, simple and clean design for vocabulary learning. DO NOT include any readable text, words, letters, or spelling in the image."
                     
                     if verbose:
                         logger.info(f"🔍 VERBOSE: --- Attempt 3: Ultra-generic fallback ---")
