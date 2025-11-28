@@ -300,6 +300,11 @@ async def parse_document(
     # Filter by confidence
     filtered_entries = [e for e in entries if e.confidence_score >= min_confidence]
     
+    # ✅ LIMIT: Cap at 50 cards per batch to prevent Cloud Run memory exhaustion
+    MAX_CARDS_PER_BATCH = 50
+    limited_entries = filtered_entries[:MAX_CARDS_PER_BATCH]
+    has_more = len(filtered_entries) > MAX_CARDS_PER_BATCH
+    
     # Get available languages for validation
     languages = db.query(Language).all()
     language_names = {lang.name.lower(): lang.name for lang in languages}
@@ -307,16 +312,19 @@ async def parse_document(
     # Prepare response
     result = {
         "success": True,
-        "message": f"Extracted {len(filtered_entries)} vocabulary entries from {len(entries)} potential matches",
+        "message": f"Extracted {len(limited_entries)} vocabulary entries from {len(entries)} potential matches (limited to {MAX_CARDS_PER_BATCH} per batch)",
         "total_sections": len(entries),
         "extracted_entries": len(filtered_entries),
+        "limited_to": len(limited_entries),
+        "has_more": has_more,
+        "remaining": len(filtered_entries) - len(limited_entries) if has_more else 0,
         "min_confidence": min_confidence,
         "available_languages": list(language_names.values()),
         "entries": []
     }
     
-    # Convert entries to dictionaries for JSON response
-    for entry in filtered_entries:
+    # Convert entries to dictionaries for JSON response (only limited_entries)
+    for entry in limited_entries:
         entry_dict = {
             "word_or_phrase": entry.word_or_phrase,
             "definition": entry.definition,

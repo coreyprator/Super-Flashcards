@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.6.41';
+        window.APP_VERSION = '2.6.42';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -368,7 +368,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.41</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono">v2.6.42</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -786,6 +786,17 @@
                                 <div class="text-center p-3 bg-purple-50 rounded-lg">
                                     <div id="selected-count" class="text-2xl font-bold text-purple-600">0</div>
                                     <div class="text-sm text-purple-700">Selected</div>
+                                </div>
+                            </div>
+
+                            <!-- 50-Card Limit Warning -->
+                            <div id="batch-limit-warning" class="mb-4 p-3 bg-orange-50 border-2 border-orange-400 rounded-lg hidden">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">⚠️</span>
+                                    <div class="flex-1">
+                                        <div class="font-bold text-orange-900">Maximum 50 cards per batch</div>
+                                        <div class="text-sm text-orange-800">Only the first 50 cards will be processed. Import remaining cards in a separate batch.</div>
+                                    </div>
                                 </div>
                             </div>
 

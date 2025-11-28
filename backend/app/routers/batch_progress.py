@@ -242,6 +242,15 @@ async def batch_generate_stream(
     # Parse words
     word_list = [w.strip() for w in words.split(',') if w.strip()]
     
+    # ✅ VALIDATION: Enforce 50-card limit to prevent Cloud Run memory exhaustion
+    MAX_CARDS_PER_BATCH = 50
+    if len(word_list) > MAX_CARDS_PER_BATCH:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size exceeds maximum of {MAX_CARDS_PER_BATCH} cards. Please reduce selection and process remaining cards in a separate batch."
+        )
+    
     logger.info(f"📡 SSE batch generation: {len(word_list)} words, batch_id: {batch_id}")
     
     return StreamingResponse(

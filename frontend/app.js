@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.41 (Add enhanced image fallback for Greek root prefixes)
+// Version: 2.6.42 (Fix Add Card navigation to show newly created card)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.41';
+const APP_JS_VERSION = '2.6.42';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -606,10 +606,29 @@ async function createFlashcard(data) {
             }
         }
         
-        // Show the newly created card immediately
-        console.log('📍 Showing newly created card:', flashcard.word_or_phrase);
+        // Show the newly created card immediately using URL navigation
+        console.log('📍 Navigating to newly created card:', flashcard.word_or_phrase);
+        console.log('🆔 Card ID:', flashcard.id);
         
-        // ✅ FIX: Force fresh fetch from server to get the newly created card
+        // ✅ FIX: Use URL parameter navigation to show the newly created card
+        // This ensures cache is refreshed and card is properly displayed
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('cardId', flashcard.id);
+        
+        // Update URL without reloading the page
+        const newUrl = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+        window.history.pushState({}, '', newUrl);
+        
+        // Set the language if not already set
+        if (flashcard.language_id) {
+            state.currentLanguage = flashcard.language_id;
+            const languageSelect = document.getElementById('language-select');
+            if (languageSelect) {
+                languageSelect.value = flashcard.language_id;
+            }
+        }
+        
+        // Force fresh fetch from server to get the newly created card
         console.log('🔄 Force reloading flashcards from server...');
         await loadFlashcards({ forceFresh: true });
         
@@ -3535,10 +3554,23 @@ function showParserResults(result) {
         entry.word_or_phrase && existingWords.has(entry.word_or_phrase.toLowerCase().trim())
     ).length;
     
+    // ✅ LIMIT: Cap at 50 cards per batch
+    const MAX_CARDS_PER_BATCH = 50;
+    const hasMore = result.has_more || result.entries.length > MAX_CARDS_PER_BATCH;
+    const limitedEntries = result.entries.slice(0, MAX_CARDS_PER_BATCH);
+    
     // Update counters
     document.getElementById('parsed-count').textContent = result.entries.length;
     document.getElementById('selected-count').textContent = '0';
     document.getElementById('duplicate-count').textContent = duplicateCount;
+    
+    // Show/hide 50-card limit warning
+    const batchLimitWarning = document.getElementById('batch-limit-warning');
+    if (hasMore) {
+        batchLimitWarning.classList.remove('hidden');
+    } else {
+        batchLimitWarning.classList.add('hidden');
+    }
     
     // Show/hide duplicate controls
     const duplicateControls = document.getElementById('duplicate-controls');
@@ -3548,13 +3580,15 @@ function showParserResults(result) {
         duplicateControls.classList.add('hidden');
     }
     
-    // Show parsed entries as checkboxes (clean word list only)
+    // Show parsed entries as checkboxes (limited to first 50 non-duplicates)
     const entriesContainer = document.getElementById('parsed-entries-list');
     console.log('📄 Entries container found:', !!entriesContainer);
     entriesContainer.innerHTML = '';
     
     let renderedCount = 0;
-    result.entries.forEach((entry, index) => {
+    let selectedCount = 0;
+    
+    limitedEntries.forEach((entry, index) => {
         // Skip entries with missing word_or_phrase
         if (!entry.word_or_phrase) {
             console.warn('⚠️ Skipping entry with missing word_or_phrase:', entry);
@@ -3563,6 +3597,11 @@ function showParserResults(result) {
         
         renderedCount++;
         const isDuplicate = existingWords.has(entry.word_or_phrase.toLowerCase().trim());
+        
+        // ✅ AUTO-SELECT: Select first 50 non-duplicates automatically
+        const shouldAutoSelect = !isDuplicate && selectedCount < MAX_CARDS_PER_BATCH;
+        if (shouldAutoSelect) selectedCount++;
+        
         const entryDiv = document.createElement('div');
         entryDiv.className = `flex items-start gap-2 p-2 hover:bg-gray-50 rounded border-b border-gray-100 ${isDuplicate ? 'bg-yellow-50' : ''}`;
         
@@ -3573,7 +3612,7 @@ function showParserResults(result) {
                    data-word="${entry.word_or_phrase}"
                    data-index="${index}"
                    data-duplicate="${isDuplicate}"
-                   ${!isDuplicate ? 'checked' : ''}>
+                   ${shouldAutoSelect ? 'checked' : ''}>
             <label for="word-${index}" class="flex-1 cursor-pointer text-sm">
                 <span class="font-medium text-gray-900">${entry.word_or_phrase}</span>
                 ${isDuplicate ? '<span class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-0.5 rounded">⚠️ Duplicate</span>' : ''}
@@ -3598,18 +3637,40 @@ function showParserResults(result) {
 }
 
 function setupWordSelectionHandlers() {
+    const MAX_CARDS_PER_BATCH = 50;
+    
     // Update selected count when checkboxes change
     const checkboxes = document.querySelectorAll('.word-checkbox');
     checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateSelectedCount);
+        checkbox.addEventListener('change', (e) => {
+            // ✅ ENFORCE: Prevent checking more than 50 cards
+            const checkedCount = document.querySelectorAll('.word-checkbox:checked').length;
+            if (e.target.checked && checkedCount > MAX_CARDS_PER_BATCH) {
+                e.target.checked = false;
+                showToast(`⚠️ Maximum ${MAX_CARDS_PER_BATCH} cards per batch. Please process remaining cards separately.`, 4000);
+                return;
+            }
+            updateSelectedCount();
+        });
     });
     
-    // Select all button
+    // Select all button (limited to first 50)
     const selectAllBtn = document.getElementById('select-all-words');
     if (selectAllBtn) {
         selectAllBtn.onclick = () => {
-            checkboxes.forEach(cb => cb.checked = true);
+            let selectedCount = 0;
+            checkboxes.forEach(cb => {
+                if (selectedCount < MAX_CARDS_PER_BATCH) {
+                    cb.checked = true;
+                    selectedCount++;
+                } else {
+                    cb.checked = false;
+                }
+            });
             updateSelectedCount();
+            if (checkboxes.length > MAX_CARDS_PER_BATCH) {
+                showToast(`⚠️ Selected first ${MAX_CARDS_PER_BATCH} cards (maximum per batch)`, 3000);
+            }
         };
     }
     
