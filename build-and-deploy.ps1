@@ -17,31 +17,41 @@ function Test-GcloudAuth {
 # Function to authenticate with browser (supports passkey)
 function Invoke-GcloudAuth {
     Write-Host "`n⚠️  Google Cloud authentication required or expired" -ForegroundColor Yellow
-    Write-Host "Opening browser for authentication (supports passkey)..." -ForegroundColor Cyan
-    Write-Host "If browser doesn't open, you'll get a link to copy/paste.`n" -ForegroundColor Gray
+    Write-Host "This requires TWO separate browser authentications:" -ForegroundColor Cyan
+    Write-Host "  1. User credentials (for Cloud Storage uploads)" -ForegroundColor Gray
+    Write-Host "  2. Application-default credentials (for Cloud Build API)" -ForegroundColor Gray
+    Write-Host "`nBoth support passkey authentication.`n" -ForegroundColor Green
     
-    # Try browser-first auth (best for passkey)
+    # Step 1: User authentication
+    Write-Host "Step 1/2: Authenticating user credentials..." -ForegroundColor Cyan
     try {
         gcloud auth login --no-launch-browser --force
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ User authentication successful!" -ForegroundColor Green
-            
-            # Also set application-default credentials for gcloud builds submit
-            Write-Host "Setting up application-default credentials for Cloud Build..." -ForegroundColor Cyan
-            gcloud auth application-default login --no-launch-browser
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Application-default credentials set!`n" -ForegroundColor Green
-                return $true
-            } else {
-                Write-Host "⚠️  Application-default login failed, but user auth succeeded. Continuing..." -ForegroundColor Yellow
-                return $true
-            }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ User authentication failed" -ForegroundColor Red
+            return $false
         }
+        Write-Host "✅ User authentication successful!" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Authentication failed" -ForegroundColor Red
+        Write-Host "❌ User authentication failed" -ForegroundColor Red
         return $false
     }
-    return $false
+    
+    # Step 2: Application-default credentials
+    Write-Host "`nStep 2/2: Setting up application-default credentials..." -ForegroundColor Cyan
+    try {
+        gcloud auth application-default login --no-launch-browser
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️  Application-default login failed, but user auth succeeded." -ForegroundColor Yellow
+            Write-Host "    Deployment may still work. Continuing...`n" -ForegroundColor Yellow
+            return $true
+        }
+        Write-Host "✅ Application-default credentials set!`n" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "⚠️  Application-default login failed, but user auth succeeded." -ForegroundColor Yellow
+        Write-Host "    Deployment may still work. Continuing...`n" -ForegroundColor Yellow
+        return $true
+    }
 }
 
 # Check authentication before starting
@@ -54,6 +64,17 @@ if (-not (Test-GcloudAuth)) {
 } else {
     $account = gcloud auth list --filter="status:ACTIVE" --format="value(account)"
     Write-Host "✅ Already authenticated as: $account" -ForegroundColor Green
+    
+    # Check if credentials are expired by testing a simple API call
+    Write-Host "Verifying credentials are valid..." -ForegroundColor Cyan
+    $testAuth = gcloud projects describe super-flashcards-475210 --format="value(projectId)" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "⚠️  Credentials expired or invalid. Re-authenticating..." -ForegroundColor Yellow
+        if (-not (Invoke-GcloudAuth)) {
+            Write-Host "Cannot proceed without authentication. Exiting." -ForegroundColor Red
+            exit 1
+        }
+    }
     
     # Check if application-default credentials exist (needed for gcloud builds submit)
     Write-Host "Checking application-default credentials..." -ForegroundColor Cyan
