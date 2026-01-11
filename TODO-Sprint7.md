@@ -33,12 +33,50 @@
 
 ## 🟡 Medium Priority
 
-### 2. Mobile Optimization
+### 2. Fix URL Parameter Navigation - Make Language Parameter User-Friendly
+**Status:** Reported by user November 5, 2025  
+**Problem:** URL requires exact language code format `?word=peri&language=Greek%20(el)` which users won't know  
+**Root Cause:** Language stored in database as "Greek (el)" but users expect simple "Greek" to work  
+**Expected Behavior:** Should accept both formats:
+- `?word=peri&language=Greek` ✅ (simple, user-friendly)
+- `?word=peri&language=Greek%20(el)` ✅ (current working format)
+
+**Current Behavior:** 
+- `?word=peri&language=Greek` ❌ (doesn't work, user-unfriendly)
+- `?word=peri&language=Greek%20(el)` ✅ (works but requires language code knowledge)
+
+**Solution Options:**
+- [ ] Option A: Fuzzy match language name (strip language code suffix in search)
+- [ ] Option B: Accept language code only `?word=peri&language=el` OR full name
+- [ ] Option C: Add language alias mapping (Greek → Greek (el), French → French (fr), etc.)
+- [ ] Option D: Update URL parsing to try multiple formats (Greek → Greek (el) → el)
+
+**Implementation:**
+- [ ] Modify `frontend/app.js` URL parameter handling (lines ~2720-2808)
+- [ ] Update language matching logic to handle partial matches
+- [ ] Add fallback search: exact match → name only → code only
+- [ ] Test with all languages in database
+
+**Files Involved:**
+- `frontend/app.js` (URL parameter handling, lines 2720-2808)
+- Backend API: `/api/flashcards/search` endpoint (may need fuzzy matching)
+
+**Testing URLs:**
+- `/?word=peri&language=Greek` (should work after fix)
+- `/?word=Etymology&language=English` (verify English works)
+- `/?word=bonjour&language=French` (test other languages)
+- `/?word=peri&language=el` (test code-only format)
+
+**Priority:** Medium - URL sharing feature exists but not user-friendly
+
+---
+
+### 3. Mobile Optimization
 - [ ] Test Read mode on mobile devices (responsive design)
 - [ ] Test batch import progress bar on mobile
 - [ ] Verify SSE connection stability on mobile networks
 
-### 3. Performance Optimization
+### 4. Performance Optimization
 - [ ] Analyze IndexedDB performance with 800+ cards
 - [ ] Consider pagination for Browse mode (currently loads all)
 - [ ] Optimize image loading (lazy loading, progressive images)

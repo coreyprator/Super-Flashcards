@@ -58,8 +58,7 @@ except Exception as e:
     print(f"❌ Warning: Could not load Google OAuth config: {e}")
 
 # Initialize OAuth client
-# Note: OAuth delays are a Windows development environment issue (SSL cert validation)
-# In production (Cloud Run), this works fine. For local dev, add Windows Defender exclusions.
+# Note: Using explicit endpoints instead of metadata URL to avoid startup delays
 oauth = OAuth()
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     print(f"🔧 Registering OAuth client with Google...")
@@ -67,13 +66,24 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
         name='google',
         client_id=GOOGLE_CLIENT_ID,
         client_secret=GOOGLE_CLIENT_SECRET,
-        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        # Use explicit endpoints instead of fetching metadata dynamically
+        # This avoids delays from fetching .well-known/openid-configuration
+        authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
+        authorize_params=None,
+        access_token_url='https://oauth2.googleapis.com/token',
+        access_token_params=None,
+        refresh_token_url='https://oauth2.googleapis.com/token',
+        # Add JWKS URI to avoid fetching it dynamically
+        jwks_uri='https://www.googleapis.com/oauth2/v3/certs',
         client_kwargs={
             'scope': 'openid email profile',
-        }
+            # Disable token verification to avoid JWKS fetch during auth
+            'token_endpoint_auth_method': 'client_secret_post',
+        },
+        # User info endpoint for OpenID Connect
+        userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
     )
-    print(f"✅ Google OAuth client registered!")
-    print(f"   Note: If OAuth is slow (2+ min), add Windows Defender exclusions for Python")
+    print(f"✅ Google OAuth client registered with explicit endpoints!")
 else:
     print(f"⚠️  Google OAuth NOT configured - Client ID or Secret missing!")
 

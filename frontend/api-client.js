@@ -483,8 +483,8 @@ class ApiClient {
      * Get all flashcards
      * @returns {Promise<Array>} Array of flashcards
      */
-    async getFlashcards() {
-        return this.request('GET', '/api/flashcards');
+    async getFlashcards(options = {}) {
+        return this.request('GET', '/api/flashcards', null, options);
     }
     
     /**

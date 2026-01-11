@@ -12,7 +12,7 @@ if CLOUD_RUN:
     # Cloud SQL connection via Public IP
     server = os.getenv("SQL_SERVER", "35.224.242.223")  # Cloud SQL Public IP
     database = os.getenv("SQL_DATABASE", "LanguageLearning")
-    username = os.getenv("SQL_USERNAME", "flashcards_user")
+    username = os.getenv("SQL_USER", os.getenv("SQL_USERNAME", "flashcards_user"))  # Try SQL_USER first (Cloud Run), then SQL_USERNAME (legacy)
     password = os.getenv("SQL_PASSWORD", "")  # Will be loaded from Secret Manager
     
     print(f"🔌 Cloud Run Database Configuration:")
@@ -41,16 +41,33 @@ else:
     username = os.getenv("SQL_USERNAME", "")  # Empty for Windows Auth
     password = os.getenv("SQL_PASSWORD", "")
     
+    # Detect if connecting to Cloud SQL from local (IP address instead of localhost)
+    is_cloud_sql = not ("localhost" in server.lower() or "\\" in server)
+    
     # Build connection string
     if username:
         # SQL Server Authentication
-        params = urllib.parse.quote_plus(
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={server};"
-            f"DATABASE={database};"
-            f"UID={username};"
-            f"PWD={password}"
-        )
+        if is_cloud_sql:
+            # Cloud SQL requires port, encryption settings
+            params = urllib.parse.quote_plus(
+                f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+                f"SERVER={server},1433;"
+                f"DATABASE={database};"
+                f"UID={username};"
+                f"PWD={password};"
+                f"Encrypt=yes;"
+                f"TrustServerCertificate=yes;"
+                f"Connection Timeout=30;"
+            )
+        else:
+            # Local SQL Server
+            params = urllib.parse.quote_plus(
+                f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+                f"SERVER={server};"
+                f"DATABASE={database};"
+                f"UID={username};"
+                f"PWD={password}"
+            )
         DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
     else:
         # Windows Authentication (Trusted Connection)
