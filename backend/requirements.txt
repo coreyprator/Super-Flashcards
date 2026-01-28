@@ -34,6 +34,15 @@ requests==2.31.0
 # Google Cloud Services
 google-cloud-storage==2.10.0
 google-cloud-texttospeech==2.14.1
+google-cloud-speech>=2.21.0  # Speech-to-Text for pronunciation analysis
+
+# Language processing
+epitran>=1.24  # Text-to-IPA conversion for pronunciation feedback
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
 
 # Additional utilities
 python-dotenv==1.0.0

@@ -1,0 +1,18 @@
+# Authentication State (Saved Session)
+auth_state.json
+
+# Pytest cache
+.pytest_cache/
+__pycache__/
+
+# Test reports
+test-report.html
+htmlcov/
+.coverage
+
+# Playwright artifacts
+test-results/
+playwright-report/
+trace.zip
+*.png
+*.mp4

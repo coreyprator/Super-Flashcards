@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.7.0 - Sprint 7: QA environment support + subscription infrastructure
+# Version: 2.8.0 - Sprint 8: Pronunciation Practice Feature
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,9 +17,9 @@ import secrets
 
 from app.database import engine, get_db
 from app import models
-from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth
+from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
-# Kept: audio (production TTS functionality)
+# Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
 
 # Environment detection (QA vs Production)
@@ -70,7 +70,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.7.0" + (" [QA]" if IS_QA else "")
+    version="2.8.0" + (" [QA]" if IS_QA else "")
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
@@ -216,6 +216,7 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])  # User ma
 app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # Import functionality
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
+app.include_router(pronunciation.router, prefix="/api/v1/pronunciation", tags=["pronunciation"])  # Sprint 8 - Pronunciation practice
 
 # Import document parser router
 from .routers import document_parser

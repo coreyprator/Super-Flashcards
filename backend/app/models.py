@@ -1,10 +1,11 @@
 # backend/app/models.py
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text, String, Numeric
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, NVARCHAR
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
+import sqlalchemy
 
 from app.database import Base
 
@@ -137,6 +138,29 @@ class StudySession(Base):
     
     # Relationships - Commented out for Cloud SQL
     # user = relationship("User", back_populates="study_sessions")
+
+
+# Pronunciation Attempts - Track user pronunciation practice
+class PronunciationAttempt(Base):
+    __tablename__ = "pronunciation_attempts"
+    
+    id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
+    flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
+    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=False)
+    
+    audio_url = Column(NVARCHAR(500), nullable=False)  # GCS URL for user recording
+    target_text = Column(NVARCHAR(500), nullable=False)  # What they should have said
+    transcribed_text = Column(NVARCHAR(500), nullable=True)  # What Google STT heard
+    overall_confidence = Column(Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000 as DECIMAL(5,4)
+    word_scores = Column(NVARCHAR(None), nullable=True)  # JSON array of per-word scores
+    ipa_target = Column(NVARCHAR(200), nullable=True)  # Target IPA
+    ipa_transcribed = Column(NVARCHAR(200), nullable=True)  # What was detected (if available)
+    
+    created_at = Column(DateTime, server_default=func.getdate())
+    
+    # Relationships
+    # flashcard = relationship("Flashcard")
+    # user = relationship("User")
 
 
 # API Debug Logs - For troubleshooting image/audio generation

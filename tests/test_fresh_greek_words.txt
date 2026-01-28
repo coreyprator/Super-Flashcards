@@ -1,0 +1,10 @@
+xeno
+philo
+chrono
+demos
+ethos
+logos
+pathos
+cosmos
+mythos
+thesis

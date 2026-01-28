@@ -1201,6 +1201,12 @@ function renderFlashcard(flashcard) {
                             </button>
                         </div>
                         
+                        <!-- Pronunciation Practice Section -->
+                        <div class="mt-8 pt-6 border-t border-indigo-200">
+                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-4">Practice Pronunciation</h3>
+                            <div id="pronunciation-recorder-container"></div>
+                        </div>
+                        
                         <!-- Mobile Navigation -->
                         <div class="mt-6 flex justify-center items-center gap-4">
                             <button onclick="previousCard(); event.stopPropagation();" 
@@ -1222,6 +1228,20 @@ function renderFlashcard(flashcard) {
             </div>
         </div>
     `;
+    
+    // Initialize pronunciation recorder if available
+    if (typeof PronunciationRecorder !== 'undefined') {
+        setTimeout(() => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            new PronunciationRecorder({
+                containerSelector: '#pronunciation-recorder-container',
+                flashcardId: flashcard.id,
+                userId: currentUser.id || 'anonymous',
+                targetText: flashcard.word_or_phrase,
+                apiBaseUrl: API_BASE.replace('/api', '') + '/api/v1/pronunciation'
+            });
+        }, 100);
+    }
     
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();

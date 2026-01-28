@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log div {
+            margin: 5px 0;
+            padding: 3px;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .test-btn {
+            background: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .clear-btn {
+            background: #666;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 OAuth Simple Test</h1>
+    
+    <div>
+        <h2>Test 1: Direct Link</h2>
+        <a href="/api/auth/google/login" target="_blank">
+            <button class="test-btn">Open OAuth in New Tab</button>
+        </a>
+    </div>
+
+    <div>
+        <h2>Test 2: window.location</h2>
+        <button class="test-btn" onclick="testWindowLocation()">Test window.location.href</button>
+    </div>
+
+    <div>
+        <h2>Test 3: Fetch with redirect: 'manual'</h2>
+        <button class="test-btn" onclick="testFetchManual()">Test Fetch (manual)</button>
+    </div>
+
+    <div>
+        <h2>Test 4: Fetch with redirect: 'follow'</h2>
+        <button class="test-btn" onclick="testFetchFollow()">Test Fetch (follow)</button>
+    </div>
+
+    <div>
+        <h2>Test 5: Form Submit (like login page)</h2>
+        <form action="/api/auth/google/login" method="GET" id="testForm">
+            <button type="submit" class="test-btn">Submit Form</button>
+        </form>
+    </div>
+
+    <button class="clear-btn" onclick="clearLog()">Clear Log</button>
+
+    <div class="log" id="log"></div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toISOString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function testWindowLocation() {
+            log('🚀 Testing window.location.href redirect...');
+            setTimeout(() => {
+                window.location.href = '/api/auth/google/login';
+            }, 100);
+        }
+
+        async function testFetchManual() {
+            log('🚀 Testing fetch with redirect: manual...');
+            try {
+                const response = await fetch('/api/auth/google/login', {
+                    method: 'GET',
+                    redirect: 'manual'
+                });
+                log(`✅ Response status: ${response.status} ${response.statusText}`);
+                log(`📍 Response type: ${response.type}`);
+                log(`📍 Response redirected: ${response.redirected}`);
+                log(`📍 Response URL: ${response.url}`);
+                
+                if (response.type === 'opaqueredirect') {
+                    log('⚠️ Got opaqueredirect - this means the redirect was blocked');
+                }
+                
+                const location = response.headers.get('Location');
+                if (location) {
+                    log(`📍 Location header: ${location}`);
+                    log('🔄 Following redirect manually...');
+                    window.location.href = location;
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+            }
+        }
+
+        async function testFetchFollow() {
+            log('🚀 Testing fetch with redirect: follow...');
+            try {
+                const response = await fetch('/api/auth/google/login', {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+                log(`✅ Response status: ${response.status} ${response.statusText}`);
+                log(`📍 Response type: ${response.type}`);
+                log(`📍 Response redirected: ${response.redirected}`);
+                log(`📍 Response URL: ${response.url}`);
+                
+                // Try to get the body
+                const text = await response.text();
+                log(`📝 Response body length: ${text.length}`);
+                if (text.length < 500) {
+                    log(`📝 Response body: ${text}`);
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+            }
+        }
+
+        // Track form submission
+        document.getElementById('testForm').addEventListener('submit', (e) => {
+            log('📋 Form submitted - browser will now redirect naturally');
+            // Don't prevent default - let the form submit naturally
+        });
+
+        log('✅ OAuth Simple Test page loaded');
+        log('📌 Click any test button above to debug the OAuth redirect');
+    </script>
+</body>
+</html>
