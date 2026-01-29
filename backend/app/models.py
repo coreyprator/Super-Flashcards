@@ -144,19 +144,33 @@ class StudySession(Base):
 class PronunciationAttempt(Base):
     __tablename__ = "PronunciationAttempts"
     
-    id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
-    flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
-    user_id = Column(UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=False)
+    # Primary Key
+    id = Column("AttemptID", UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
     
-    audio_url = Column(NVARCHAR(500), nullable=False)  # GCS URL for user recording
-    target_text = Column(NVARCHAR(500), nullable=False)  # What they should have said
-    transcribed_text = Column(NVARCHAR(500), nullable=True)  # What Google STT heard
-    overall_confidence = Column(Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000 as DECIMAL(5,4)
-    word_scores = Column(NVARCHAR(None), nullable=True)  # JSON array of per-word scores
-    ipa_target = Column(NVARCHAR(200), nullable=True)  # Target IPA
-    ipa_transcribed = Column(NVARCHAR(200), nullable=True)  # What was detected (if available)
+    # Foreign Keys
+    flashcard_id = Column("FlashcardID", UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
+    user_id = Column("UserID", UNIQUEIDENTIFIER, ForeignKey('users.id'), nullable=False)
     
-    created_at = Column(DateTime, server_default=func.getdate())
+    # Audio & Transcription
+    audio_url = Column("AudioURL", NVARCHAR(500), nullable=False)  # GCS URL for user recording
+    target_text = Column("TargetText", NVARCHAR(500), nullable=False)  # What they should have said
+    transcribed_text = Column("TranscribedText", NVARCHAR(500), nullable=True)  # What Google STT heard
+    overall_confidence = Column("OverallConfidence", Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000
+    word_scores = Column("WordScores", NVARCHAR(None), nullable=True)  # JSON array of per-word scores
+    ipa_target = Column("IPATarget", NVARCHAR(200), nullable=True)  # Target IPA
+    ipa_transcribed = Column("IPATranscribed", NVARCHAR(200), nullable=True)  # Transcribed IPA
+    
+    # Gemini Analysis Results (Sprint 8.5)
+    gemini_analysis = Column("GeminiAnalysis", NVARCHAR(None), nullable=True)  # Full Gemini response
+    gemini_clarity_score = Column("GeminiClarityScore", Numeric(5, 2), nullable=True)  # 0-100 score
+    gemini_rhythm_assessment = Column("GeminiRhythmAssessment", NVARCHAR(None), nullable=True)
+    gemini_top_issue = Column("GeminiTopIssue", NVARCHAR(500), nullable=True)
+    gemini_drill = Column("GeminiDrill", NVARCHAR(None), nullable=True)
+    
+    # Timestamps
+    created_at = Column("CreatedAt", DateTime, server_default=func.getdate())
+    gemini_processed_at = Column("GeminiProcessedAt", DateTime, nullable=True)
+    analysis_type = Column("AnalysisType", NVARCHAR(50), nullable=True)  # e.g., 'gemini', 'google_stt'
     
     # Relationships
     # flashcard = relationship("Flashcard")

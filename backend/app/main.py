@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.0 - Sprint 8: Pronunciation Practice Feature
+# Version: 2.8.1 - Sprint 8.5: Pronunciation Practice + Gemini Deep Analysis Fix
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
