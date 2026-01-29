@@ -526,15 +526,28 @@ class PronunciationRecorder {
   }
   
   setupEventListeners() {
+    // Diagnostic logging
+    console.log('🔧 Setting up event listeners...');
+    console.log('🔹 Record button:', this.recordButton);
+    console.log('🔹 Stop button:', this.stopButton);
+    console.log('🔹 Playback button:', this.playbackButton);
+    
     this.recordButton?.addEventListener('click', () => this.startRecording());
-    this.stopButton?.addEventListener('click', (e) => {
-      this.stopClickCount++;
-      console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`, e);
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('🔹 Calling stopRecording with submit:true from mouse click');
-      this.stopRecording({ submit: true });
-    });
+    
+    if (this.stopButton) {
+      console.log('✅ Stop button found, attaching click listener');
+      this.stopButton.addEventListener('click', (e) => {
+        this.stopClickCount++;
+        console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`, e);
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔹 Calling stopRecording with submit:true from mouse click');
+        this.stopRecording({ submit: true });
+      });
+    } else {
+      console.warn('⚠️ Stop button NOT FOUND - click handler will not work!');
+    }
+    
     this.playbackButton?.addEventListener('click', () => this.playRecording());
     this.playTargetButton?.addEventListener('click', () => this.playTargetAudio());
     

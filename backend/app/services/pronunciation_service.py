@@ -100,7 +100,7 @@ class PronunciationService:
                 except Exception as e:
                     logger.warning(f"⚠️ Gemini analysis failed (non-blocking): {e}")
             
-            # 5. Build feedback (Gemini if available)
+            # 5. Build feedback and calculate adjusted score (Gemini if available)
             if gemini_result and gemini_result.get("success"):
                 feedback = self._build_rich_feedback(
                     gemini_result.get("results", {}),
@@ -113,6 +113,13 @@ class PronunciationService:
                     target_text
                 )
             
+            # Calculate overall score: prioritize transcription match over confidence
+            overall_score, _ = self._calculate_overall_score(
+                target_text,
+                transcription['transcript'],
+                transcription['overall_confidence']
+            )
+            
             # 6. Store attempt in database
             attempt_id = await self._store_attempt(
                 db=db,
@@ -121,7 +128,7 @@ class PronunciationService:
                 audio_url=audio_url,
                 target_text=target_text,
                 transcribed_text=transcription['transcript'],
-                overall_confidence=transcription['overall_confidence'],
+                overall_confidence=overall_score,  # Use adjusted score
                 word_scores=transcription['word_scores'],
                 ipa_target=ipa_target,
                 ipa_transcribed=ipa_transcribed,
@@ -133,7 +140,7 @@ class PronunciationService:
                 "attempt_id": attempt_id,
                 "target_text": target_text,
                 "transcribed_text": transcription['transcript'],
-                "overall_score": transcription['overall_confidence'],
+                "overall_score": overall_score,  # Adjusted score
                 "word_scores": transcription['word_scores'],
                 "ipa_target": ipa_target,
                 "ipa_transcribed": ipa_transcribed,
@@ -236,6 +243,51 @@ class PronunciationService:
         else:
             return "needs_work"
     
+    def _calculate_overall_score(self, target: str, transcribed: str, confidence: float) -> tuple:
+        """
+        Calculate score and feedback. Prioritize transcription match over confidence.
+        
+        PRIORITY 1: If transcription matches perfectly, it's success (ignore low confidence)
+        PRIORITY 2: If partial match, credit proportionally
+        PRIORITY 3: If no match, use confidence to determine feedback
+        
+        Args:
+            target: Expected text
+            transcribed: What STT heard
+            confidence: STT confidence (0.0-1.0)
+        
+        Returns:
+            tuple: (adjusted_score, feedback_message)
+        """
+        target_clean = target.lower().strip()
+        transcribed_clean = transcribed.lower().strip()
+        
+        # PRIORITY 1: Exact match = perfect, ignore low confidence
+        if transcribed_clean == target_clean:
+            # If transcription matched, user pronounced it correctly
+            # Even if STT confidence was low (due to audio quality, accent, etc)
+            adjusted_score = max(confidence, 0.90)  # Minimum 90% if exact match
+            return (adjusted_score, "✅ Perfect! Your pronunciation was understood exactly.")
+        
+        # PRIORITY 2: Word-level matching for partial credit
+        target_words = target_clean.split()
+        transcribed_words = transcribed_clean.split()
+        
+        if len(target_words) == len(transcribed_words):
+            matches = sum(1 for t, tr in zip(target_words, transcribed_words) if t == tr)
+            if matches > 0:
+                match_ratio = matches / len(target_words)
+                if match_ratio >= 0.8:
+                    adjusted_score = max(confidence, 0.75)  # Minimum 75% for near-match
+                    return (adjusted_score, f"👍 Good! {matches}/{len(target_words)} words matched.")
+        
+        # PRIORITY 3: Use confidence for non-matching transcriptions
+        if confidence >= 0.7:
+            return (confidence, f"📝 Heard: '{transcribed}'. Close, but not quite. Try again!")
+        else:
+            return (confidence, f"🔄 Heard: '{transcribed}'. Try again, speaking more clearly.")
+    
+    
     def _build_rich_feedback(self, gemini_results: Dict[str, Any], word_scores: List[Dict]) -> str:
         """Build rich feedback text from Gemini analysis."""
         parts = []
@@ -270,18 +322,18 @@ class PronunciationService:
         return "\n".join(parts) if parts else self._build_basic_feedback(word_scores, "", "")
 
     def _build_basic_feedback(self, word_scores: List[Dict], transcribed: str, target: str) -> str:
-        """Fallback feedback when Gemini is unavailable."""
-        if transcribed and target and transcribed.lower().strip() == target.lower().strip():
-            return "✅ Perfect! Your pronunciation matched exactly."
+        """Fallback feedback when Gemini is unavailable. Prioritizes transcription match."""
+        # Use the new priority-based score calculation
+        overall_confidence = (
+            sum(w['confidence'] for w in word_scores) / len(word_scores)
+            if word_scores else 0.5
+        )
         
-        problem_words = [w for w in word_scores if w.get('confidence', 1) < 0.7]
-        if not problem_words:
-            return f"👍 Good job! Transcribed as: '{transcribed}'" if transcribed else "👍 Good job!"
+        adjusted_score, feedback = self._calculate_overall_score(
+            target, transcribed, overall_confidence
+        )
         
-        word_list = ", ".join([
-            f"'{w['word']}' ({int(w['confidence']*100)}%)" for w in problem_words[:3]
-        ])
-        return f"📝 Words to focus on: {word_list}. Try listening to the target audio and repeat."
+        return feedback
     
     async def _upload_audio(
         self, 
