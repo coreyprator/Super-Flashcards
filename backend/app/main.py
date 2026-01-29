@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.4 - Fix AttemptID generation (client-side UUID)
+# Version: 2.8.5 - Add missing uuid import
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
