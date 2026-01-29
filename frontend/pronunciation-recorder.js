@@ -425,6 +425,27 @@ class PronunciationRecorder {
           padding: 10px;
           border-radius: 4px;
           color: #333;
+          letter-spacing: 3px;
+        }
+        
+        .ipa-phoneme {
+          margin: 0 4px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-weight: bold;
+          cursor: help;
+        }
+        
+        .ipa-green {
+          background-color: #d4edda;
+          color: #155724;
+          border: 1px solid #c3e6cb;
+        }
+        
+        .ipa-red {
+          background-color: #f8d7da;
+          color: #721c24;
+          border: 1px solid #f5c6cb;
         }
         
         .feedback-text {
@@ -530,20 +551,33 @@ class PronunciationRecorder {
     console.log('🔧 Setting up event listeners...');
     console.log('🔹 Record button:', this.recordButton);
     console.log('🔹 Stop button:', this.stopButton);
+    console.log('🔹 Stop button disabled?', this.stopButton?.disabled);
+    console.log('🔹 Stop button display:', window.getComputedStyle(this.stopButton || {}).display);
     console.log('🔹 Playback button:', this.playbackButton);
     
     this.recordButton?.addEventListener('click', () => this.startRecording());
     
     if (this.stopButton) {
       console.log('✅ Stop button found, attaching click listener');
+      // Try capturing phase to catch any event
       this.stopButton.addEventListener('click', (e) => {
         this.stopClickCount++;
-        console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`, e);
+        console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`);
+        console.log('🔹 Event:', e);
+        console.log('🔹 Event target:', e.target);
+        console.log('🔹 Event currentTarget:', e.currentTarget);
         e.preventDefault();
         e.stopPropagation();
         console.log('🔹 Calling stopRecording with submit:true from mouse click');
         this.stopRecording({ submit: true });
-      });
+      }, true);  // Use capture phase
+      
+      // Also add at bubble phase for comparison
+      this.stopButton.addEventListener('click', (e) => {
+        console.log('🖱️ Stop button clicked (bubble phase)');
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
     } else {
       console.warn('⚠️ Stop button NOT FOUND - click handler will not work!');
     }
@@ -914,11 +948,35 @@ class PronunciationRecorder {
     });
     
     // Set IPA
-      document.getElementById('ipa-target').textContent = result.ipa_target || '';
-      const ipaTranscribedEl = document.getElementById('ipa-transcribed');
-      if (ipaTranscribedEl) {
-        ipaTranscribedEl.textContent = result.ipa_transcribed || '';
-      }
+    document.getElementById('ipa-target').textContent = result.ipa_target || '';
+    const ipaTranscribedEl = document.getElementById('ipa-transcribed');
+    
+    if (ipaTranscribedEl && result.ipa_diff) {
+      // Display color-coded phoneme alignment if available
+      const alignment = result.ipa_diff.alignment || [];
+      const html = alignment.map(item => {
+        const color_class = `ipa-${item.color}`;
+        
+        if (item.match) {
+          // Green: exact match
+          return `<span class="ipa-phoneme ${color_class}">${item.target}</span>`;
+        } else {
+          // Red: mismatch - show comparison
+          const target_text = item.target || '∅';
+          const spoken_text = item.spoken || '∅';
+          const comparison = `${target_text}→${spoken_text}`;
+          const title_attr = item.tip ? ` title="${item.tip}"` : '';
+          return `<span class="ipa-phoneme ${color_class}"${title_attr}>${comparison}</span>`;
+        }
+      }).join('');
+      
+      ipaTranscribedEl.innerHTML = html;
+      
+      // Log the match ratio
+      console.log(`📊 IPA Match: ${result.ipa_diff.num_matches}/${result.ipa_diff.num_total} (${Math.round(result.ipa_diff.match_ratio * 100)}%)`);
+    } else if (ipaTranscribedEl) {
+      ipaTranscribedEl.textContent = result.ipa_transcribed || '';
+    }
     
     // Set feedback
       document.getElementById('feedback-text').textContent = result.feedback || 'Keep practicing!';
