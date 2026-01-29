@@ -8,6 +8,56 @@ class Auth {
     constructor() {
         this.token = localStorage.getItem('auth_token');
         this.user = this.getStoredUser();
+        
+        // Handle OAuth callback - extract token from URL parameters
+        this.handleOAuthCallback();
+    }
+
+    /**
+     * Handle OAuth callback from Google
+     * Extracts token from URL parameters and stores it
+     */
+    handleOAuthCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const authSuccess = urlParams.get('auth');
+
+        if (token && authSuccess === 'success') {
+            console.log('🔐 OAuth callback detected - storing token');
+            
+            // Decode JWT to get user info (simple decode, not verified)
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(
+                    atob(base64)
+                        .split('')
+                        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                );
+                const payload = JSON.parse(jsonPayload);
+                
+                // Create basic user object from JWT claims
+                const user = {
+                    id: payload.user_id,
+                    email: payload.email,
+                    picture: null, // Will be fetched from /api/auth/me
+                    name: null     // Will be fetched from /api/auth/me
+                };
+                
+                // Store token and user
+                this.setAuth(token, user);
+                console.log('✅ Token stored from OAuth callback');
+                
+                // Clean URL to remove auth parameters
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Fetch full user profile to get picture and name
+                this.verifyToken();
+            } catch (error) {
+                console.error('❌ Failed to process OAuth token:', error);
+            }
+        }
     }
 
     /**
