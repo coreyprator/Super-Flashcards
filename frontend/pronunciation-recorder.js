@@ -62,21 +62,23 @@ class PronunciationRecorder {
       <div class="pronunciation-recorder-panel">
         <div class="recorder-header">
           <h3>🎤 Pronunciation Practice</h3>
-          <p class="target-text">${this.config.targetText}</p>
+          <div class="target-row">
+            <p class="target-text">${this.config.targetText}</p>
+            <button id="play-target-btn" class="btn btn-icon" title="Play target pronunciation">
+              <span class="icon">🔊</span>
+            </button>
+          </div>
         </div>
         
         <div class="recorder-controls">
-          <button id="record-btn" class="btn btn-primary">
-            <span class="icon">🎤</span> Start Recording
+          <button id="record-btn" class="btn btn-primary btn-large">
+            <span class="icon">🎤</span> Start Recording (Space/Enter)
           </button>
-          <button id="stop-btn" class="btn btn-danger" disabled>
-            <span class="icon">⏹️</span> Stop
-          </button>
-          <button id="play-btn" class="btn btn-secondary" disabled>
+          <button id="playback-btn" class="btn btn-secondary" disabled>
             <span class="icon">▶️</span> Playback
           </button>
-          <button id="submit-btn" class="btn btn-success" disabled>
-            <span class="icon">✅</span> Submit
+          <button id="stop-btn" class="btn btn-danger btn-small" disabled style="margin-left: auto;">
+            <span class="icon">⏹️</span>
           </button>
         </div>
         
@@ -223,6 +225,36 @@ class PronunciationRecorder {
           font-size: 20px;
           cursor: pointer;
           padding: 0;
+        }
+        
+        .target-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 15px;
+        }
+        
+        .target-text {
+          flex: 1;
+          margin: 0;
+        }
+        
+        .btn-icon {
+          padding: 8px 12px;
+          font-size: 20px;
+          min-width: 44px;
+        }
+        
+        .btn-large {
+          flex: 1;
+          font-size: 16px;
+          min-height: 48px;
+        }
+        
+        .btn-small {
+          padding: 8px 16px;
+          font-size: 14px;
         }
         
         .recorder-status {
@@ -482,8 +514,8 @@ class PronunciationRecorder {
   cacheElements() {
     this.recordButton = document.getElementById('record-btn');
     this.stopButton = document.getElementById('stop-btn');
-    this.playButton = document.getElementById('play-btn');
-    this.submitButton = document.getElementById('submit-btn');
+    this.playbackButton = document.getElementById('playback-btn');
+    this.playTargetButton = document.getElementById('play-target-btn');
     this.waveformCanvas = document.getElementById('waveform-canvas');
     this.resultsContainer = document.getElementById('results-container');
     this.recordingTimeDisplay = document.getElementById('recording-time');
@@ -493,8 +525,19 @@ class PronunciationRecorder {
   setupEventListeners() {
     this.recordButton?.addEventListener('click', () => this.startRecording());
     this.stopButton?.addEventListener('click', () => this.stopRecording());
-    this.playButton?.addEventListener('click', () => this.playRecording());
-    this.submitButton?.addEventListener('click', () => this.submitRecording());
+    this.playbackButton?.addEventListener('click', () => this.playRecording());
+    this.playTargetButton?.addEventListener('click', () => this.playTargetAudio());
+    
+    // Keyboard shortcuts - Space and Enter for Start Recording
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === ' ' || e.key === 'Enter') && 
+          !this.isRecording && 
+          this.recordButton && 
+          !this.recordButton.disabled) {
+        e.preventDefault();
+        this.startRecording();
+      }
+    });
     
     const closeResultsBtn = document.getElementById('close-results');
     closeResultsBtn?.addEventListener('click', () => this.closeResults());
@@ -533,8 +576,7 @@ class PronunciationRecorder {
       // Update UI
       this.recordButton.disabled = true;
       this.stopButton.disabled = false;
-      this.playButton.disabled = true;
-      this.submitButton.disabled = true;
+      this.playbackButton.disabled = true;
       this.waveformCanvas.style.display = 'block';
       this.recordingMessage.textContent = '🔴 Recording...';
       
@@ -569,17 +611,19 @@ class PronunciationRecorder {
     this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
     
     // Wait for onstop to fire
-    this.mediaRecorder.onstop = () => {
+    this.mediaRecorder.onstop = async () => {
       this.recordedBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
       console.log(`✅ Recording stopped. Size: ${this.recordedBlob.size} bytes`);
       
       // Update UI
       this.recordButton.disabled = false;
       this.stopButton.disabled = true;
-      this.playButton.disabled = false;
-      this.submitButton.disabled = false;
+      this.playbackButton.disabled = false;
       this.waveformCanvas.style.display = 'none';
-      this.recordingMessage.textContent = '✅ Recording saved. Ready to submit or try again.';
+      this.recordingMessage.textContent = '⏳ Submitting recording...';
+      
+      // Auto-submit after recording stops
+      await this.submitRecording();
     };
   }
   
@@ -626,6 +670,20 @@ class PronunciationRecorder {
     audio.play();
   }
   
+  playTargetAudio() {
+    // Play the target pronunciation (Google Translate TTS)
+    if (!this.config.targetAudioUrl) {
+      console.warn('⚠️ No target audio URL available');
+      return;
+    }
+    
+    console.log('🔊 Playing target audio...');
+    const audio = new Audio(this.config.targetAudioUrl);
+    audio.play().catch(err => {
+      console.error('❌ Error playing target audio:', err);
+    });
+  }
+  
   async submitRecording() {
     if (!this.recordedBlob) return;
     
@@ -633,8 +691,7 @@ class PronunciationRecorder {
     this.recordingMessage.textContent = '⏳ Analyzing pronunciation...';
     this.recordButton.disabled = true;
     this.stopButton.disabled = true;
-    this.playButton.disabled = true;
-    this.submitButton.disabled = true;
+    this.playbackButton.disabled = true;
     
     try {
       const formData = new FormData();
@@ -657,6 +714,9 @@ class PronunciationRecorder {
       
       this.displayResults(result);
       this.recordingMessage.textContent = '✅ Analysis complete!';
+      
+      // Reload progress stats after successful submission
+      await this.loadProgress();
       
     } catch (error) {
       console.error('❌ Error submitting recording:', error);
@@ -736,8 +796,7 @@ class PronunciationRecorder {
   tryAgain() {
     this.recordButton.disabled = false;
     this.stopButton.disabled = true;
-    this.playButton.disabled = true;
-    this.submitButton.disabled = true;
+    this.playbackButton.disabled = true;
     this.waveformCanvas.style.display = 'none';
     this.resultsContainer.style.display = 'none';
     this.recordingMessage.textContent = '';
