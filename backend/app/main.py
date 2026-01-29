@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.1 - Sprint 8.5: Pronunciation Practice + Gemini Deep Analysis Fix
+# Version: 2.8.2 - Fix AttemptID IDENTITY column issue
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
