@@ -29,7 +29,7 @@ class PronunciationService:
             self.speech_client = speech.SpeechClient()
             self.storage_client = storage.Client()
             self.epi = epitran.Epitran('fra-Latn')  # French IPA converter
-            self.bucket_name = "super-flashcards-audio"
+            self.bucket_name = "super-flashcards-media"
             logger.info("✅ PronunciationService initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize PronunciationService: {e}")
