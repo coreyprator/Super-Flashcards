@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.8.6 (Proper IDENTITY column handling)
+// Version: 2.8.7 (AttemptID INT IDENTITY alignment)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.6';
+const APP_JS_VERSION = '2.8.7';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
