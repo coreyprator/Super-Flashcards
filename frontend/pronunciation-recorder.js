@@ -21,6 +21,7 @@ class PronunciationRecorder {
       flashcardId: config.flashcardId,
       userId: config.userId,
       targetText: config.targetText,
+      languageCode: config.languageCode || 'fr',
       apiBaseUrl: config.apiBaseUrl || 'http://localhost:8000/api/v1/pronunciation',
       ...config
     };
@@ -79,7 +80,7 @@ class PronunciationRecorder {
           <button id="playback-btn" class="btn btn-secondary" disabled>
             <span class="icon">▶️</span> Playback
           </button>
-          <button id="stop-btn" class="btn btn-danger btn-small" disabled style="margin-left: auto;">
+          <button id="stop-btn" class="btn btn-danger btn-small" type="button" disabled style="margin-left: auto; pointer-events: auto;" onclick="window.pronunciationRecorder?.stopRecording({ submit: true });">
             <span class="icon">⏹️</span>
           </button>
         </div>
@@ -124,6 +125,8 @@ class PronunciationRecorder {
             <div class="label">Feedback:</div>
                <p id="feedback-text" class="feedback-text" style="white-space: pre-line;"></p>
           </div>
+
+          <div id="personalized-audio-container" class="personalized-audio-container"></div>
           
         </div>
         
@@ -167,6 +170,7 @@ class PronunciationRecorder {
           gap: 10px;
           margin: 20px 0;
           flex-wrap: wrap;
+          position: relative;
         }
         
         .btn {
@@ -198,6 +202,12 @@ class PronunciationRecorder {
         .btn-danger {
           background: #dc3545;
           color: white;
+        }
+
+        #stop-btn {
+          position: relative;
+          z-index: 2;
+          pointer-events: auto;
         }
         
         .btn-danger:hover:not(:disabled) {
@@ -882,7 +892,7 @@ class PronunciationRecorder {
       const result = await response.json();
       console.log('✅ Analysis complete:', result);
       
-      this.displayResults(result);
+      await this.displayResults(result);
       this.recordingMessage.textContent = '✅ Analysis complete!';
       
       // Reload progress stats after successful submission
@@ -901,8 +911,48 @@ class PronunciationRecorder {
       }
     }
   }
+
+  async renderPersonalizedAudio(result) {
+    const container = document.getElementById('personalized-audio-container');
+    if (!container) return;
+
+    // Clear previous content
+    container.innerHTML = '';
+
+    if (!window.voiceClone || typeof window.voiceClone.checkStatus !== 'function') {
+      return;
+    }
+
+    try {
+      const status = await window.voiceClone.checkStatus();
+      const languageCode = this.config.languageCode || 'fr';
+
+      if (status?.has_voice_clone) {
+        const safeText = encodeURIComponent(result.target_text || '');
+        container.innerHTML = `
+          <div class="personalized-reference">
+            <button class="personalized-audio-btn" 
+                    onclick="voiceClone.playPersonalizedAudio(decodeURIComponent('${safeText}'), '${languageCode}')">
+              🎙️ Hear Yourself Say It Correctly
+            </button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="clone-prompt-banner">
+            <p>Want to hear <strong>yourself</strong> say it correctly?</p>
+            <button onclick="showVoiceCloneSetup()" class="btn btn-secondary">
+              🎙️ Create Voice Profile
+            </button>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.warn('Voice clone status unavailable:', error);
+    }
+  }
   
-  displayResults(result) {
+  async displayResults(result) {
     // Set overall score
     const scorePercentage = Math.round(result.overall_score * 100);
     const scoreCircle = document.getElementById('score-circle');
@@ -980,6 +1030,9 @@ class PronunciationRecorder {
     
     // Set feedback
       document.getElementById('feedback-text').textContent = result.feedback || 'Keep practicing!';
+
+    // Personalized audio (voice clone)
+    await this.renderPersonalizedAudio(result);
     
     // Show results container
     this.resultsContainer.style.display = 'block';

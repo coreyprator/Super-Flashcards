@@ -177,6 +177,52 @@ class PronunciationAttempt(Base):
     # user = relationship("User")
 
 
+# Voice Clone Models - Sprint 8.5e
+class UserVoiceClone(Base):
+    __tablename__ = "UserVoiceClones"
+
+    CloneID = Column(Integer, primary_key=True, autoincrement=True)
+    UserID = Column(UNIQUEIDENTIFIER, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ElevenLabsVoiceID = Column(NVARCHAR(100), nullable=False)
+    VoiceName = Column(NVARCHAR(100))
+    Status = Column(NVARCHAR(20), default="active")
+    SampleCount = Column(Integer, default=0)
+    TotalSampleDurationSec = Column(Numeric(10, 2), default=0)
+    CreatedAt = Column(DateTime, server_default=func.getdate())
+    LastUsedAt = Column(DateTime)
+    UsageCount = Column(Integer, default=0)
+
+    # Relationships
+    samples = relationship("VoiceCloneSample", back_populates="clone", cascade="all, delete-orphan")
+    generated = relationship("GeneratedPronunciation", back_populates="clone", cascade="all, delete-orphan")
+
+
+class VoiceCloneSample(Base):
+    __tablename__ = "VoiceCloneSamples"
+
+    SampleID = Column(Integer, primary_key=True, autoincrement=True)
+    CloneID = Column(Integer, ForeignKey("UserVoiceClones.CloneID", ondelete="CASCADE"), nullable=False)
+    AudioURL = Column(NVARCHAR(500), nullable=False)
+    DurationSec = Column(Numeric(10, 2))
+    UploadedAt = Column(DateTime, server_default=func.getdate())
+
+    clone = relationship("UserVoiceClone", back_populates="samples")
+
+
+class GeneratedPronunciation(Base):
+    __tablename__ = "GeneratedPronunciations"
+
+    GenerationID = Column(Integer, primary_key=True, autoincrement=True)
+    CloneID = Column(Integer, ForeignKey("UserVoiceClones.CloneID", ondelete="CASCADE"), nullable=False)
+    TargetText = Column(NVARCHAR(500), nullable=False)
+    LanguageCode = Column(NVARCHAR(10), nullable=False)
+    AudioURL = Column(NVARCHAR(500), nullable=False)
+    GeneratedAt = Column(DateTime, server_default=func.getdate())
+    PlayCount = Column(Integer, default=0)
+
+    clone = relationship("UserVoiceClone", back_populates="generated")
+
+
 # API Debug Logs - For troubleshooting image/audio generation
 class APIDebugLog(Base):
     __tablename__ = "api_debug_logs"
