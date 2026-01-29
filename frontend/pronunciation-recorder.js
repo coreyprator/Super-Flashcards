@@ -525,7 +525,11 @@ class PronunciationRecorder {
   
   setupEventListeners() {
     this.recordButton?.addEventListener('click', () => this.startRecording());
-    this.stopButton?.addEventListener('click', () => this.stopRecording({ submit: true }));
+    this.stopButton?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.stopRecording({ submit: true });
+    });
     this.playbackButton?.addEventListener('click', () => this.playRecording());
     this.playTargetButton?.addEventListener('click', () => this.playTargetAudio());
     
@@ -614,8 +618,22 @@ class PronunciationRecorder {
     
     // Wait for onstop to fire
     this.mediaRecorder.onstop = async () => {
+      if (this.audioChunks.length === 0) {
+        console.error('❌ No audio chunks captured!');
+        this.recordingMessage.textContent = '❌ Recording failed - no audio captured';
+        this.recordButton.disabled = false;
+        return;
+      }
+      
       this.recordedBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-      console.log(`✅ Recording stopped. Size: ${this.recordedBlob.size} bytes`);
+      console.log(`✅ Recording stopped. Size: ${this.recordedBlob.size} bytes, Chunks: ${this.audioChunks.length}`);
+      
+      if (this.recordedBlob.size === 0) {
+        console.error('❌ Audio blob is empty!');
+        this.recordingMessage.textContent = '❌ Recording failed - no audio data';
+        this.recordButton.disabled = false;
+        return;
+      }
       
       // Update UI
       this.recordButton.disabled = false;
@@ -625,6 +643,7 @@ class PronunciationRecorder {
       this.recordingMessage.textContent = submit ? '⏳ Submitting recording...' : '✅ Recording saved.';
       
       if (submit) {
+        console.log('🔄 Auto-submitting via onstop handler');
         await this.submitRecording();
       }
     };
@@ -689,13 +708,30 @@ class PronunciationRecorder {
   }
   
   playRecording() {
-    if (!this.recordedBlob) return;
+    if (!this.recordedBlob) {
+      console.warn('⚠️ No recording to play back');
+      return;
+    }
     
-    console.log('▶️ Playing recording...');
-    const audioUrl = URL.createObjectURL(this.recordedBlob);
-    const audio = new Audio();
-    audio.src = audioUrl;
-    audio.play();
+    console.log('▶️ Playing recording...', `(${this.recordedBlob.size} bytes)`);
+    try {
+      const audioUrl = URL.createObjectURL(this.recordedBlob);
+      const audio = new Audio();
+      audio.volume = 1.0;
+      audio.src = audioUrl;
+      audio.onended = () => {
+        console.log('✅ Playback ended');
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = (e) => {
+        console.error('❌ Playback error:', e);
+      };
+      audio.play().catch(err => {
+        console.error('❌ Error playing audio:', err);
+      });
+    } catch (err) {
+      console.error('❌ Error creating audio URL:', err);
+    }
   }
   
   playTargetAudio() {
