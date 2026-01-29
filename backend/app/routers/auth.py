@@ -50,6 +50,11 @@ try:
         GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI')
         if GOOGLE_CLIENT_ID:
             print(f"✅ Loaded OAuth config from environment variables")
+            print(f"   Client ID: {GOOGLE_CLIENT_ID[:20]}...")
+            if GOOGLE_CLIENT_SECRET:
+                print(f"   Client Secret: {GOOGLE_CLIENT_SECRET[:20]}...")
+            else:
+                print(f"   ❌ Client Secret is EMPTY!")
             if GOOGLE_REDIRECT_URI:
                 print(f"✅ Using redirect URI from environment: {GOOGLE_REDIRECT_URI}")
         else:
