@@ -8,6 +8,7 @@ from google.cloud import storage
 import asyncio
 import epitran
 from typing import Optional, Dict, List, Any
+from .ipa_diff_service import compare_ipa
 import json
 import logging
 import os
@@ -120,6 +121,9 @@ class PronunciationService:
                 transcription['overall_confidence']
             )
             
+            # Generate IPA diff with color-coding info
+            ipa_diff = compare_ipa(ipa_target, ipa_transcribed)
+            
             # 6. Store attempt in database
             attempt_id = await self._store_attempt(
                 db=db,
@@ -144,6 +148,7 @@ class PronunciationService:
                 "word_scores": transcription['word_scores'],
                 "ipa_target": ipa_target,
                 "ipa_transcribed": ipa_transcribed,
+                "ipa_diff": ipa_diff,  # NEW: Phoneme-by-phoneme comparison with color info
                 "feedback": feedback,
                 "coaching": gemini_result.get("results") if gemini_result and gemini_result.get("success") else None
             }
