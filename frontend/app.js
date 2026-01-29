@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.8.4 (Fix AttemptID client-side generation)
+// Version: 2.8.5 (Add missing uuid import)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.4';
+const APP_JS_VERSION = '2.8.5';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
