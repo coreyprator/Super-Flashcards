@@ -533,13 +533,14 @@ class PronunciationRecorder {
       if (isEditable) return;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.isRecording) {
           this.stopRecording({ submit: true });
         } else if (this.recordButton && !this.recordButton.disabled) {
           this.startRecording();
         }
       }
-    });
+    }, true);
     
     const closeResultsBtn = document.getElementById('close-results');
     closeResultsBtn?.addEventListener('click', () => this.closeResults());
