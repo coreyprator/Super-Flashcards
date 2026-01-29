@@ -12,6 +12,8 @@ class PronunciationRecorder {
     this.recordedBlob = null;
     this.startTime = null;
     this.animationFrameId = null;
+    this.playbackAudio = null;  // Persistent audio element for playback
+    this.stopClickCount = 0;  // Debug: track stop button clicks
     
     // Configuration
     this.config = {
@@ -526,8 +528,11 @@ class PronunciationRecorder {
   setupEventListeners() {
     this.recordButton?.addEventListener('click', () => this.startRecording());
     this.stopButton?.addEventListener('click', (e) => {
+      this.stopClickCount++;
+      console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`, e);
       e.preventDefault();
       e.stopPropagation();
+      console.log('🔹 Calling stopRecording with submit:true from mouse click');
       this.stopRecording({ submit: true });
     });
     this.playbackButton?.addEventListener('click', () => this.playRecording());
@@ -714,23 +719,71 @@ class PronunciationRecorder {
     }
     
     console.log('▶️ Playing recording...', `(${this.recordedBlob.size} bytes)`);
+    
+    // Stop any existing playback
+    if (this.playbackAudio) {
+      this.playbackAudio.pause();
+      this.playbackAudio.currentTime = 0;
+    }
+    
     try {
+      // Create or reuse audio element - MUST be in DOM to play properly
+      if (!this.playbackAudio) {
+        this.playbackAudio = new Audio();
+        this.playbackAudio.style.display = 'none';
+        document.body.appendChild(this.playbackAudio);
+        console.log('🔧 Created persistent audio element, appended to body');
+      }
+      
       const audioUrl = URL.createObjectURL(this.recordedBlob);
-      const audio = new Audio();
-      audio.volume = 1.0;
-      audio.src = audioUrl;
-      audio.onended = () => {
+      this.playbackAudio.volume = 1.0;
+      this.playbackAudio.src = audioUrl;
+      
+      // Set up event listeners
+      this.playbackAudio.onloadedmetadata = () => {
+        console.log('📊 Audio metadata loaded:', {
+          duration: this.playbackAudio.duration,
+          readyState: this.playbackAudio.readyState,
+          networkState: this.playbackAudio.networkState
+        });
+      };
+      
+      this.playbackAudio.onplay = () => {
+        console.log('▶️ Audio.onplay fired - playback started');
+      };
+      
+      this.playbackAudio.onended = () => {
         console.log('✅ Playback ended');
-        URL.revokeObjectURL(audioUrl);
+        try {
+          URL.revokeObjectURL(audioUrl);
+        } catch (e) {
+          console.warn('⚠️ Could not revoke URL:', e);
+        }
       };
-      audio.onerror = (e) => {
-        console.error('❌ Playback error:', e);
+      
+      this.playbackAudio.onerror = (e) => {
+        console.error('❌ Playback error:', {
+          error: e,
+          code: this.playbackAudio.error?.code,
+          message: this.playbackAudio.error?.message,
+          src: this.playbackAudio.src,
+          readyState: this.playbackAudio.readyState
+        });
       };
-      audio.play().catch(err => {
-        console.error('❌ Error playing audio:', err);
-      });
+      
+      console.log('🎵 Calling play() on audio element...');
+      const playPromise = this.playbackAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.error('❌ play() promise rejected:', {
+            name: err.name,
+            message: err.message,
+            code: err.code
+          });
+        });
+      }
     } catch (err) {
-      console.error('❌ Error creating audio URL:', err);
+      console.error('❌ Error creating/playing audio:', err);
     }
   }
   
@@ -743,9 +796,15 @@ class PronunciationRecorder {
     
     console.log('🔊 Playing target audio...');
     const audio = new Audio(this.config.targetAudioUrl);
-    audio.play().catch(err => {
-      console.error('❌ Error playing target audio:', err);
-    });
+    audio.onerror = () => {
+      console.error('❌ Error playing target audio:', audio.error?.message);
+    };
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.error('❌ Target audio play() rejected:', err.message);
+      });
+    }
   }
   
   async submitRecording() {
