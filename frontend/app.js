@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.6.42 (Fix Add Card navigation to show newly created card)
+// Version: 2.8.1 (Sprint 8.5: Pronunciation + Gemini Deep Analysis)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.6.42';
+const APP_JS_VERSION = '2.8.1';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
