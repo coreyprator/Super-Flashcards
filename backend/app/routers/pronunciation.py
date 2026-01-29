@@ -10,6 +10,7 @@ from app import models
 from app.services.pronunciation_service import PronunciationService
 import logging
 from typing import Optional
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,9 @@ router = APIRouter(tags=["pronunciation"])
 
 # Initialize service
 pronunciation_service = PronunciationService()
+
+# Anonymous user UUID (deterministic for "anonymous" string)
+ANONYMOUS_USER_UUID = "00000000-0000-0000-0000-000000000001"
 
 
 @router.post("/record")
@@ -48,6 +52,9 @@ async def record_pronunciation(
     try:
         logger.info(f"🎤 Recording endpoint called for flashcard {flashcard_id}")
         
+        # Convert "anonymous" string to deterministic UUID
+        actual_user_id = ANONYMOUS_USER_UUID if user_id == "anonymous" else user_id
+        
         # Validate flashcard exists
         flashcard = db.query(models.Flashcard).filter(
             models.Flashcard.id == flashcard_id
@@ -67,7 +74,7 @@ async def record_pronunciation(
         result = await pronunciation_service.analyze_pronunciation(
             audio_content=audio_content,
             target_text=flashcard.word_or_phrase,
-            user_id=user_id,
+            user_id=actual_user_id,
             flashcard_id=flashcard_id,
             db=db
         )
@@ -99,9 +106,11 @@ async def get_pronunciation_progress(
     }
     """
     try:
-        logger.info(f"📊 Getting progress for user {user_id}")
+        # Convert "anonymous" string to deterministic UUID
+        actual_user_id = ANONYMOUS_USER_UUID if user_id == "anonymous" else user_id
+        logger.info(f"📊 Getting progress for user {actual_user_id}")
         
-        result = await pronunciation_service.get_user_progress(user_id, db)
+        result = await pronunciation_service.get_user_progress(actual_user_id, db)
         
         logger.info(f"✅ Progress retrieved: {result['total_attempts']} attempts")
         return result

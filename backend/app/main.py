@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.2 - Fix AttemptID IDENTITY column issue
+# Version: 2.8.3 - Fix anonymous user UUID conversion
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
