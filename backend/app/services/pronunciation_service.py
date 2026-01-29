@@ -5,6 +5,7 @@ Handles audio recording, speech-to-text transcription, IPA generation, and feedb
 """
 from google.cloud import speech_v1 as speech
 from google.cloud import storage
+import asyncio
 import epitran
 from typing import Optional, Dict, List, Any
 import json
@@ -14,6 +15,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app import models
+from app.services.gemini_service import GeminiPronunciationService
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,8 @@ class PronunciationService:
         target_text: str,
         user_id: str,
         flashcard_id: str,
-        db: Session
+        db: Session,
+        language_code: str = "fr"
     ) -> Dict[str, Any]:
         """
         Main entry point: analyze user audio against target text.
@@ -77,19 +80,40 @@ class PronunciationService:
             transcription = await self._transcribe_audio(audio_content)
             logger.info(f"✅ Transcription complete: {transcription['transcript']}")
             
-            # 3. Generate IPA for target text
+            # 3. Generate IPA for target and transcribed text
             ipa_target = self._text_to_ipa(target_text)
+            ipa_transcribed = self._text_to_ipa(transcription['transcript'])
             logger.info(f"✅ IPA generated: {ipa_target}")
             
-            # 4. Generate feedback
-            feedback = self._generate_feedback(
-                target_text,
-                transcription['transcript'],
-                transcription['word_scores'],
-                ipa_target
-            )
+            # 4. Run Gemini coaching (non-blocking fallback)
+            gemini_service = GeminiPronunciationService(db)
+            gemini_result = None
+            if gemini_service.is_available():
+                try:
+                    gemini_result = await asyncio.to_thread(
+                        gemini_service.analyze_pronunciation,
+                        audio_data=audio_content,
+                        target_phrase=target_text,
+                        language_code=language_code,
+                        stt_word_scores=transcription['word_scores']
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Gemini analysis failed (non-blocking): {e}")
             
-            # 5. Store attempt in database
+            # 5. Build feedback (Gemini if available)
+            if gemini_result and gemini_result.get("success"):
+                feedback = self._build_rich_feedback(
+                    gemini_result.get("results", {}),
+                    transcription['word_scores']
+                )
+            else:
+                feedback = self._build_basic_feedback(
+                    transcription['word_scores'],
+                    transcription['transcript'],
+                    target_text
+                )
+            
+            # 6. Store attempt in database
             attempt_id = await self._store_attempt(
                 db=db,
                 flashcard_id=flashcard_id,
@@ -99,7 +123,9 @@ class PronunciationService:
                 transcribed_text=transcription['transcript'],
                 overall_confidence=transcription['overall_confidence'],
                 word_scores=transcription['word_scores'],
-                ipa_target=ipa_target
+                ipa_target=ipa_target,
+                ipa_transcribed=ipa_transcribed,
+                gemini_result=gemini_result
             )
             logger.info(f"✅ Attempt stored: {attempt_id}")
             
@@ -110,7 +136,9 @@ class PronunciationService:
                 "overall_score": transcription['overall_confidence'],
                 "word_scores": transcription['word_scores'],
                 "ipa_target": ipa_target,
-                "feedback": feedback
+                "ipa_transcribed": ipa_transcribed,
+                "feedback": feedback,
+                "coaching": gemini_result.get("results") if gemini_result and gemini_result.get("success") else None
             }
         
         except Exception as e:
@@ -208,47 +236,52 @@ class PronunciationService:
         else:
             return "needs_work"
     
-    def _generate_feedback(
-        self, 
-        target: str, 
-        transcribed: str, 
-        word_scores: List[Dict], 
-        ipa: str
-    ) -> str:
-        """
-        Generate human-readable pronunciation feedback.
+    def _build_rich_feedback(self, gemini_results: Dict[str, Any], word_scores: List[Dict]) -> str:
+        """Build rich feedback text from Gemini analysis."""
+        parts = []
         
-        Args:
-            target: Target French phrase
-            transcribed: What Google STT heard
-            word_scores: List of word-level scores
-            ipa: IPA representation of target
+        clarity = gemini_results.get("clarity_score")
+        if clarity is not None:
+            if clarity >= 8:
+                parts.append(f"🌟 Excellent clarity ({clarity}/10).")
+            elif clarity >= 6:
+                parts.append(f"👍 Good clarity ({clarity}/10).")
+            else:
+                parts.append(f"📝 Clarity: {clarity}/10 — keep practicing.")
         
-        Returns:
-            Feedback string
-        """
-        try:
-            # Check if transcription matches target
-            if transcribed.lower() == target.lower():
-                return "Excellent pronunciation! All words were clearly understood."
-            
-            # Find problem words
-            problem_words = [w for w in word_scores if w['status'] == 'needs_work']
-            
-            if not problem_words:
-                return f"Good! The transcription matches well: '{transcribed}'"
-            
-            # Build feedback from top 3 problem words
-            feedback_parts = []
-            for pw in problem_words[:3]:
-                confidence_pct = int(pw['confidence'] * 100)
-                feedback_parts.append(f"'{pw['word']}' ({confidence_pct}%)")
-            
-            return f"Focus on improving: {', '.join(feedback_parts)}. Try to pronounce these words more clearly."
+        issues = gemini_results.get("sound_issues", [])
+        if issues:
+            top_issue = issues[0]
+            suggestion = top_issue.get("suggestion")
+            example = top_issue.get("example_comparison")
+            if suggestion:
+                parts.append(f"💡 Tip: {suggestion}")
+            if example:
+                parts.append(f"   Example: {example}")
         
-        except Exception as e:
-            logger.warning(f"⚠️ Feedback generation failed: {e}")
-            return "Try again - your pronunciation will improve with practice!"
+        drill = gemini_results.get("top_drill")
+        if drill:
+            parts.append(f"🎯 Practice: {drill}")
+        
+        encouragement = gemini_results.get("encouragement")
+        if encouragement:
+            parts.append(f"✨ {encouragement}")
+        
+        return "\n".join(parts) if parts else self._build_basic_feedback(word_scores, "", "")
+
+    def _build_basic_feedback(self, word_scores: List[Dict], transcribed: str, target: str) -> str:
+        """Fallback feedback when Gemini is unavailable."""
+        if transcribed and target and transcribed.lower().strip() == target.lower().strip():
+            return "✅ Perfect! Your pronunciation matched exactly."
+        
+        problem_words = [w for w in word_scores if w.get('confidence', 1) < 0.7]
+        if not problem_words:
+            return f"👍 Good job! Transcribed as: '{transcribed}'" if transcribed else "👍 Good job!"
+        
+        word_list = ", ".join([
+            f"'{w['word']}' ({int(w['confidence']*100)}%)" for w in problem_words[:3]
+        ])
+        return f"📝 Words to focus on: {word_list}. Try listening to the target audio and repeat."
     
     async def _upload_audio(
         self, 
@@ -296,7 +329,9 @@ class PronunciationService:
         transcribed_text: str,
         overall_confidence: float,
         word_scores: List[Dict],
-        ipa_target: str
+        ipa_target: str,
+        ipa_transcribed: str,
+        gemini_result: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Store pronunciation attempt in database.
@@ -325,8 +360,20 @@ class PronunciationService:
                 overall_confidence=overall_confidence,
                 word_scores=json.dumps(word_scores),
                 ipa_target=ipa_target,
+                ipa_transcribed=ipa_transcribed,
+                analysis_type="stt_plus_gemini" if gemini_result and gemini_result.get("success") else "stt_only",
                 created_at=datetime.utcnow()
             )
+
+            if gemini_result and gemini_result.get("success"):
+                results = gemini_result.get("results", {})
+                attempt.gemini_analysis = json.dumps(results)
+                attempt.gemini_clarity_score = results.get("clarity_score")
+                attempt.gemini_rhythm_assessment = results.get("rhythm")
+                if results.get("sound_issues"):
+                    attempt.gemini_top_issue = results.get("sound_issues", [{}])[0].get("example_comparison")
+                attempt.gemini_drill = results.get("top_drill")
+                attempt.gemini_processed_at = datetime.utcnow()
             
             db.add(attempt)
             db.commit()

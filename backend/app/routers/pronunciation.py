@@ -71,12 +71,14 @@ async def record_pronunciation(
         logger.info(f"✅ Audio file received: {len(audio_content)} bytes")
         
         # Analyze pronunciation
+        language_code = flashcard.language.code if flashcard.language and flashcard.language.code else "fr"
         result = await pronunciation_service.analyze_pronunciation(
             audio_content=audio_content,
             target_text=flashcard.word_or_phrase,
             user_id=actual_user_id,
             flashcard_id=flashcard_id,
-            db=db
+            db=db,
+            language_code=language_code
         )
         
         logger.info(f"✅ Analysis complete: score {result['overall_score']}")

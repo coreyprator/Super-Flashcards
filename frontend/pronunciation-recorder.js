@@ -111,14 +111,16 @@ class PronunciationRecorder {
             <div id="word-scores-list" class="word-scores-list"></div>
           </div>
           
-          <div class="ipa-section">
-            <div class="label">Target pronunciation (IPA):</div>
-            <p id="ipa-target" class="ipa-text"></p>
-          </div>
+             <div class="ipa-section">
+               <div class="label">Target pronunciation (IPA):</div>
+               <p id="ipa-target" class="ipa-text"></p>
+               <div class="label" style="margin-top: 10px;">Your pronunciation (IPA):</div>
+               <p id="ipa-transcribed" class="ipa-text"></p>
+             </div>
           
           <div class="feedback-section">
             <div class="label">Feedback:</div>
-            <p id="feedback-text" class="feedback-text"></p>
+               <p id="feedback-text" class="feedback-text" style="white-space: pre-line;"></p>
           </div>
           
         </div>
@@ -804,10 +806,14 @@ class PronunciationRecorder {
     });
     
     // Set IPA
-    document.getElementById('ipa-target').textContent = result.ipa_target || 'N/A';
+      document.getElementById('ipa-target').textContent = result.ipa_target || '';
+      const ipaTranscribedEl = document.getElementById('ipa-transcribed');
+      if (ipaTranscribedEl) {
+        ipaTranscribedEl.textContent = result.ipa_transcribed || '';
+      }
     
     // Set feedback
-    document.getElementById('feedback-text').textContent = result.feedback;
+      document.getElementById('feedback-text').textContent = result.feedback || 'Keep practicing!';
     
     // Show results container
     this.resultsContainer.style.display = 'block';
