@@ -1238,6 +1238,7 @@ function renderFlashcard(flashcard) {
                 flashcardId: flashcard.id,
                 userId: currentUser.id || 'anonymous',
                 targetText: flashcard.word_or_phrase,
+                targetAudioUrl: flashcard.audio_url || null,
                 apiBaseUrl: API_BASE.replace('/api', '') + '/api/v1/pronunciation'
             });
         }, 100);
