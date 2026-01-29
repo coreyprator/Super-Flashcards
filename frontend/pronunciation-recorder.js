@@ -523,7 +523,7 @@ class PronunciationRecorder {
   
   setupEventListeners() {
     this.recordButton?.addEventListener('click', () => this.startRecording());
-    this.stopButton?.addEventListener('click', () => this.abortRecording());
+    this.stopButton?.addEventListener('click', () => this.stopRecording({ submit: true }));
     this.playbackButton?.addEventListener('click', () => this.playRecording());
     this.playTargetButton?.addEventListener('click', () => this.playTargetAudio());
     
