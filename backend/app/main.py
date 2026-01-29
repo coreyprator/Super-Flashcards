@@ -433,6 +433,33 @@ async def serve_oauth_tracker_js():
         return FileResponse(js_file, media_type="application/javascript")
     return {"error": "File not found"}
 
+@app.get("/pronunciation-recorder.js")
+async def serve_pronunciation_recorder_js():
+    """Serve pronunciation-recorder.js (Sprint 8 - Pronunciation practice)"""
+    from fastapi.responses import FileResponse
+    js_file = os.path.join(frontend_path, "pronunciation-recorder.js")
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
+@app.get("/pronunciation-deep-analysis.js")
+async def serve_pronunciation_deep_analysis_js():
+    """Serve pronunciation-deep-analysis.js (Sprint 8.5b - Gemini Deep Analysis)"""
+    from fastapi.responses import FileResponse
+    js_file = os.path.join(frontend_path, "pronunciation-deep-analysis.js")
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
+@app.get("/pronunciation-deep-analysis.css")
+async def serve_pronunciation_deep_analysis_css():
+    """Serve pronunciation-deep-analysis.css (Sprint 8.5b - Gemini Deep Analysis styles)"""
+    from fastapi.responses import FileResponse
+    css_file = os.path.join(frontend_path, "pronunciation-deep-analysis.css")
+    if os.path.exists(css_file):
+        return FileResponse(css_file, media_type="text/css")
+    return {"error": "File not found"}
+
 @app.get("/first-time-loader.js")
 async def serve_first_time_loader_js():
     """Serve first-time-loader.js (progressive loading UX)"""
