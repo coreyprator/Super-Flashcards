@@ -748,6 +748,10 @@ class PronunciationRecorder {
       console.error('❌ Error submitting recording:', error);
       this.recordingMessage.textContent = `❌ Error: ${error.message}`;
     } finally {
+      if (!this.isRecording) {
+        this.recordButton.disabled = false;
+        this.stopButton.disabled = true;
+      }
       if (this.recordedBlob && !this.isRecording) {
         this.playbackButton.disabled = false;
       }
