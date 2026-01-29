@@ -308,9 +308,51 @@ async def redirect_audio(file_path: str):
 
 # IPA audio mount removed - no longer needed after TTS optimization
 
+def _init_pronunciation_tables():
+    """Initialize pronunciation-related tables on startup"""
+    try:
+        from sqlalchemy import text
+        
+        # SQL to create pronunciation_attempts table if it doesn't exist
+        create_table_sql = """
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'pronunciation_attempts')
+        BEGIN
+            CREATE TABLE [pronunciation_attempts] (
+                [id] [uniqueidentifier] NOT NULL PRIMARY KEY DEFAULT (NEWID()),
+                [flashcard_id] [uniqueidentifier] NOT NULL FOREIGN KEY REFERENCES [flashcards]([id]),
+                [user_id] [uniqueidentifier] NOT NULL FOREIGN KEY REFERENCES [users]([id]),
+                [audio_url] [nvarchar](500) NOT NULL,
+                [target_text] [nvarchar](500) NOT NULL,
+                [transcribed_text] [nvarchar](500),
+                [overall_confidence] [numeric](5, 4),
+                [word_scores] [nvarchar](max),
+                [ipa_target] [nvarchar](200),
+                [ipa_transcribed] [nvarchar](200),
+                [created_at] [datetime] NOT NULL DEFAULT GETDATE()
+            );
+
+            CREATE INDEX idx_pronunciation_attempts_flashcard_user 
+            ON [pronunciation_attempts]([flashcard_id], [user_id]);
+
+            CREATE INDEX idx_pronunciation_attempts_user 
+            ON [pronunciation_attempts]([user_id], [created_at]);
+        END;
+        """
+        
+        with engine.connect() as connection:
+            connection.execute(text(create_table_sql))
+            connection.commit()
+            logger.info("✅ pronunciation_attempts table verified/created")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not initialize pronunciation tables: {e}")
+        # Don't fail startup - table might already exist
+
 @app.on_event("startup")
 async def startup_event():
-    """Log when the application is fully ready to serve requests"""
+    """Initialize database and log when the application is fully ready to serve requests"""
+    # Initialize pronunciation tables on startup
+    _init_pronunciation_tables()
+    
     startup_end = time.time()
     elapsed_seconds = round(startup_end - startup_start, 3)
     completion_time = datetime.now().strftime('%H:%M:%S.%f')[:-3]
