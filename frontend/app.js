@@ -3,7 +3,7 @@
 // Version: 2.8.7 (AttemptID INT IDENTITY alignment)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.9';
+const APP_JS_VERSION = '2.8.10';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1233,7 +1233,7 @@ function renderFlashcard(flashcard) {
     if (typeof PronunciationRecorder !== 'undefined') {
         setTimeout(() => {
             const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            new PronunciationRecorder({
+            window.pronunciationRecorder = new PronunciationRecorder({
                 containerSelector: '#pronunciation-recorder-container',
                 flashcardId: flashcard.id,
                 userId: currentUser.id || 'anonymous',
@@ -1987,6 +1987,12 @@ async function searchFlashcards(query) {
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+        return;
+    }
+    const recorderContainer = document.querySelector('#pronunciation-recorder-container');
+    const recorderVisible = recorderContainer && recorderContainer.offsetParent !== null;
+    if (recorderVisible && (e.key === ' ' || e.key === 'Enter')) {
+        // Let the recorder handle Space/Enter
         return;
     }
     
