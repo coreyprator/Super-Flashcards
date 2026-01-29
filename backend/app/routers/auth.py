@@ -378,7 +378,16 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         print(f"🔄 Step 1/5: Getting token from Google...")
         token_start = time.time()
         
-        token = await oauth.google.authorize_access_token(request)
+        try:
+            token = await oauth.google.authorize_access_token(request)
+        except Exception as token_error:
+            error_time = (time.time() - token_start) * 1000
+            print(f"❌ OAUTH TOKEN ERROR (after {error_time:.2f}ms): {token_error}")
+            print(f"❌ Error type: {type(token_error).__name__}")
+            print(f"❌ Error details: {str(token_error)}")
+            import traceback
+            traceback.print_exc()
+            raise
         
         token_time = (time.time() - token_start) * 1000
         print(f"✅ Got token from Google in {token_time:.2f}ms")
