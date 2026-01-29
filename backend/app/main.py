@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.6 - Don't include IDENTITY AttemptID in INSERT statement
+# Version: 2.8.7 - Align AttemptID to INT IDENTITY
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
