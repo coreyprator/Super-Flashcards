@@ -315,7 +315,11 @@ class PronunciationService:
             Attempt ID
         """
         try:
+            # Generate UUID for the attempt
+            attempt_id = str(uuid.uuid4())
+            
             attempt = models.PronunciationAttempt(
+                id=attempt_id,
                 flashcard_id=flashcard_id,
                 user_id=user_id,
                 audio_url=audio_url,
@@ -329,10 +333,9 @@ class PronunciationService:
             
             db.add(attempt)
             db.commit()
-            db.refresh(attempt)
             
-            logger.info(f"✅ Attempt stored in database: {attempt.id}")
-            return str(attempt.id)
+            logger.info(f"✅ Attempt stored in database: {attempt_id}")
+            return attempt_id
         
         except Exception as e:
             logger.error(f"❌ Database storage failed: {e}")

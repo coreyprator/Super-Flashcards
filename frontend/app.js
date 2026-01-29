@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.8.3 (Fix anonymous user UUID)
+// Version: 2.8.4 (Fix AttemptID client-side generation)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.3';
+const APP_JS_VERSION = '2.8.4';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
