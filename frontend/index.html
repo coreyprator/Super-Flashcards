@@ -1364,6 +1364,10 @@
     <script src="/app.js?v=2.8.7"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
+        
+        // Initialize DeepAnalysisUI globally
+        window.deepAnalysis = new DeepAnalysisUI('deep-analysis-container');
+        console.log('✅ DeepAnalysisUI initialized');
     </script>
     
     <!-- User Profile Display -->
