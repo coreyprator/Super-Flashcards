@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.8.5 (Add missing uuid import)
+// Version: 2.8.6 (Proper IDENTITY column handling)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.5';
+const APP_JS_VERSION = '2.8.6';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
