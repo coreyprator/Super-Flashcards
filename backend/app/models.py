@@ -142,7 +142,7 @@ class StudySession(Base):
 
 # Pronunciation Attempts - Track user pronunciation practice
 class PronunciationAttempt(Base):
-    __tablename__ = "pronunciation_attempts"
+    __tablename__ = "PronunciationAttempts"
     
     id = Column(UNIQUEIDENTIFIER, primary_key=True, default=generate_uuid)
     flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
