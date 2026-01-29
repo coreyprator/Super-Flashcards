@@ -1,5 +1,5 @@
 # backend/app/models.py
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text, String, Numeric
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Boolean, text, String, Numeric, Text
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, NVARCHAR
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -181,3 +181,17 @@ class APIDebugLog(Base):
     api_provider = Column(NVARCHAR(50), nullable=True)  # 'openai', 'google_cloud', etc.
     api_model = Column(NVARCHAR(50), nullable=True)  # 'dall-e-3', 'gpt-4', etc.
     created_at = Column(DateTime, server_default=func.getdate())
+
+
+# Pronunciation Prompt Templates - Sprint 8.5 Gemini Deep Analysis
+class PronunciationPromptTemplate(Base):
+    __tablename__ = "PronunciationPromptTemplates"
+    
+    template_id = Column("TemplateID", Integer, primary_key=True, autoincrement=True)
+    language_code = Column("LanguageCode", String(10), nullable=False)
+    native_language = Column("NativeLanguage", String(50), default="English")
+    prompt_template = Column("PromptTemplate", Text, nullable=False)
+    common_interferences = Column("CommonInterferences", Text, nullable=True)
+    is_active = Column("IsActive", Boolean, default=True)
+    created_at = Column("CreatedAt", DateTime, server_default=func.now())
+    updated_at = Column("UpdatedAt", DateTime, server_default=func.now(), onupdate=func.now())
