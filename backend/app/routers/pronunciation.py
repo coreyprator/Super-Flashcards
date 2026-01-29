@@ -189,3 +189,152 @@ async def generate_ipa_pronunciation(
     except Exception as e:
         logger.error(f"❌ Error generating IPA: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# GEMINI DEEP ANALYSIS ENDPOINTS (Sprint 8.5)
+# ============================================
+
+@router.post("/deep-analysis/{attempt_id}")
+async def trigger_deep_analysis(
+    attempt_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger Gemini deep analysis for an existing pronunciation attempt.
+    Premium feature - requires valid subscription.
+    
+    Returns:
+    {
+        "attempt_id": str,
+        "stt_results": {...},
+        "gemini_results": {...},
+        "cross_validation": {...}
+    }
+    """
+    from app import crud
+    
+    try:
+        logger.info(f"🎯 Triggering deep analysis for attempt {attempt_id}")
+        
+        # TODO: Add premium user check here
+        # if not user.is_premium:
+        #     raise HTTPException(status_code=403, detail="Premium feature")
+        
+        # Get the attempt
+        attempt = crud.get_pronunciation_attempt(db, attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        
+        # Check if already analyzed
+        if attempt.analysis_type == "stt_plus_gemini":
+            logger.info(f"✅ Attempt already analyzed with Gemini")
+            return {
+                "message": "Already analyzed with Gemini",
+                "cached_results": attempt.gemini_analysis
+            }
+        
+        # Fetch audio from storage
+        # TODO: Implement audio retrieval from Cloud Storage
+        # audio_data = await fetch_audio_from_gcs(attempt.audio_url)
+        
+        # For now, return error if audio not available
+        raise HTTPException(
+            status_code=501, 
+            detail="Audio retrieval not yet implemented - coming in Sprint 8.5b"
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error triggering deep analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/prompt-template/{language_code}")
+async def get_prompt_template(
+    language_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the Gemini prompt template for a specific language.
+    
+    Returns:
+    {
+        "language_code": str,
+        "native_language": str,
+        "prompt_template": str,
+        "common_interferences": dict
+    }
+    """
+    from app.services import gemini_service
+    from app import crud
+    
+    try:
+        logger.info(f"📋 Getting prompt template for language: {language_code}")
+        
+        service = gemini_service.GeminiPronunciationService(db)
+        template = service.get_prompt_template(language_code)
+        
+        if not template:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No template found for language: {language_code}"
+            )
+        
+        logger.info(f"✅ Template retrieved for {language_code}")
+        return template
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error getting prompt template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/feedback/{attempt_id}")
+async def submit_analysis_feedback(
+    attempt_id: str,
+    gemini_accuracy_rating: int,
+    stt_accuracy_rating: int,
+    comments: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Submit user feedback on analysis accuracy.
+    Used to track quality and improve prompts over time.
+    
+    Body:
+    {
+        "gemini_accuracy_rating": int (1-5),
+        "stt_accuracy_rating": int (1-5),
+        "comments": str (optional)
+    }
+    """
+    from app import crud
+    
+    try:
+        logger.info(f"📝 Feedback received for attempt {attempt_id}")
+        
+        attempt = crud.get_pronunciation_attempt(db, attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        
+        # TODO: Create AnalysisFeedback table and store this
+        # For now, just log it
+        logger.info(
+            f"Feedback - Gemini={gemini_accuracy_rating}/5, "
+            f"STT={stt_accuracy_rating}/5, "
+            f"Comments={comments}"
+        )
+        
+        return {
+            "message": "Feedback recorded",
+            "attempt_id": attempt_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error submitting feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

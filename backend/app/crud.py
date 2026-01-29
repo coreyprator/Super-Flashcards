@@ -209,3 +209,73 @@ def get_instruction_language(db: Session, user_id: str, language_id: str) -> str
     
     # Default to English
     return 'en'
+
+
+# ============================================
+# PRONUNCIATION - GEMINI DEEP ANALYSIS (Sprint 8.5)
+# ============================================
+
+def get_pronunciation_attempt(db: Session, attempt_id: str):
+    """Get a pronunciation attempt by ID"""
+    return db.query(models.PronunciationAttempt).filter(
+        models.PronunciationAttempt.id == attempt_id
+    ).first()
+
+
+def update_pronunciation_attempt_gemini(
+    db: Session,
+    attempt_id: str,
+    gemini_analysis: str,
+    clarity_score: Optional[float] = None,
+    rhythm_assessment: Optional[str] = None,
+    top_issue: Optional[str] = None,
+    drill: Optional[str] = None,
+    analysis_type: str = "stt_plus_gemini"
+) -> Optional[models.PronunciationAttempt]:
+    """
+    Update a pronunciation attempt with Gemini analysis results.
+    
+    Args:
+        db: Database session
+        attempt_id: UUID of the attempt
+        gemini_analysis: Full JSON response from Gemini
+        clarity_score: 1-10 clarity rating
+        rhythm_assessment: choppy/smooth/natural/etc
+        top_issue: Primary pronunciation issue identified
+        drill: Recommended practice exercise
+        analysis_type: 'stt_only' or 'stt_plus_gemini'
+        
+    Returns:
+        Updated PronunciationAttempt or None if not found
+    """
+    from datetime import datetime
+    
+    attempt = db.query(models.PronunciationAttempt).filter(
+        models.PronunciationAttempt.id == attempt_id
+    ).first()
+    
+    if not attempt:
+        return None
+    
+    attempt.gemini_analysis = gemini_analysis
+    attempt.gemini_clarity_score = clarity_score
+    attempt.gemini_rhythm_assessment = rhythm_assessment
+    attempt.gemini_top_issue = top_issue
+    attempt.gemini_drill = drill
+    attempt.gemini_processed_at = datetime.utcnow()
+    attempt.analysis_type = analysis_type
+    
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+
+def get_pronunciation_prompt_template(
+    db: Session,
+    language_code: str
+) -> Optional[models.PronunciationPromptTemplate]:
+    """Get active prompt template for a language."""
+    return db.query(models.PronunciationPromptTemplate).filter(
+        models.PronunciationPromptTemplate.language_code == language_code,
+        models.PronunciationPromptTemplate.is_active == True
+    ).first()
