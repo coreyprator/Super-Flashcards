@@ -718,6 +718,13 @@ class PronunciationRecorder {
     // Show results container
     this.resultsContainer.style.display = 'block';
     
+    // Sprint 8.5b: Render deep analysis button if attempt_id is available
+    if (result.attempt_id && typeof deepAnalysis !== 'undefined') {
+      setTimeout(() => {
+        deepAnalysis.renderDeepAnalysisButton(result.attempt_id, '#results-container');
+      }, 100);
+    }
+    
     // Scroll to results
     this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
   }
