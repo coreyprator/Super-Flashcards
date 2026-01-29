@@ -270,6 +270,121 @@ def update_pronunciation_attempt_gemini(
     return attempt
 
 
+# ============================================
+# VOICE CLONE (Sprint 8.5e)
+# ============================================
+
+def get_user_voice_clone(db: Session, user_id: str):
+    """Get active voice clone for user."""
+    return db.query(models.UserVoiceClone).filter(
+        models.UserVoiceClone.UserID == user_id,
+        models.UserVoiceClone.Status == "active"
+    ).first()
+
+
+def create_voice_clone(
+    db: Session,
+    user_id: str,
+    elevenlabs_voice_id: str,
+    voice_name: str,
+    sample_count: int = 0,
+    total_duration: float = 0
+):
+    """Create a new voice clone record."""
+    clone = models.UserVoiceClone(
+        UserID=user_id,
+        ElevenLabsVoiceID=elevenlabs_voice_id,
+        VoiceName=voice_name,
+        Status="active",
+        SampleCount=sample_count,
+        TotalSampleDurationSec=total_duration
+    )
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+    return clone
+
+
+def add_voice_sample(
+    db: Session,
+    clone_id: int,
+    audio_url: str,
+    duration_sec: float
+):
+    """Add a sample to a voice clone."""
+    sample = models.VoiceCloneSample(
+        CloneID=clone_id,
+        AudioURL=audio_url,
+        DurationSec=duration_sec
+    )
+    db.add(sample)
+    db.commit()
+    db.refresh(sample)
+    return sample
+
+
+def get_cached_pronunciation(
+    db: Session,
+    clone_id: int,
+    target_text: str,
+    language_code: str
+):
+    """Get cached generated pronunciation if exists."""
+    return db.query(models.GeneratedPronunciation).filter(
+        models.GeneratedPronunciation.CloneID == clone_id,
+        models.GeneratedPronunciation.TargetText == target_text,
+        models.GeneratedPronunciation.LanguageCode == language_code
+    ).first()
+
+
+def cache_pronunciation(
+    db: Session,
+    clone_id: int,
+    target_text: str,
+    language_code: str,
+    audio_url: str
+):
+    """Cache a generated pronunciation."""
+    gen = models.GeneratedPronunciation(
+        CloneID=clone_id,
+        TargetText=target_text,
+        LanguageCode=language_code,
+        AudioURL=audio_url
+    )
+    db.add(gen)
+    db.commit()
+    db.refresh(gen)
+    return gen
+
+
+def increment_play_count(db: Session, generation_id: int):
+    """Increment play count for a generated pronunciation."""
+    db.query(models.GeneratedPronunciation).filter(
+        models.GeneratedPronunciation.GenerationID == generation_id
+    ).update({"PlayCount": models.GeneratedPronunciation.PlayCount + 1})
+    db.commit()
+
+
+def update_clone_usage(db: Session, clone_id: int):
+    """Update last used time and increment usage count."""
+    from datetime import datetime
+    db.query(models.UserVoiceClone).filter(
+        models.UserVoiceClone.CloneID == clone_id
+    ).update({
+        "LastUsedAt": datetime.utcnow(),
+        "UsageCount": models.UserVoiceClone.UsageCount + 1
+    })
+    db.commit()
+
+
+def deactivate_voice_clone(db: Session, clone_id: int):
+    """Soft delete a voice clone."""
+    db.query(models.UserVoiceClone).filter(
+        models.UserVoiceClone.CloneID == clone_id
+    ).update({"Status": "deleted"})
+    db.commit()
+
+
 def get_pronunciation_prompt_template(
     db: Session,
     language_code: str

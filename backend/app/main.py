@@ -17,7 +17,7 @@ import secrets
 
 from app.database import engine, get_db
 from app import models
-from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation
+from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
@@ -217,6 +217,7 @@ app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # 
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
 app.include_router(pronunciation.router, prefix="/api/v1/pronunciation", tags=["pronunciation"])  # Sprint 8 - Pronunciation practice
+app.include_router(voice_clone.router, prefix="/api/v1", tags=["voice-clone"])  # Sprint 8.5e - Voice clone
 
 # Import document parser router
 from .routers import document_parser
@@ -451,11 +452,29 @@ async def serve_pronunciation_deep_analysis_js():
         return FileResponse(js_file, media_type="application/javascript")
     return {"error": "File not found"}
 
+@app.get("/voice-clone.js")
+async def serve_voice_clone_js():
+    """Serve voice-clone.js (Sprint 8.5e - Voice cloning UI)"""
+    from fastapi.responses import FileResponse
+    js_file = os.path.join(frontend_path, "voice-clone.js")
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
 @app.get("/pronunciation-deep-analysis.css")
 async def serve_pronunciation_deep_analysis_css():
     """Serve pronunciation-deep-analysis.css (Sprint 8.5b - Gemini Deep Analysis styles)"""
     from fastapi.responses import FileResponse
     css_file = os.path.join(frontend_path, "pronunciation-deep-analysis.css")
+    if os.path.exists(css_file):
+        return FileResponse(css_file, media_type="text/css")
+    return {"error": "File not found"}
+
+@app.get("/voice-clone.css")
+async def serve_voice_clone_css():
+    """Serve voice-clone.css (Sprint 8.5e - Voice cloning UI styles)"""
+    from fastapi.responses import FileResponse
+    css_file = os.path.join(frontend_path, "voice-clone.css")
     if os.path.exists(css_file):
         return FileResponse(css_file, media_type="text/css")
     return {"error": "File not found"}

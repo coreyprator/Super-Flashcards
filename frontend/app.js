@@ -3,7 +3,7 @@
 // Version: 2.8.7 (AttemptID INT IDENTITY alignment)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.17';
+const APP_JS_VERSION = '2.8.18';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1205,6 +1205,7 @@ function renderFlashcard(flashcard) {
                         <div class="mt-8 pt-6 border-t border-indigo-200">
                             <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-4">Practice Pronunciation</h3>
                             <div id="pronunciation-recorder-container"></div>
+                            <div id="voice-clone-container" class="mt-4"></div>
                         </div>
                         
                         <!-- Mobile Navigation -->
@@ -1233,12 +1234,14 @@ function renderFlashcard(flashcard) {
     if (typeof PronunciationRecorder !== 'undefined') {
         setTimeout(() => {
             const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const currentLanguage = state.languages?.find(lang => lang.id === state.currentLanguage);
             window.pronunciationRecorder = new PronunciationRecorder({
                 containerSelector: '#pronunciation-recorder-container',
                 flashcardId: flashcard.id,
                 userId: currentUser.id || 'anonymous',
                 targetText: flashcard.word_or_phrase,
                 targetAudioUrl: flashcard.audio_url || null,
+                languageCode: currentLanguage?.code || 'fr',
                 apiBaseUrl: API_BASE.replace('/api', '') + '/api/v1/pronunciation'
             });
         }, 100);
