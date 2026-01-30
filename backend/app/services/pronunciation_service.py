@@ -257,43 +257,6 @@ class PronunciationService:
             log_step("ERROR", "FAILED", {"error": str(e), "type": type(e).__name__})
             logger.error(f"[{request_id}] ❌ Error analyzing pronunciation: {e}", exc_info=True)
             raise
-            )
-            
-            # Generate IPA diff with color-coding info
-            ipa_diff = compare_ipa(ipa_target, ipa_transcribed)
-            
-            # 6. Store attempt in database
-            attempt_id = await self._store_attempt(
-                db=db,
-                flashcard_id=flashcard_id,
-                user_id=user_id,
-                audio_url=audio_url,
-                target_text=target_text,
-                transcribed_text=transcription['transcript'],
-                overall_confidence=overall_score,  # Use adjusted score
-                word_scores=transcription['word_scores'],
-                ipa_target=ipa_target,
-                ipa_transcribed=ipa_transcribed,
-                gemini_result=gemini_result
-            )
-            logger.info(f"✅ Attempt stored: {attempt_id}")
-            
-            return {
-                "attempt_id": attempt_id,
-                "target_text": target_text,
-                "transcribed_text": transcription['transcript'],
-                "overall_score": overall_score,  # Adjusted score
-                "word_scores": transcription['word_scores'],
-                "ipa_target": ipa_target,
-                "ipa_transcribed": ipa_transcribed,
-                "ipa_diff": ipa_diff,  # NEW: Phoneme-by-phoneme comparison with color info
-                "feedback": feedback,
-                "coaching": gemini_result.get("results") if gemini_result and gemini_result.get("success") else None
-            }
-        
-        except Exception as e:
-            logger.error(f"❌ Error analyzing pronunciation: {e}")
-            raise
     
     async def _transcribe_audio(self, audio_content: bytes, language_code: str = "fr") -> Dict[str, Any]:
         """
