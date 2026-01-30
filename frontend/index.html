@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.8.19';
+        window.APP_VERSION = '2.8.21';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -53,7 +53,7 @@
     
     <!-- Deep Analysis Styles - Sprint 8.5b -->
     <link rel="stylesheet" href="/pronunciation-deep-analysis.css?v=8.5b">
-    <link rel="stylesheet" href="/voice-clone.css?v=2.8.19">
+    <link rel="stylesheet" href="/voice-clone.css?v=2.8.21">
     
     <!-- TIMING CHECKPOINT T1c: Head Resources Loaded -->
     <script>
@@ -78,6 +78,52 @@
         
         .slide-in {
             animation: slideIn 0.3s ease-out;
+        }
+
+        /* Pronunciation error/warning states */
+        .pronunciation-error-state,
+        .pronunciation-warning-state {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+            border: 2px solid #f3f4f6;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            text-align: left;
+        }
+
+        .pronunciation-error-state {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .pronunciation-warning-state {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .pronunciation-error-state h3,
+        .pronunciation-warning-state h3 {
+            margin: 8px 0 10px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .pronunciation-error-state ul,
+        .pronunciation-warning-state ul {
+            margin: 10px 0 16px;
+            padding-left: 18px;
+        }
+
+        .pronunciation-error-state li,
+        .pronunciation-warning-state li {
+            margin-bottom: 6px;
+            color: #374151;
+        }
+
+        .pronunciation-error-state .error-icon,
+        .pronunciation-warning-state .warning-icon {
+            font-size: 28px;
         }
         
         /* Card flip animation */
@@ -372,7 +418,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v2.8.19</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v2.8.21</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -1360,10 +1406,10 @@
     <script>
         window.timingCheckpoint('T5m-loading-app-js', 'Loading app.js (MAIN APP)');
     </script>
-    <script src="/pronunciation-recorder.js?v=2.8.19"></script>
-    <script src="/voice-clone.js?v=2.8.19"></script>
+    <script src="/pronunciation-recorder.js?v=2.8.21"></script>
+    <script src="/voice-clone.js?v=2.8.21"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
-    <script src="/app.js?v=2.8.19"></script>
+    <script src="/app.js?v=2.8.21"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
