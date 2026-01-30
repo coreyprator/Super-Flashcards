@@ -257,27 +257,6 @@ class PronunciationService:
             log_step("ERROR", "FAILED", {"error": str(e), "type": type(e).__name__})
             logger.error(f"[{request_id}] ❌ Error analyzing pronunciation: {e}", exc_info=True)
             raise
-                except Exception as e:
-                    logger.warning(f"⚠️ Gemini analysis failed (non-blocking): {e}")
-            
-            # 5. Build feedback and calculate adjusted score (Gemini if available)
-            if gemini_result and gemini_result.get("success"):
-                feedback = self._build_rich_feedback(
-                    gemini_result.get("results", {}),
-                    transcription['word_scores']
-                )
-            else:
-                feedback = self._build_basic_feedback(
-                    transcription['word_scores'],
-                    transcription['transcript'],
-                    target_text
-                )
-            
-            # Calculate overall score: prioritize transcription match over confidence
-            overall_score, _ = self._calculate_overall_score(
-                target_text,
-                transcription['transcript'],
-                transcription['overall_confidence']
             )
             
             # Generate IPA diff with color-coding info
