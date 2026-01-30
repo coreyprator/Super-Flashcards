@@ -38,11 +38,13 @@ def tokenize_ipa(ipa_string: str) -> List[str]:
     """
     Split IPA string into individual phonemes.
     Handles multi-character phonemes like 'tʃ', 'ɛ̃', etc.
+    Also handles malformed IPA with numbers/chars by filtering them out.
     
     Examples:
         "pɛ̃s" → ["p", "ɛ̃", "s"]
         "pɑ̃sə" → ["p", "ɑ̃", "s", "ə"]
         "θɪŋk" → ["θ", "ɪ", "ŋ", "k"]
+        "1pɛ̃s2" → ["p", "ɛ̃", "s"]  (numbers filtered out)
     """
     if not ipa_string:
         return []
@@ -52,8 +54,8 @@ def tokenize_ipa(ipa_string: str) -> List[str]:
     ipa = ipa_string.strip()
     
     while i < len(ipa):
-        # Skip spaces and delimiters
-        if ipa[i] in ' .ˈˌ':
+        # Skip spaces, delimiters, and numbers (which shouldn't be in valid IPA)
+        if ipa[i] in ' .ˈˌ0123456789':
             i += 1
             continue
         
@@ -82,7 +84,10 @@ def tokenize_ipa(ipa_string: str) -> List[str]:
                 matched = True
         
         if not matched:
-            phonemes.append(ipa[i])
+            # Filter out arrows and other non-IPA characters that might slip through
+            char = ipa[i]
+            if char not in ['→', '↓', '↑', '←', ',', '>', '<', '(', ')', '[', ']', '{', '}']:
+                phonemes.append(char)
             i += 1
     
     return phonemes

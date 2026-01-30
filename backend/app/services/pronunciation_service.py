@@ -225,7 +225,18 @@ class PronunciationService:
             IPA representation string
         """
         try:
-            ipa = self.epi.transliterate(text)
+            # Clean input: remove numbers and special chars that epitran can't handle
+            # Keep only letters, spaces, hyphens, and apostrophes
+            import re
+            cleaned_text = re.sub(r'[^a-zA-ZàâäæçéèêëïîôœùûüœÀÂÄÆÇÉÈÊËÏÎÔŒÙÛÜŒ\s\-\']', '', text)
+            cleaned_text = cleaned_text.strip()
+            
+            if not cleaned_text:
+                # If no pronounceable characters, return empty
+                logger.warning(f"⚠️ No pronounceable characters in '{text}'")
+                return ""
+            
+            ipa = self.epi.transliterate(cleaned_text)
             return ipa
         except Exception as e:
             logger.warning(f"⚠️ IPA conversion failed for '{text}': {e}")
