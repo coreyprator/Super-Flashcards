@@ -10,7 +10,7 @@ from app.database import get_db
 from app.services.elevenlabs_service import ElevenLabsService
 from app.services.storage_service import upload_to_gcs, download_from_gcs
 from app import crud
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/voice-clone", tags=["voice-clone"])
 
@@ -18,9 +18,19 @@ router = APIRouter(prefix="/voice-clone", tags=["voice-clone"])
 @router.get("/status")
 async def get_voice_clone_status(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_optional)
 ):
-    """Check if user has a voice clone set up."""
+    """Check if user has a voice clone set up. Returns empty if not authenticated."""
+    if not current_user:
+        return {
+            "has_voice_clone": False,
+            "clone_id": None,
+            "voice_name": None,
+            "status": None,
+            "usage_count": 0,
+            "authenticated": False
+        }
+    
     clone = crud.get_user_voice_clone(db, current_user.id)
 
     return {
@@ -28,7 +38,8 @@ async def get_voice_clone_status(
         "clone_id": clone.CloneID if clone else None,
         "voice_name": clone.VoiceName if clone else None,
         "status": clone.Status if clone else None,
-        "usage_count": clone.UsageCount if clone else 0
+        "usage_count": clone.UsageCount if clone else 0,
+        "authenticated": True
     }
 
 
