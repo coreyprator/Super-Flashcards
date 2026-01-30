@@ -631,9 +631,13 @@ class PronunciationRecorder {
   
   async startRecording() {
     console.log('🎤 Starting recording...');
+    window.pronunciationDebugger?.log('info', 'Starting recording');
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      window.pronunciationDebugger?.log('info', 'Microphone access granted', {
+        tracks: stream.getAudioTracks().map(t => ({ label: t.label, enabled: t.enabled }))
+      });
       
       // Create audio context for visualization
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -655,6 +659,7 @@ class PronunciationRecorder {
       this.mediaRecorder.start();
       this.isRecording = true;
       this.startTime = Date.now();
+      window.pronunciationDebugger?.log('info', 'MediaRecorder started');
       
       // Update UI
       this.recordButton.disabled = true;
@@ -672,6 +677,7 @@ class PronunciationRecorder {
       
     } catch (error) {
       console.error('❌ Error accessing microphone:', error);
+      window.pronunciationDebugger?.log('error', 'Microphone access failed', { error: error.message });
       this.recordingMessage.textContent = '❌ Unable to access microphone. Check permissions.';
       alert('Unable to access your microphone. Please check permissions.');
     }
@@ -679,6 +685,7 @@ class PronunciationRecorder {
   
   stopRecording({ submit = false } = {}) {
     console.log('⏹️ Stopping recording...');
+    window.pronunciationDebugger?.log('info', 'Stopping recording', { submit });
     
     if (!this.mediaRecorder) return;
     
@@ -695,8 +702,12 @@ class PronunciationRecorder {
     
     // Wait for onstop to fire
     this.mediaRecorder.onstop = async () => {
+      window.pronunciationDebugger?.log('info', 'MediaRecorder stopped', {
+        chunks: this.audioChunks.length
+      });
       if (this.audioChunks.length === 0) {
         console.error('❌ No audio chunks captured!');
+        window.pronunciationDebugger?.log('warn', 'No audio chunks captured');
         this.recordingMessage.textContent = '❌ Recording failed - no audio captured';
         this.recordButton.disabled = false;
         return;
@@ -704,9 +715,14 @@ class PronunciationRecorder {
       
       this.recordedBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
       console.log(`✅ Recording stopped. Size: ${this.recordedBlob.size} bytes, Chunks: ${this.audioChunks.length}`);
+      window.pronunciationDebugger?.log('info', 'Recording blob created', {
+        size: this.recordedBlob.size,
+        chunks: this.audioChunks.length
+      });
       
       if (this.recordedBlob.size === 0) {
         console.error('❌ Audio blob is empty!');
+        window.pronunciationDebugger?.log('error', 'Audio blob empty');
         this.recordingMessage.textContent = '❌ Recording failed - no audio data';
         this.recordButton.disabled = false;
         return;
@@ -721,6 +737,7 @@ class PronunciationRecorder {
       
       if (submit) {
         console.log('🔄 Auto-submitting via onstop handler');
+        window.pronunciationDebugger?.log('info', 'Auto-submitting recording');
         await this.submitRecording();
       }
     };
@@ -883,6 +900,10 @@ class PronunciationRecorder {
     if (!this.recordedBlob) return;
     
     console.log('📤 Submitting recording...');
+    window.pronunciationDebugger?.log('info', 'Submitting recording', {
+      blobSize: this.recordedBlob.size,
+      durationMs: this.recordingDuration
+    });
     this.recordingMessage.textContent = '⏳ Analyzing pronunciation...';
     this.recordButton.disabled = true;
     this.stopButton.disabled = true;
@@ -899,6 +920,10 @@ class PronunciationRecorder {
         body: formData,
         credentials: 'include'
       });
+      window.pronunciationDebugger?.log('info', 'API response received', {
+        status: response.status,
+        ok: response.ok
+      });
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -906,6 +931,11 @@ class PronunciationRecorder {
       
       const result = await response.json();
       console.log('✅ Analysis complete:', result);
+      window.pronunciationDebugger?.log('info', 'Analysis complete', {
+        success: result.success,
+        error: result.error,
+        transcription: result.transcribed_text?.substring(0, 30)
+      });
       
       await this.displayResults(result);
       this.recordingMessage.textContent = '✅ Analysis complete!';
@@ -915,6 +945,7 @@ class PronunciationRecorder {
       
     } catch (error) {
       console.error('❌ Error submitting recording:', error);
+      window.pronunciationDebugger?.log('error', 'Submission failed', { error: error.message });
       this.recordingMessage.textContent = `❌ Error: ${error.message}`;
     } finally {
       if (!this.isRecording) {
@@ -935,11 +966,13 @@ class PronunciationRecorder {
     container.innerHTML = '';
 
     if (!window.voiceClone || typeof window.voiceClone.checkStatus !== 'function') {
+      window.pronunciationDebugger?.log('warn', 'voiceClone not initialized');
       return;
     }
 
     try {
       const status = await window.voiceClone.checkStatus();
+      window.pronunciationDebugger?.log('info', 'Voice clone status', status || {});
       const languageCode = this.config.languageCode || 'fr';
 
       if (status?.has_voice_clone) {
@@ -983,11 +1016,56 @@ class PronunciationRecorder {
         });
       });
     } catch (error) {
+      window.pronunciationDebugger?.log('error', 'Voice clone status failed', { error: error.message });
       console.warn('Voice clone status unavailable:', error);
     }
   }
   
   async displayResults(result) {
+    // Handle error states gracefully
+    if (result.error === 'no_audio') {
+      this.resultsContainer.innerHTML = `
+        <div class="pronunciation-error-state">
+          <div class="error-icon">🎤</div>
+          <h3>No Audio Detected</h3>
+          <p>We couldn't record any audio. Please check:</p>
+          <ul>
+            <li>Microphone permission is granted</li>
+            <li>Your microphone is not muted</li>
+            <li>Microphone is properly connected</li>
+          </ul>
+          <button onclick="window.pronunciationRecorder?.reset()" class="btn btn-primary">
+            🔄 Try Again
+          </button>
+        </div>
+      `;
+      this.resultsContainer.style.display = 'block';
+      this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    
+    if (result.error === 'no_speech' || !result.transcribed_text || result.transcribed_text.trim() === '') {
+      this.resultsContainer.innerHTML = `
+        <div class="pronunciation-warning-state">
+          <div class="warning-icon">🔇</div>
+          <h3>No Speech Detected</h3>
+          <p>We couldn't hear any words. Please try again:</p>
+          <ul>
+            <li>Speak louder and closer to the microphone</li>
+            <li>Reduce background noise</li>
+            <li>Make sure you're speaking during the recording</li>
+          </ul>
+          <button onclick="window.pronunciationRecorder?.reset()" class="btn btn-primary">
+            🔄 Try Again
+          </button>
+        </div>
+      `;
+      this.resultsContainer.style.display = 'block';
+      this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    
+    // Normal results display
     // Set overall score
     const scorePercentage = Math.round(result.overall_score * 100);
     const scoreCircle = document.getElementById('score-circle');
@@ -1139,7 +1217,120 @@ class PronunciationRecorder {
     
     statsContainer.innerHTML = html;
   }
+  
+  reset() {
+    /**
+     * Reset recorder to initial state for retry
+     */
+    console.log('🔄 Resetting recorder');
+    this.audioChunks = [];
+    this.recordedBlob = null;
+    this.isRecording = false;
+    
+    // Reset buttons
+    if (this.recordButton) {
+      this.recordButton.disabled = false;
+      this.recordButton.innerHTML = '<span class="icon">🎤</span> Start Recording (Space/Enter)';
+    }
+    if (this.stopButton) {
+      this.stopButton.disabled = true;
+    }
+    if (this.playbackButton) {
+      this.playbackButton.disabled = true;
+    }
+    
+    // Hide results
+    if (this.resultsContainer) {
+      this.resultsContainer.style.display = 'none';
+    }
+    
+    // Reset time display
+    const timeDisplay = document.getElementById('recording-time');
+    if (timeDisplay) {
+      timeDisplay.textContent = '00:00';
+    }
+    
+    // Reset message
+    const messageEl = document.getElementById('recording-message');
+    if (messageEl) {
+      messageEl.textContent = '';
+    }
+  }
 }
+
+/**
+ * Pronunciation Debugger - Utility for capturing and exporting debug logs
+ */
+class PronunciationDebugger {
+  constructor() {
+    this.logs = [];
+    this.sessionId = Math.random().toString(36).substr(2, 8);
+    this.enabled = true;  // Set to false in production if needed
+  }
+  
+  log(level, message, data = {}) {
+    if (!this.enabled) return;
+    
+    const entry = {
+      time: new Date().toISOString(),
+      session: this.sessionId,
+      level,
+      message,
+      data
+    };
+    
+    this.logs.push(entry);
+    
+    // Log to console with appropriate level
+    const consoleMethod = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
+    console[consoleMethod](`[Pronunciation ${this.sessionId}] ${message}`, data);
+    
+    // Keep last 100 entries
+    if (this.logs.length > 100) this.logs.shift();
+    
+    // Store in sessionStorage for persistence across page reloads
+    try {
+      sessionStorage.setItem('pronunciation_debug', JSON.stringify(this.logs));
+    } catch (e) {
+      // Ignore storage errors
+    }
+  }
+  
+  exportLogs() {
+    const logs = JSON.stringify(this.logs, null, 2);
+    console.log('=== PRONUNCIATION DEBUG EXPORT ===\n' + logs);
+    
+    // Also copy to clipboard if available
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(logs).then(() => {
+        console.log('✅ Logs copied to clipboard');
+      }).catch(err => {
+        console.warn('Could not copy to clipboard:', err);
+      });
+    }
+    
+    return logs;
+  }
+  
+  clear() {
+    this.logs = [];
+    try {
+      sessionStorage.removeItem('pronunciation_debug');
+    } catch (e) {
+      // Ignore
+    }
+    console.log('🗑️ Debug logs cleared');
+  }
+}
+
+// Create global debug instance
+window.pronunciationDebugger = new PronunciationDebugger();
+
+// Export debug function for console use
+window.exportPronunciationLogs = () => window.pronunciationDebugger.exportLogs();
+window.clearPronunciationLogs = () => window.pronunciationDebugger.clear();
+
+console.log('🐛 Pronunciation debugging enabled. Use window.exportPronunciationLogs() to export logs.');
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

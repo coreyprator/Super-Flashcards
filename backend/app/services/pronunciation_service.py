@@ -13,10 +13,11 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app import models
 from app.services.gemini_service import GeminiPronunciationService
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class PronunciationService:
             user_id: User's unique ID
             flashcard_id: Flashcard being practiced
             db: Database session for storing attempt
+            language_code: Language code for processing
         
         Returns:
             {
@@ -67,26 +69,108 @@ class PronunciationService:
                 "overall_score": float (0.0-1.0),
                 "word_scores": list,
                 "ipa_target": str,
-                "feedback": str
+                "feedback": str,
+                "error": Optional[str],  # "no_audio", "no_speech", etc.
             }
         """
+        # Generate unique request ID for tracking
+        request_id = str(uuid.uuid4())[:8]
+        start_time = time.time()
+        
+        def log_step(step: str, status: str, data: dict = None, duration_ms: int = None):
+            """Helper to log each processing step with consistent format."""
+            elapsed = int((time.time() - start_time) * 1000) if duration_ms is None else duration_ms
+            log_data = {
+                "request_id": request_id,
+                "user_id": user_id,
+                "step": step,
+                "status": status,
+                "elapsed_ms": elapsed,
+                **(data or {})
+            }
+            logger.info(f"[{request_id}] {step}: {status} ({elapsed}ms) {json.dumps(data or {})}")
+            return log_data
+        
         try:
-            logger.info(f"🎤 Analyzing pronunciation for flashcard {flashcard_id}")
+            log_step("START", "processing", {
+                "target_text": target_text[:30],
+                "language_code": language_code,
+                "audio_bytes": len(audio_content) if audio_content else 0
+            })
             
-            # 1. Upload audio to GCS
-            audio_url = await self._upload_audio(audio_content, user_id, flashcard_id)
-            logger.info(f"✅ Audio uploaded to GCS: {audio_url}")
+            # STEP 1: Validate audio content
+            if not audio_content or len(audio_content) < 1000:
+                log_step("AUDIO_VALIDATION", "FAILED", {
+                    "reason": "audio_too_small",
+                    "size": len(audio_content) if audio_content else 0
+                })
+                return {
+                    "success": False,
+                    "error": "no_audio",
+                    "message": "No audio detected. Please check your microphone and try again.",
+                    "transcribed_text": "",
+                    "overall_score": 0,
+                    "word_scores": [],
+                    "ipa_target": self._text_to_ipa(target_text),
+                    "ipa_transcribed": "",
+                    "ipa_diff": None,
+                    "feedback": "🎤 No audio detected. Please enable your microphone and try again."
+                }
             
-            # 2. Transcribe with Google Cloud Speech-to-Text
-            transcription = await self._transcribe_audio(audio_content)
-            logger.info(f"✅ Transcription complete: {transcription['transcript']}")
+            log_step("AUDIO_VALIDATION", "success", {"size": len(audio_content)})
             
-            # 3. Generate IPA for target and transcribed text
-            ipa_target = self._text_to_ipa(target_text)
-            ipa_transcribed = self._text_to_ipa(transcription['transcript'])
-            logger.info(f"✅ IPA generated: {ipa_target}")
+            # STEP 2: Upload audio to GCS
+            try:
+                audio_url = await self._upload_audio(audio_content, user_id, flashcard_id)
+                log_step("AUDIO_UPLOAD", "success", {"url": audio_url[:50] + "..."})
+            except Exception as e:
+                log_step("AUDIO_UPLOAD", "FAILED", {"error": str(e)})
+                logger.error(f"[{request_id}] ❌ Audio upload failed: {e}")
+                # Continue anyway - upload failure shouldn't block analysis
+                audio_url = None
             
-            # 4. Run Gemini coaching (non-blocking fallback)
+            # STEP 3: Transcribe with Google Cloud Speech-to-Text
+            try:
+                transcription = await self._transcribe_audio(audio_content, language_code)
+                log_step("STT", "success", {
+                    "transcription": transcription['transcript'][:50],
+                    "confidence": transcription['overall_confidence'],
+                    "words": len(transcription['word_scores'])
+                })
+            except Exception as e:
+                log_step("STT", "FAILED", {"error": str(e)})
+                raise
+            
+            # Check for empty transcription
+            if not transcription['transcript'] or not transcription['transcript'].strip():
+                log_step("STT", "EMPTY_RESULT", {"transcript_len": len(transcription.get('transcript', ''))})
+                return {
+                    "success": True,
+                    "error": "no_speech",
+                    "message": "No speech detected. Please speak louder and closer to the microphone.",
+                    "transcribed_text": "",
+                    "overall_score": 0,
+                    "word_scores": [],
+                    "ipa_target": self._text_to_ipa(target_text),
+                    "ipa_transcribed": "",
+                    "ipa_diff": None,
+                    "feedback": "🔇 No speech detected. Please speak louder and try again."
+                }
+            
+            # STEP 4: Generate IPA for target and transcribed text
+            try:
+                ipa_target = self._text_to_ipa(target_text)
+                ipa_transcribed = self._text_to_ipa(transcription['transcript'])
+                log_step("IPA", "success", {
+                    "target": ipa_target[:30],
+                    "spoken": ipa_transcribed[:30]
+                })
+            except Exception as e:
+                log_step("IPA", "FAILED", {"error": str(e)})
+                logger.warning(f"[{request_id}] ⚠️ IPA generation failed: {e}")
+                ipa_target, ipa_transcribed = "", ""
+            
+            # STEP 5: Run Gemini coaching (non-blocking fallback)
             gemini_service = GeminiPronunciationService(db)
             gemini_result = None
             if gemini_service.is_available():
@@ -98,6 +182,81 @@ class PronunciationService:
                         language_code=language_code,
                         stt_word_scores=transcription['word_scores']
                     )
+                    log_step("GEMINI", "success", {
+                        "clarity": gemini_result.get("results", {}).get("clarity_score") if gemini_result else None
+                    })
+                except Exception as e:
+                    log_step("GEMINI", "FAILED", {"error": str(e)})
+                    logger.warning(f"[{request_id}] ⚠️ Gemini analysis failed (non-blocking): {e}")
+            else:
+                log_step("GEMINI", "skipped", {"reason": "not_available"})
+            
+            # STEP 6: Build feedback and calculate adjusted score
+            if gemini_result and gemini_result.get("success"):
+                feedback = self._build_rich_feedback(
+                    gemini_result.get("results", {}),
+                    transcription['word_scores']
+                )
+            else:
+                feedback = self._build_basic_feedback(
+                    transcription['word_scores'],
+                    transcription['transcript'],
+                    target_text
+                )
+            
+            # Calculate overall score: prioritize transcription match over confidence
+            overall_score, _ = self._calculate_overall_score(
+                target_text,
+                transcription['transcript'],
+                transcription['overall_confidence']
+            )
+            
+            # Generate IPA diff with color-coding info
+            ipa_diff = compare_ipa(ipa_target, ipa_transcribed) if ipa_target and ipa_transcribed else None
+            
+            log_step("IPA_DIFF", "success", {
+                "match_ratio": ipa_diff.get("match_ratio") if ipa_diff else 0
+            })
+            
+            # STEP 7: Store attempt in database
+            attempt_id = await self._store_attempt(
+                db=db,
+                flashcard_id=flashcard_id,
+                user_id=user_id,
+                audio_url=audio_url,
+                target_text=target_text,
+                transcribed_text=transcription['transcript'],
+                overall_confidence=overall_score,  # Use adjusted score
+                word_scores=transcription['word_scores'],
+                ipa_target=ipa_target,
+                ipa_transcribed=ipa_transcribed,
+                gemini_result=gemini_result
+            )
+            log_step("DB_STORE", "success", {"attempt_id": attempt_id})
+            
+            log_step("COMPLETE", "success", {
+                "overall_score": overall_score,
+                "transcribed_text": transcription['transcript'][:30]
+            })
+            
+            return {
+                "success": True,
+                "attempt_id": attempt_id,
+                "target_text": target_text,
+                "transcribed_text": transcription['transcript'],
+                "overall_score": overall_score,  # Adjusted score
+                "word_scores": transcription['word_scores'],
+                "ipa_target": ipa_target,
+                "ipa_transcribed": ipa_transcribed,
+                "ipa_diff": ipa_diff,  # NEW: Phoneme-by-phoneme comparison with color info
+                "feedback": feedback,
+                "coaching": gemini_result.get("results") if gemini_result and gemini_result.get("success") else None
+            }
+        
+        except Exception as e:
+            log_step("ERROR", "FAILED", {"error": str(e), "type": type(e).__name__})
+            logger.error(f"[{request_id}] ❌ Error analyzing pronunciation: {e}", exc_info=True)
+            raise
                 except Exception as e:
                     logger.warning(f"⚠️ Gemini analysis failed (non-blocking): {e}")
             
@@ -157,12 +316,13 @@ class PronunciationService:
             logger.error(f"❌ Error analyzing pronunciation: {e}")
             raise
     
-    async def _transcribe_audio(self, audio_content: bytes) -> Dict[str, Any]:
+    async def _transcribe_audio(self, audio_content: bytes, language_code: str = "fr") -> Dict[str, Any]:
         """
         Call Google Cloud Speech-to-Text with word-level confidence enabled.
         
         Args:
             audio_content: Raw audio bytes
+            language_code: Language code for speech recognition (e.g., "fr", "es", "de")
         
         Returns:
             {
@@ -172,16 +332,30 @@ class PronunciationService:
             }
         """
         try:
+            # Map language codes to Google STT language codes
+            lang_map = {
+                "fr": "fr-FR",
+                "es": "es-ES",
+                "de": "de-DE",
+                "it": "it-IT",
+                "pt": "pt-PT",
+                "en": "en-US",
+                "ja": "ja-JP",
+                "zh": "zh-CN",
+                "el": "el-GR"
+            }
+            stt_language = lang_map.get(language_code, "fr-FR")
+            
             audio = speech.RecognitionAudio(content=audio_content)
             config = speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
                 sample_rate_hertz=48000,
-                language_code="fr-FR",
+                language_code=stt_language,
                 enable_word_confidence=True,
                 enable_automatic_punctuation=True,
             )
             
-            logger.info("📞 Calling Google Cloud Speech-to-Text API")
+            logger.info(f"📞 Calling Google Cloud Speech-to-Text API ({stt_language})")
             response = self.speech_client.recognize(config=config, audio=audio)
             
             word_scores = []
