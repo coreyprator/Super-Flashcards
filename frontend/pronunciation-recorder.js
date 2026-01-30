@@ -48,6 +48,7 @@ class PronunciationRecorder {
     console.log('🎤 Initializing PronunciationRecorder');
     this.render();
     this.setupEventListeners();
+    this.setupGlobalClickHandlers();
     this.loadProgress();
   }
   
@@ -613,6 +614,20 @@ class PronunciationRecorder {
     const closeResultsBtn = document.getElementById('close-results');
     closeResultsBtn?.addEventListener('click', () => this.closeResults());
   }
+
+  setupGlobalClickHandlers() {
+    // Global handler to catch stop button click even if local handler fails
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      const stopBtn = target && (target.id === 'stop-btn' || target.closest?.('#stop-btn'));
+      if (stopBtn && this.isRecording) {
+        console.log('🧲 Global stop click handler fired');
+        e.preventDefault();
+        e.stopPropagation();
+        this.stopRecording({ submit: true });
+      }
+    }, true);
+  }
   
   async startRecording() {
     console.log('🎤 Starting recording...');
@@ -931,8 +946,7 @@ class PronunciationRecorder {
         const safeText = encodeURIComponent(result.target_text || '');
         container.innerHTML = `
           <div class="personalized-reference">
-            <button class="personalized-audio-btn" 
-                    onclick="voiceClone.playPersonalizedAudio(decodeURIComponent('${safeText}'), '${languageCode}')">
+            <button class="personalized-audio-btn" data-action="play-personalized" data-text="${safeText}" data-lang="${languageCode}">
               🎙️ Hear Yourself Say It Correctly
             </button>
           </div>
@@ -941,12 +955,33 @@ class PronunciationRecorder {
         container.innerHTML = `
           <div class="clone-prompt-banner">
             <p>Want to hear <strong>yourself</strong> say it correctly?</p>
-            <button onclick="showVoiceCloneSetup()" class="btn btn-secondary">
+            <button class="btn btn-secondary" data-action="show-voice-clone">
               🎙️ Create Voice Profile
             </button>
           </div>
         `;
       }
+
+      // Attach event listeners
+      container.querySelectorAll('[data-action="play-personalized"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const text = decodeURIComponent(btn.getAttribute('data-text') || '');
+          const lang = btn.getAttribute('data-lang') || languageCode;
+          if (window.voiceClone?.playPersonalizedAudio) {
+            await window.voiceClone.playPersonalizedAudio(text, lang);
+          }
+        });
+      });
+
+      container.querySelectorAll('[data-action="show-voice-clone"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (window.showVoiceCloneSetup) {
+            window.showVoiceCloneSetup();
+          }
+        });
+      });
     } catch (error) {
       console.warn('Voice clone status unavailable:', error);
     }

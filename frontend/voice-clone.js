@@ -32,8 +32,14 @@ class VoiceCloneManager {
      * Render the voice clone setup prompt
      */
     renderSetupPrompt(containerId = 'voice-clone-container') {
-        const container = document.getElementById(containerId);
-        if (!container) return;
+        let container = document.getElementById(containerId);
+        if (!container) {
+            // Fallback: create container if missing
+            container = document.createElement('div');
+            container.id = containerId;
+            container.className = 'voice-clone-setup-fallback';
+            document.body.appendChild(container);
+        }
 
         container.innerHTML = `
             <div class="voice-clone-setup">
@@ -85,6 +91,7 @@ class VoiceCloneManager {
                 </div>
             </div>
         `;
+        console.log('🎙️ Voice clone setup UI rendered');
     }
 
     /**
