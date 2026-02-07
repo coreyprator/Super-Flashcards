@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.8.21';
+        window.APP_VERSION = '2.10.2';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -53,7 +53,7 @@
     
     <!-- Deep Analysis Styles - Sprint 8.5b -->
     <link rel="stylesheet" href="/pronunciation-deep-analysis.css?v=8.5b">
-    <link rel="stylesheet" href="/voice-clone.css?v=2.8.21">
+    <link rel="stylesheet" href="/voice-clone.css?v=2.9.1">
     
     <!-- TIMING CHECKPOINT T1c: Head Resources Loaded -->
     <script>
@@ -140,7 +140,7 @@
         .flashcard.flipped .flashcard-inner {
             transform: rotateY(180deg);
         }
-        
+
         .flashcard-front, .flashcard-back {
             backface-visibility: hidden;
             position: absolute;
@@ -148,7 +148,13 @@
             left: 0;
             width: 100%;
         }
-        
+
+        /* BUG-007 fix: When flipped, disable pointer events on the hidden
+           front face so clicks reach the back face (recorder buttons, etc.) */
+        .flashcard.flipped .flashcard-front {
+            pointer-events: none;
+        }
+
         .flashcard-back {
             transform: rotateY(180deg);
         }
@@ -264,6 +270,12 @@
             opacity: 1;
             transform: translateY(0) scale(1);
             transition: all 150ms ease-out;
+        }
+
+        /* Mobile-responsive nav: emoji-only on small screens */
+        @media (max-width: 640px) {
+            .mode-button { padding: 6px 10px; font-size: 13px; }
+            .mode-button-label { display: none; }
         }
     </style>
     
@@ -418,7 +430,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v2.8.21</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v2.10.2</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -508,16 +520,19 @@
                 <!-- Mode Toggle -->
                 <div class="flex items-center bg-gray-100 rounded-lg p-1">
                     <button id="mode-study" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white">
-                        📚 Study
+                        📚 <span class="mode-button-label">Study</span>
                     </button>
                     <button id="mode-read" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        📄 Read
+                        📄 <span class="mode-button-label">Read</span>
+                    </button>
+                    <button id="mode-practice" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
+                        🎙 <span class="mode-button-label">Practice</span>
                     </button>
                     <button id="mode-browse" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        📖 Browse
+                        📖 <span class="mode-button-label">Browse</span>
                     </button>
                     <button id="mode-import" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        📁 Import
+                        📁 <span class="mode-button-label">Import</span>
                     </button>
                 </div>
                 
@@ -564,7 +579,17 @@
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Practice Mode -->
+                <div id="practice-mode" class="mode-content hidden">
+                    <div id="practice-card-container">
+                        <div class="text-center text-gray-500 py-12">
+                            <p class="text-lg mb-4">Select a language to start practicing pronunciation</p>
+                            <p class="text-sm">Practice mode focuses on recording and improving your pronunciation</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Browse Mode -->
                 <div id="browse-mode" class="mode-content hidden">
                     <!-- Search and Filters -->
@@ -1406,10 +1431,10 @@
     <script>
         window.timingCheckpoint('T5m-loading-app-js', 'Loading app.js (MAIN APP)');
     </script>
-    <script src="/pronunciation-recorder.js?v=2.8.21"></script>
-    <script src="/voice-clone.js?v=2.8.21"></script>
+    <script src="/pronunciation-recorder.js?v=2.10.3"></script>
+    <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
-    <script src="/app.js?v=2.8.21"></script>
+    <script src="/app.js?v=2.10.2"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         

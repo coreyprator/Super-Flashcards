@@ -11,6 +11,23 @@ class VoiceCloneManager {
         this.audioChunks = [];
         this.samples = [];
         this.requiredSamples = 1;  // Minimum samples (~30 sec total recommended)
+        this.currentFlashcard = null;  // Set by app.js when rendering flashcard
+    }
+
+    /**
+     * Set the current flashcard context (called from app.js)
+     */
+    setFlashcardContext({ text, languageCode }) {
+        this.currentFlashcard = { text, languageCode };
+    }
+
+    /**
+     * Get auth headers for API requests
+     */
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token') ||
+            (window.auth && window.auth.getToken());
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
     }
 
     /**
@@ -18,7 +35,10 @@ class VoiceCloneManager {
      */
     async checkStatus() {
         try {
-            const response = await fetch(`${this.apiBase}/status`);
+            const response = await fetch(`${this.apiBase}/status`, {
+                headers: this.getAuthHeaders(),
+                credentials: 'include'
+            });
             const data = await response.json();
             this.hasClone = !!data.has_voice_clone;
             return data;
@@ -29,16 +49,22 @@ class VoiceCloneManager {
     }
 
     /**
-     * Render the voice clone setup prompt
+     * Render the voice clone setup prompt (or active UI if clone exists)
      */
-    renderSetupPrompt(containerId = 'voice-clone-container') {
+    async renderSetupPrompt(containerId = 'voice-clone-container') {
         let container = document.getElementById(containerId);
         if (!container) {
-            // Fallback: create container if missing
             container = document.createElement('div');
             container.id = containerId;
             container.className = 'voice-clone-setup-fallback';
             document.body.appendChild(container);
+        }
+
+        // Check status first — if clone exists, show active UI
+        await this.checkStatus();
+        if (this.hasClone) {
+            this.renderActiveUI(container);
+            return;
         }
 
         container.innerHTML = `
@@ -119,6 +145,7 @@ class VoiceCloneManager {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
                 this.samples.push(audioBlob);
                 this.updateSamplesList();
+                this.updateRecordingUI(false);
                 stream.getTracks().forEach(track => track.stop());
             };
 
@@ -136,7 +163,7 @@ class VoiceCloneManager {
         if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
             this.mediaRecorder.stop();
             this.isRecording = false;
-            this.updateRecordingUI(false);
+            // UI update happens in onstop handler after sample is saved
         }
     }
 
@@ -208,6 +235,8 @@ class VoiceCloneManager {
 
             const response = await fetch(`${this.apiBase}/create`, {
                 method: 'POST',
+                headers: this.getAuthHeaders(),
+                credentials: 'include',
                 body: formData
             });
 
@@ -233,15 +262,70 @@ class VoiceCloneManager {
     showSuccess() {
         const container = document.querySelector('.voice-clone-setup');
         if (container) {
-            container.innerHTML = `
-                <div class="vc-success">
-                    <h3>🎉 Voice Profile Created!</h3>
-                    <p>You'll now hear yourself in pronunciation practice examples.</p>
-                    <button onclick="location.reload()" class="btn btn-primary">
-                        Start Practicing
-                    </button>
+            this.hasClone = true;
+            this.renderActiveUI(container.parentElement || container);
+        }
+    }
+
+    /**
+     * Render UI when voice clone is active and ready to use
+     */
+    renderActiveUI(container) {
+        container.innerHTML = `
+            <div class="voice-clone-active" style="background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border-radius: 12px; padding: 16px; margin-top: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 1.2em;">🎙️</span>
+                    <strong style="color: #2e7d32;">Voice Profile Active</strong>
                 </div>
-            `;
+                <p style="color: #555; font-size: 0.9em; margin: 0 0 12px 0;">
+                    Hear yourself say the current word with correct pronunciation.
+                </p>
+                <button id="vc-play-btn" class="btn btn-primary" onclick="voiceClone.playCurrentWord()"
+                    style="background: #4caf50; border: none; padding: 8px 16px; border-radius: 8px; color: white; cursor: pointer;">
+                    🔊 Hear Yourself Say It
+                </button>
+                <div id="vc-play-status" style="margin-top: 8px; font-size: 0.85em; color: #666;"></div>
+            </div>
+        `;
+    }
+
+    /**
+     * Play the current flashcard word using the cloned voice
+     */
+    async playCurrentWord() {
+        const statusEl = document.getElementById('vc-play-status');
+        const playBtn = document.getElementById('vc-play-btn');
+
+        if (!this.currentFlashcard) {
+            if (statusEl) statusEl.textContent = 'No flashcard context. Try flipping the card first.';
+            return;
+        }
+
+        const text = this.currentFlashcard.text;
+        const languageCode = this.currentFlashcard.languageCode;
+
+        if (playBtn) {
+            playBtn.disabled = true;
+            playBtn.innerHTML = '⏳ Generating...';
+        }
+        if (statusEl) statusEl.textContent = `Generating "${text}" in your voice...`;
+
+        const result = await this.generatePronunciation(text, languageCode);
+
+        if (result.success && result.audio_base64) {
+            const audio = new Audio(`data:audio/mpeg;base64,${result.audio_base64}`);
+            audio.play();
+            if (statusEl) statusEl.textContent = `Playing "${text}"`;
+            audio.onended = () => {
+                if (statusEl) statusEl.textContent = '';
+            };
+        } else {
+            if (statusEl) statusEl.textContent = `Error: ${result.error || 'Failed to generate audio'}`;
+        }
+
+        if (playBtn) {
+            playBtn.disabled = false;
+            playBtn.innerHTML = '🔊 Hear Yourself Say It';
         }
     }
 
@@ -256,7 +340,11 @@ class VoiceCloneManager {
         try {
             const response = await fetch(
                 `${this.apiBase}/generate/${languageCode}?text=${encodeURIComponent(text)}`,
-                { method: 'POST' }
+                {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    credentials: 'include'
+                }
             );
 
             if (!response.ok) {

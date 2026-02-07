@@ -3,7 +3,7 @@
 // Version: 2.8.7 (AttemptID INT IDENTITY alignment)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.8.21';
+const APP_JS_VERSION = '2.10.2'; // Practice Tab Mini-Sprint
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -521,6 +521,9 @@ async function loadFlashcards(options = {}) {
             } else if (state.currentMode === 'read') {
                 // In read mode, render read card
                 renderReadCard(flashcards[0]);
+            } else if (state.currentMode === 'practice') {
+                // In practice mode, render practice card
+                renderPracticeCard(flashcards[0]);
             } else {
                 // In study mode (default), render flashcard
                 renderFlashcard(flashcards[0]);
@@ -1230,9 +1233,12 @@ function renderFlashcard(flashcard) {
         </div>
     `;
     
-    // Initialize pronunciation recorder if available
+    // Initialize pronunciation recorder if available (destroy previous instance first)
     if (typeof PronunciationRecorder !== 'undefined') {
         setTimeout(() => {
+            if (window.pronunciationRecorder) {
+                window.pronunciationRecorder.destroy();
+            }
             const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
             const currentLanguage = state.languages?.find(lang => lang.id === state.currentLanguage);
             window.pronunciationRecorder = new PronunciationRecorder({
@@ -1246,7 +1252,19 @@ function renderFlashcard(flashcard) {
             });
         }, 100);
     }
-    
+
+    // Initialize voice clone UI if available
+    if (typeof VoiceCloneManager !== 'undefined' && window.voiceClone) {
+        setTimeout(() => {
+            const currentLanguage = state.languages?.find(lang => lang.id === state.currentLanguage);
+            window.voiceClone.setFlashcardContext({
+                text: flashcard.word_or_phrase,
+                languageCode: currentLanguage?.code || 'fr'
+            });
+            window.voiceClone.renderSetupPrompt('voice-clone-container');
+        }, 150);
+    }
+
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();
 }
@@ -1501,6 +1519,130 @@ function previousReadCard() {
         // Scroll to top of card
         document.getElementById('read-card-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+}
+
+/**
+ * Render a simplified card for Practice mode (pronunciation focus)
+ * Shows word, definition, image, audio button + pronunciation recorder
+ */
+function renderPracticeCard(flashcard) {
+    const container = document.getElementById('practice-card-container');
+    if (!container || !flashcard) return;
+
+    container.innerHTML = `
+        <div class="max-w-3xl mx-auto">
+            <!-- Practice Card: simplified for pronunciation focus -->
+            <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl shadow-2xl p-6">
+                <!-- Header: image + word + definition -->
+                <div class="flex items-center gap-4 mb-4">
+                    ${flashcard.image_url ? `
+                        <img src="${fixAssetUrl(flashcard.image_url)}"
+                             alt="${flashcard.image_description || flashcard.word_or_phrase}"
+                             class="w-20 h-20 object-cover rounded-lg shadow-md border-2 border-white flex-shrink-0">
+                    ` : `
+                        <div class="w-20 h-20 bg-gradient-to-br from-green-200 to-teal-200 rounded-lg shadow-md flex items-center justify-center border-2 border-white flex-shrink-0">
+                            <span class="text-3xl">🎙</span>
+                        </div>
+                    `}
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold text-green-900">${flashcard.word_or_phrase}</h2>
+                        ${flashcard.definition ? `<p class="text-gray-700 mt-1">${flashcard.definition}</p>` : ''}
+                        <div class="mt-2">${getAudioButtonHTML(flashcard)}</div>
+                    </div>
+                </div>
+
+                <!-- Pronunciation Recorder -->
+                <div id="practice-pronunciation-recorder-container"></div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="mt-4 flex justify-between items-center gap-4">
+                <button onclick="previousPracticeCard()"
+                        class="px-6 py-3 bg-white text-green-700 rounded-lg hover:bg-green-50 font-medium shadow-md border border-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        ${state.currentCardIndex === 0 ? 'disabled' : ''}>
+                    ← Previous
+                </button>
+                <div class="text-sm text-green-600 font-medium px-4 py-2 bg-white rounded-lg shadow-sm border border-green-100">
+                    ${state.currentCardIndex + 1} of ${state.flashcards.length}
+                </div>
+                <button onclick="nextPracticeCard()"
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
+                    Next →
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Initialize pronunciation recorder (destroy previous instance first)
+    if (typeof PronunciationRecorder !== 'undefined') {
+        setTimeout(() => {
+            if (window.practicePronunciationRecorder) {
+                window.practicePronunciationRecorder.destroy();
+            }
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const currentLanguage = state.languages?.find(lang => lang.id === state.currentLanguage);
+            window.practicePronunciationRecorder = new PronunciationRecorder({
+                containerSelector: '#practice-pronunciation-recorder-container',
+                flashcardId: flashcard.id,
+                userId: currentUser.id || 'anonymous',
+                targetText: flashcard.word_or_phrase,
+                targetAudioUrl: flashcard.audio_url || null,
+                languageCode: currentLanguage?.code || 'fr',
+                apiBaseUrl: API_BASE.replace('/api', '') + '/api/v1/pronunciation',
+                compactProgress: true
+            });
+        }, 100);
+    }
+
+    // Add swipe support for practice mode navigation
+    addPracticeModeSwipeSupport();
+}
+
+/**
+ * Navigate to next card in practice mode
+ */
+function nextPracticeCard() {
+    if (state.currentCardIndex < state.flashcards.length - 1) {
+        state.currentCardIndex++;
+        renderPracticeCard(state.flashcards[state.currentCardIndex]);
+        document.getElementById('practice-card-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+/**
+ * Navigate to previous card in practice mode
+ */
+function previousPracticeCard() {
+    if (state.currentCardIndex > 0) {
+        state.currentCardIndex--;
+        renderPracticeCard(state.flashcards[state.currentCardIndex]);
+        document.getElementById('practice-card-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+/**
+ * Add swipe support for Practice Mode navigation
+ */
+function addPracticeModeSwipeSupport() {
+    const container = document.getElementById('practice-card-container');
+    if (!container) return;
+
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    container.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) nextPracticeCard();
+            else previousPracticeCard();
+        }
+    }, { passive: true });
 }
 
 /**
@@ -1992,15 +2134,27 @@ document.addEventListener('keydown', (e) => {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
         return;
     }
-    const recorderContainer = document.querySelector('#pronunciation-recorder-container');
+    const recorderContainer = document.querySelector('#pronunciation-recorder-container') || document.querySelector('#practice-pronunciation-recorder-container');
     const recorderVisible = recorderContainer && recorderContainer.offsetParent !== null;
     if (recorderVisible && (e.key === ' ' || e.key === 'Enter')) {
         // Let the recorder handle Space/Enter
         return;
     }
-    
+
     // Handle keyboard navigation based on current mode
-    if (state.currentMode === 'read') {
+    if (state.currentMode === 'practice') {
+        switch(e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                previousPracticeCard();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                nextPracticeCard();
+                break;
+            // Space is reserved for recorder in practice mode
+        }
+    } else if (state.currentMode === 'read') {
         switch(e.key) {
             case 'ArrowLeft':
                 e.preventDefault();
@@ -4456,8 +4610,8 @@ function startBatchStatusPolling() {
 // ========================================
 
 /**
- * Toggle between Study, Read, Browse, and Import modes
- * @param {String} mode - 'study', 'read', 'browse', or 'import'
+ * Toggle between Study, Read, Practice, Browse, and Import modes
+ * @param {String} mode - 'study', 'read', 'practice', 'browse', or 'import'
  */
 function switchMode(mode) {
     console.log(`🔄 Switching to ${mode} mode`);
@@ -4470,33 +4624,37 @@ function switchMode(mode) {
     // Update button states
     const studyBtn = document.getElementById('mode-study');
     const readBtn = document.getElementById('mode-read');
+    const practiceBtn = document.getElementById('mode-practice');
     const browseBtn = document.getElementById('mode-browse');
     const importBtn = document.getElementById('mode-import');
-    
+
     console.log('🔍 Mode containers found:', {
         studyMode: !!document.getElementById('study-mode'),
         readMode: !!document.getElementById('read-mode'),
+        practiceMode: !!document.getElementById('practice-mode'),
         browseMode: !!document.getElementById('browse-mode'),
         importMode: !!document.getElementById('content-import'),
         readContainer: !!document.getElementById('read-card-container')
     });
-    
+
     // Reset all buttons
-    [studyBtn, readBtn, browseBtn, importBtn].forEach(btn => {
+    [studyBtn, readBtn, practiceBtn, browseBtn, importBtn].forEach(btn => {
         if (btn) {
             btn.classList.remove('active', 'bg-indigo-600', 'text-white');
             btn.classList.add('text-gray-600');
         }
     });
-    
+
     // Hide all mode content
     const studyModeEl = document.getElementById('study-mode');
     const readModeEl = document.getElementById('read-mode');
+    const practiceModeEl = document.getElementById('practice-mode');
     const browseModeEl = document.getElementById('browse-mode');
     const importModeEl = document.getElementById('content-import');
-    
+
     if (studyModeEl) studyModeEl.classList.add('hidden');
     if (readModeEl) readModeEl.classList.add('hidden');
+    if (practiceModeEl) practiceModeEl.classList.add('hidden');
     if (browseModeEl) browseModeEl.classList.add('hidden');
     if (importModeEl) importModeEl.classList.add('hidden');
     
@@ -4539,9 +4697,30 @@ function switchMode(mode) {
             renderReadCard(state.flashcards[state.currentCardIndex]);
         }
         
+    } else if (mode === 'practice') {
+        console.log('🎙 Activating Practice mode');
+
+        if (practiceBtn) {
+            practiceBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            practiceBtn.classList.remove('text-gray-600');
+        }
+
+        // Show practice mode content
+        if (practiceModeEl) {
+            practiceModeEl.classList.remove('hidden');
+            console.log('🎙 Practice mode container now visible');
+        } else {
+            console.error('❌ Practice mode element not found!');
+        }
+
+        // Load current card in practice mode
+        if (state.flashcards.length > 0) {
+            renderPracticeCard(state.flashcards[state.currentCardIndex]);
+        }
+
     } else if (mode === 'browse') {
         console.log('📚 Activating Browse mode');
-        
+
         if (browseBtn) {
             browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
             browseBtn.classList.remove('text-gray-600');
@@ -4727,26 +4906,33 @@ function initializeNewUI() {
     // Mode toggle buttons with debugging
     const studyBtn = document.getElementById('mode-study');
     const readBtn = document.getElementById('mode-read');
+    const practiceBtn = document.getElementById('mode-practice');
     const browseBtn = document.getElementById('mode-browse');
     const importBtn = document.getElementById('mode-import');
-    
+
     console.log('🔍 Mode buttons found:', {
         study: !!studyBtn,
         read: !!readBtn,
+        practice: !!practiceBtn,
         browse: !!browseBtn,
         import: !!importBtn
     });
-    
+
     studyBtn?.addEventListener('click', () => {
         console.log('📚 Study button clicked');
         switchMode('study');
     });
-    
+
     readBtn?.addEventListener('click', () => {
         console.log('📄 Read button clicked');
         switchMode('read');
     });
-    
+
+    practiceBtn?.addEventListener('click', () => {
+        console.log('🎙 Practice button clicked');
+        switchMode('practice');
+    });
+
     browseBtn?.addEventListener('click', () => {
         console.log('📖 Browse button clicked');
         switchMode('browse');

@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.8.7 - Align AttemptID to INT IDENTITY
+# Version: 2.9.0 - BUG-006 fix: refresh cookie on OAuth redirect
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,7 +70,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.8.0" + (" [QA]" if IS_QA else "")
+    version="2.9.0" + (" [QA]" if IS_QA else "")
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
@@ -84,14 +84,15 @@ if IS_QA:
 from starlette.middleware.sessions import SessionMiddleware
 
 # Configure session cookie for Cloud Run (HTTPS) and local dev (HTTP)
-# SameSite=Lax allows cookies to be sent on top-level navigation (OAuth redirect)
-# HTTPS_ONLY should be True in production (Cloud Run) but False in local dev
+# SameSite=None + Secure=True required for iOS Safari compatibility.
+# iOS ITP blocks lax cookies on cross-origin OAuth redirects from Google.
+# In local dev, fall back to lax (SameSite=None requires HTTPS).
 IS_CLOUD_RUN = os.getenv("K_SERVICE") is not None
 app.add_middleware(
-    SessionMiddleware, 
+    SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
     https_only=IS_CLOUD_RUN,  # Only require HTTPS in production
-    same_site="lax",  # Allow cookies on redirects (required for OAuth)
+    same_site="none" if IS_CLOUD_RUN else "lax",  # none for iOS compat in prod
 )
 
 # Proxy header middleware for Cloud Run
@@ -504,7 +505,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "1.0.0",
+        "version": "2.9.0",
         "database": "connected"
     }
 

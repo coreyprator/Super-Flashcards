@@ -13,9 +13,10 @@ import os
 import secrets
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))  # Generate random key if not set
+SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))  # Must be persistent via Secret Manager
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 30  # 30-day session duration
+ACCESS_TOKEN_EXPIRE_MINUTES = 15  # Short-lived access token
+REFRESH_TOKEN_EXPIRE_DAYS = 30  # Long-lived refresh token
 
 # Password hashing configuration
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -32,26 +33,43 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token.
-    
-    Args:
-        data: Dictionary containing user data (user_id, email, etc.)
-        expires_delta: Optional custom expiration time
-    
-    Returns:
-        Encoded JWT token string
-    """
+    """Create a short-lived JWT access token (15 minutes)."""
     to_encode = data.copy()
-    
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(data: dict) -> str:
+    """Create a long-lived refresh token (30 days)."""
+    to_encode = {
+        "user_id": data.get("user_id"),
+        "email": data.get("email"),
+        "type": "refresh",
+        "jti": secrets.token_hex(16),  # Unique token ID for revocation
+        "exp": datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_refresh_token(token: str) -> dict:
+    """Decode and validate a refresh token."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+            )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
 
 
 def decode_access_token(token: str) -> dict:
