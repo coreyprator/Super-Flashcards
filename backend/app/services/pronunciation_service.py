@@ -289,31 +289,54 @@ class PronunciationService:
             stt_language = lang_map.get(language_code, "fr-FR")
             
             audio = speech.RecognitionAudio(content=audio_content)
+
+            # Detect audio format from magic bytes
+            audio_encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
+            if audio_content[:4] == b'\x1aE\xdf\xa3':
+                audio_encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
+            elif audio_content[:4] == b'\x00\x00\x00\x18' or audio_content[:4] == b'\x00\x00\x00\x1c' or audio_content[:4] == b'\x00\x00\x00 ':
+                # MP4/M4A container (Safari/iOS) — let STT auto-detect
+                audio_encoding = speech.RecognitionConfig.AudioEncoding.ENCODING_UNSPECIFIED
+                logger.info(f"🔍 Detected MP4/M4A audio container, using auto-detect encoding")
+            elif audio_content[:3] == b'ID3' or audio_content[:2] == b'\xff\xfb':
+                audio_encoding = speech.RecognitionConfig.AudioEncoding.MP3
+                logger.info(f"🔍 Detected MP3 audio format")
+
+            # Do NOT hardcode sample_rate_hertz for WEBM_OPUS — Google STT
+            # auto-detects from container metadata. Hardcoding 48000 causes
+            # silent empty results when browsers record at different rates.
             config = speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-                sample_rate_hertz=48000,
+                encoding=audio_encoding,
                 language_code=stt_language,
                 enable_word_confidence=True,
                 enable_automatic_punctuation=True,
             )
-            
-            logger.info(f"📞 Calling Google Cloud Speech-to-Text API ({stt_language})")
+
+            logger.info(f"📞 Calling STT API ({stt_language}, encoding={audio_encoding}, audio_size={len(audio_content)} bytes)")
             response = self.speech_client.recognize(config=config, audio=audio)
-            
+
             word_scores = []
             transcript = ""
-            
+
             if response.results:
                 alt = response.results[0].alternatives[0]
                 transcript = alt.transcript
-                
+
                 for word_info in alt.words:
                     word_scores.append({
                         "word": word_info.word,
                         "confidence": round(float(word_info.confidence), 4),
                         "status": self._score_to_status(float(word_info.confidence))
                     })
-            
+            else:
+                # BUG-001 diagnostic: log why STT returned empty
+                logger.warning(
+                    f"⚠️ STT returned empty results — "
+                    f"language={stt_language}, encoding={audio_encoding}, "
+                    f"audio_size={len(audio_content)} bytes, "
+                    f"magic_bytes={audio_content[:4].hex() if audio_content else 'none'}"
+                )
+
             # Calculate overall confidence
             if word_scores:
                 overall = sum(w['confidence'] for w in word_scores) / len(word_scores)

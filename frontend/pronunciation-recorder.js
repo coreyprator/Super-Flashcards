@@ -13,7 +13,6 @@ class PronunciationRecorder {
     this.startTime = null;
     this.animationFrameId = null;
     this.playbackAudio = null;  // Persistent audio element for playback
-    this.stopClickCount = 0;  // Debug: track stop button clicks
     
     // Configuration
     this.config = {
@@ -64,37 +63,34 @@ class PronunciationRecorder {
     
     const html = `
       <div class="pronunciation-recorder-panel">
-        <div class="recorder-header">
-          <h3>🎤 Pronunciation Practice</h3>
-          <div class="target-row">
-            <p class="target-text">${this.config.targetText}</p>
-            <button id="play-target-btn" class="btn btn-icon" title="Play target pronunciation">
-              <span class="icon">🔊</span>
-            </button>
-          </div>
-        </div>
-        
-        <div class="recorder-controls">
-          <button id="record-btn" class="btn btn-primary btn-large">
-            <span class="icon">🎤</span> Start Recording (Space/Enter)
+        <div class="recorder-bar">
+          <button id="record-btn" class="btn btn-primary">
+            <span class="icon">🎤</span> Start Recording
           </button>
-          <button id="playback-btn" class="btn btn-secondary" disabled>
-            <span class="icon">▶️</span> Playback
+          <span id="recording-time" class="time-display-inline">00:00</span>
+          <button id="playback-btn" class="btn btn-secondary btn-playback" disabled>
+            <span class="icon">▶️</span> My Voice
           </button>
-          <button id="stop-btn" class="btn btn-danger btn-small" type="button" disabled style="margin-left: auto; pointer-events: auto;" onclick="window.pronunciationRecorder?.stopRecording({ submit: true });">
-            <span class="icon">⏹️</span>
+          <button id="play-target-btn" class="btn btn-secondary btn-playback" title="Play reference pronunciation (P)">
+            <span class="icon">🔊</span> Reference
+          </button>
+          <button id="stop-btn" class="btn btn-cancel" type="button" disabled title="Cancel recording (Esc)">
+            <span class="icon">✕</span>
           </button>
         </div>
-        
+
+        <div class="keyboard-hints" id="keyboard-hints">
+          Space: record/stop &nbsp; Esc: cancel &nbsp; R: my voice &nbsp; P: reference
+        </div>
+
         <div class="recorder-status">
-          <div id="recording-time" class="time-display">00:00</div>
-          <canvas id="waveform-canvas" class="waveform" width="600" height="100" style="display:none;"></canvas>
+          <canvas id="waveform-canvas" class="waveform" width="600" height="60" style="display:none;"></canvas>
           <div id="recording-message" class="message"></div>
         </div>
         
         <div id="results-container" class="results-container" style="display:none;">
           <div class="results-header">
-            <h4>Results</h4>
+            <h4>Speech Recognition Results</h4>
             <button class="btn-close" id="close-results">✕</button>
           </div>
           
@@ -102,7 +98,10 @@ class PronunciationRecorder {
             <div class="score-circle" id="score-circle">
               <span id="score-percentage">0%</span>
             </div>
-            <p id="score-message"></p>
+            <div class="score-labels">
+              <p id="score-message"></p>
+              <p class="score-explainer">Recognition accuracy — how well your speech was understood</p>
+            </div>
           </div>
           
           <div class="transcription-section">
@@ -131,9 +130,9 @@ class PronunciationRecorder {
           
         </div>
         
-        <div id="progress-container" class="progress-container">
-          <h4>Your Progress</h4>
-          <canvas id="progress-chart" class="progress-chart"></canvas>
+        <div id="progress-container" class="progress-container ${this.config.compactProgress ? 'compact-progress' : ''}">
+          ${this.config.compactProgress ? '' : '<h4>Your Progress</h4>'}
+          ${this.config.compactProgress ? '' : '<canvas id="progress-chart" class="progress-chart"></canvas>'}
           <div id="progress-stats" class="progress-stats"></div>
         </div>
       </div>
@@ -142,97 +141,88 @@ class PronunciationRecorder {
         .pronunciation-recorder-panel {
           background: #f5f5f5;
           border-radius: 8px;
-          padding: 20px;
-          margin: 20px 0;
-        }
-        
-        .recorder-header {
-          margin-bottom: 20px;
-        }
-        
-        .recorder-header h3 {
-          margin: 0 0 10px 0;
-          font-size: 18px;
-          color: #333;
-        }
-        
-        .target-text {
-          font-size: 24px;
-          font-style: italic;
-          color: #666;
+          padding: 12px 16px;
           margin: 0;
-          padding: 10px;
-          background: white;
-          border-radius: 4px;
         }
-        
-        .recorder-controls {
-          display: flex;
-          gap: 10px;
-          margin: 20px 0;
-          flex-wrap: wrap;
-          position: relative;
-        }
-        
-        .btn {
-          padding: 10px 16px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 14px;
+
+        .recorder-bar {
           display: flex;
           align-items: center;
           gap: 8px;
-          transition: all 0.2s;
-        }
-        
-        .btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .btn-primary {
-          background: #007bff;
-          color: white;
-        }
-        
-        .btn-primary:hover:not(:disabled) {
-          background: #0056b3;
-        }
-        
-        .btn-danger {
-          background: #dc3545;
-          color: white;
+          flex-wrap: wrap;
         }
 
-        #stop-btn {
-          position: relative;
-          z-index: 2;
-          pointer-events: auto;
+        .btn {
+          padding: 8px 14px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 13px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s;
+          white-space: nowrap;
         }
-        
-        .btn-danger:hover:not(:disabled) {
-          background: #c82333;
+
+        .btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
-        
+
+        .btn-primary {
+          background: #4F46E5;
+          color: white;
+          font-weight: 600;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+          background: #4338CA;
+        }
+
+        .btn-success {
+          background: #16a34a;
+          color: white;
+          font-weight: 600;
+        }
+
+        .btn-success:hover:not(:disabled) {
+          background: #15803d;
+        }
+
         .btn-secondary {
           background: #6c757d;
           color: white;
         }
-        
+
         .btn-secondary:hover:not(:disabled) {
           background: #5a6268;
         }
-        
-        .btn-success {
-          background: #28a745;
-          color: white;
+
+        .btn-playback {
+          padding: 6px 12px;
+          font-size: 12px;
         }
-        
-        .btn-success:hover:not(:disabled) {
-          background: #218838;
+
+        .btn-cancel {
+          background: transparent;
+          color: #9ca3af;
+          padding: 6px 10px;
+          font-size: 16px;
+          border-radius: 50%;
+          line-height: 1;
+          margin-left: auto;
         }
-        
+
+        .btn-cancel:hover:not(:disabled) {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+
+        .btn-cancel:disabled {
+          opacity: 0.3;
+        }
+
         .btn-close {
           background: none;
           border: none;
@@ -240,50 +230,36 @@ class PronunciationRecorder {
           cursor: pointer;
           padding: 0;
         }
-        
-        .target-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 15px;
-        }
-        
-        .target-text {
-          flex: 1;
-          margin: 0;
-        }
-        
-        .btn-icon {
-          padding: 8px 12px;
-          font-size: 20px;
-          min-width: 44px;
-        }
-        
-        .btn-large {
-          flex: 1;
-          font-size: 16px;
-          min-height: 48px;
-        }
-        
-        .btn-small {
-          padding: 8px 16px;
-          font-size: 14px;
-        }
-        
-        .recorder-status {
-          background: white;
-          border-radius: 4px;
-          padding: 15px;
-          margin: 15px 0;
-        }
-        
-        .time-display {
-          font-size: 32px;
+
+        .time-display-inline {
           font-family: monospace;
-          text-align: center;
-          color: #333;
-          min-height: 40px;
+          font-size: 14px;
+          color: #6b7280;
+          min-width: 40px;
+        }
+
+        .time-display-inline.recording-active {
+          color: #dc2626;
+          font-weight: bold;
+        }
+
+        .recorder-status {
+          margin-top: 8px;
+        }
+
+        .recorder-status:empty {
+          display: none;
+        }
+
+        .keyboard-hints {
+          font-size: 11px;
+          color: #9ca3af;
+          margin-top: 4px;
+          padding-left: 2px;
+        }
+
+        @media (pointer: coarse) {
+          .keyboard-hints { display: none; }
         }
         
         .waveform {
@@ -356,10 +332,20 @@ class PronunciationRecorder {
           background: #dc3545;
         }
         
+        .score-labels {
+          flex: 1;
+        }
+
         .score-message {
           font-size: 16px;
           font-weight: bold;
           color: #333;
+        }
+
+        .score-explainer {
+          font-size: 11px;
+          color: #9ca3af;
+          margin-top: 4px;
         }
         
         .label {
@@ -511,30 +497,58 @@ class PronunciationRecorder {
           color: #333;
           margin-top: 5px;
         }
+
+        /* Compact progress for Practice mode */
+        .compact-progress {
+          padding: 8px 16px;
+          margin-top: 8px;
+        }
+
+        .compact-progress .progress-stats {
+          display: block;
+          margin-top: 0;
+        }
+
+        .compact-stats {
+          display: flex;
+          gap: 16px;
+          font-size: 13px;
+          color: #555;
+          flex-wrap: wrap;
+        }
+
+        .compact-stats strong {
+          color: #333;
+        }
         
         @media (max-width: 600px) {
           .pronunciation-recorder-panel {
-            padding: 15px;
+            padding: 10px 12px;
           }
-          
-          .recorder-controls {
-            flex-direction: column;
+
+          .recorder-bar {
+            gap: 6px;
           }
-          
+
           .btn {
-            width: 100%;
-            justify-content: center;
+            padding: 6px 10px;
+            font-size: 12px;
           }
-          
+
+          .btn-playback {
+            padding: 5px 8px;
+            font-size: 11px;
+          }
+
           .overall-score {
             flex-direction: column;
             text-align: center;
           }
-          
+
           .word-scores-list {
             flex-direction: column;
           }
-          
+
           .word-score-item {
             min-width: 100%;
           }
@@ -547,14 +561,15 @@ class PronunciationRecorder {
   }
   
   cacheElements() {
-    this.recordButton = document.getElementById('record-btn');
-    this.stopButton = document.getElementById('stop-btn');
-    this.playbackButton = document.getElementById('playback-btn');
-    this.playTargetButton = document.getElementById('play-target-btn');
-    this.waveformCanvas = document.getElementById('waveform-canvas');
-    this.resultsContainer = document.getElementById('results-container');
-    this.recordingTimeDisplay = document.getElementById('recording-time');
-    this.recordingMessage = document.getElementById('recording-message');
+    const el = (sel) => this.container.querySelector(sel);
+    this.recordButton = el('#record-btn');
+    this.stopButton = el('#stop-btn');
+    this.playbackButton = el('#playback-btn');
+    this.playTargetButton = el('#play-target-btn');
+    this.waveformCanvas = el('#waveform-canvas');
+    this.resultsContainer = el('#results-container');
+    this.recordingTimeDisplay = el('#recording-time');
+    this.recordingMessage = el('#recording-message');
   }
   
   setupEventListeners() {
@@ -566,40 +581,47 @@ class PronunciationRecorder {
     console.log('🔹 Stop button display:', window.getComputedStyle(this.stopButton || {}).display);
     console.log('🔹 Playback button:', this.playbackButton);
     
-    this.recordButton?.addEventListener('click', () => this.startRecording());
-    
-    if (this.stopButton) {
-      console.log('✅ Stop button found, attaching click listener');
-      // Try capturing phase to catch any event
-      this.stopButton.addEventListener('click', (e) => {
-        this.stopClickCount++;
-        console.log(`🖱️ Stop button clicked (count: ${this.stopClickCount})`);
-        console.log('🔹 Event:', e);
-        console.log('🔹 Event target:', e.target);
-        console.log('🔹 Event currentTarget:', e.currentTarget);
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🔹 Calling stopRecording with submit:true from mouse click');
+    // Record button toggles: start recording, or stop+submit if already recording
+    this.recordButton?.addEventListener('click', () => {
+      if (!this._isVisible()) return; // Guard: ignore clicks on hidden recorder
+      if (this.isRecording) {
+        console.log('🎤 Record button clicked while recording → stop+submit');
         this.stopRecording({ submit: true });
-      }, true);  // Use capture phase
-      
-      // Also add at bubble phase for comparison
+      } else {
+        this.startRecording();
+      }
+    });
+
+    // Stop/cancel button aborts the recording without submitting
+    if (this.stopButton) {
       this.stopButton.addEventListener('click', (e) => {
-        console.log('🖱️ Stop button clicked (bubble phase)');
+        console.log('🚫 Cancel button clicked → aborting recording');
         e.preventDefault();
         e.stopPropagation();
-      }, false);
-    } else {
-      console.warn('⚠️ Stop button NOT FOUND - click handler will not work!');
+        this.abortRecording();
+      });
     }
     
     this.playbackButton?.addEventListener('click', () => this.playRecording());
     this.playTargetButton?.addEventListener('click', () => this.playTargetAudio());
     
-    // Keyboard shortcuts - Space/Enter: start or submit
-    document.addEventListener('keydown', (e) => {
+    // Keyboard shortcuts - only on devices with a physical keyboard
+    // Mobile virtual keyboards don't reliably fire keydown for Space/Enter (BUG-003)
+    this._isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    this._keydownHandler = (e) => {
+      if (this._isTouchDevice) return; // BUG-003: skip on mobile, buttons handle everything
+      if (!this._isVisible()) return; // Don't handle keys when this recorder is hidden
       const isEditable = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
       if (isEditable) return;
+
+      if (e.key === 'Escape' && this.isRecording) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.abortRecording();
+        return;
+      }
+
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
@@ -608,28 +630,107 @@ class PronunciationRecorder {
         } else if (this.recordButton && !this.recordButton.disabled) {
           this.startRecording();
         }
+        return;
       }
-    }, true);
-    
-    const closeResultsBtn = document.getElementById('close-results');
+
+      if ((e.key === 'r' || e.key === 'R') && this.recordedBlob && !this.isRecording) {
+        e.preventDefault();
+        this.playRecording();
+        return;
+      }
+
+      if ((e.key === 'p' || e.key === 'P') && !this.isRecording) {
+        e.preventDefault();
+        this.playTargetAudio();
+        return;
+      }
+    };
+    document.addEventListener('keydown', this._keydownHandler, true);
+
+    const closeResultsBtn = this.container.querySelector('#close-results');
     closeResultsBtn?.addEventListener('click', () => this.closeResults());
   }
 
   setupGlobalClickHandlers() {
-    // Global handler to catch stop button click even if local handler fails
-    document.addEventListener('click', (e) => {
-      const target = e.target;
-      const stopBtn = target && (target.id === 'stop-btn' || target.closest?.('#stop-btn'));
-      if (stopBtn && this.isRecording) {
-        console.log('🧲 Global stop click handler fired');
-        e.preventDefault();
-        e.stopPropagation();
-        this.stopRecording({ submit: true });
-      }
-    }, true);
+    // No-op: global click interception no longer needed.
+    // BUG-007 fix: CSS pointer-events on flipped card resolved click issues.
   }
-  
+
+  destroy() {
+    // Clean up: stop recording, remove event listeners, clear timers
+    if (this.isRecording && this.mediaRecorder) {
+      this.mediaRecorder.onstop = null;
+      try { this.mediaRecorder.stop(); } catch(e) {}
+      this.mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+    }
+    if (this.timeInterval) clearInterval(this.timeInterval);
+    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+    if (this.audioContext) {
+      try { this.audioContext.close(); } catch(e) {}
+    }
+    // Remove the keydown listener
+    if (this._keydownHandler) {
+      document.removeEventListener('keydown', this._keydownHandler, true);
+    }
+    this.isRecording = false;
+    this.mediaRecorder = null;
+  }
+
+  _getResultsInnerHTML() {
+    return `
+      <div class="results-header">
+        <h4>Speech Recognition Results</h4>
+        <button class="btn-close" id="close-results">✕</button>
+      </div>
+      <div class="overall-score">
+        <div class="score-circle" id="score-circle">
+          <span id="score-percentage">0%</span>
+        </div>
+        <div class="score-labels">
+          <p id="score-message"></p>
+          <p class="score-explainer">Recognition accuracy — how well your speech was understood</p>
+        </div>
+      </div>
+      <div class="transcription-section">
+        <div class="label">What you said:</div>
+        <p id="transcribed-text" class="transcribed-text"></p>
+      </div>
+      <div class="word-scores-section">
+        <div class="label">Word-by-word breakdown:</div>
+        <div id="word-scores-list" class="word-scores-list"></div>
+      </div>
+      <div class="ipa-section">
+        <div class="label">Target pronunciation (IPA):</div>
+        <p id="ipa-target" class="ipa-text"></p>
+        <div class="label" style="margin-top: 10px;">Your pronunciation (IPA):</div>
+        <p id="ipa-transcribed" class="ipa-text"></p>
+      </div>
+      <div class="feedback-section">
+        <div class="label">Feedback:</div>
+        <p id="feedback-text" class="feedback-text" style="white-space: pre-line;"></p>
+      </div>
+      <div id="personalized-audio-container" class="personalized-audio-container"></div>
+    `;
+  }
+
+  _resetRecordButton() {
+    if (this.recordButton) {
+      this.recordButton.disabled = false;
+      this.recordButton.innerHTML = this.recordedBlob
+        ? '<span class="icon">🎤</span> Re-record'
+        : '<span class="icon">🎤</span> Start Recording';
+      this.recordButton.classList.remove('btn-success');
+      this.recordButton.classList.add('btn-primary');
+    }
+  }
+
+  _isVisible() {
+    // Check if this recorder's container is in a visible (not hidden) mode
+    return this.container && this.container.offsetParent !== null;
+  }
+
   async startRecording() {
+    if (!this._isVisible()) return; // Guard: don't act if hidden
     console.log('🎤 Starting recording...');
     window.pronunciationDebugger?.log('info', 'Starting recording');
     
@@ -661,12 +762,16 @@ class PronunciationRecorder {
       this.startTime = Date.now();
       window.pronunciationDebugger?.log('info', 'MediaRecorder started');
       
-      // Update UI
-      this.recordButton.disabled = true;
+      // Update UI — record button stays enabled as toggle (click again to stop+submit)
+      this.recordButton.disabled = false;
+      this.recordButton.innerHTML = '<span class="icon">⏹️</span> Stop & Submit';
+      this.recordButton.classList.remove('btn-primary');
+      this.recordButton.classList.add('btn-success');
       this.stopButton.disabled = false;
       this.playbackButton.disabled = true;
       this.waveformCanvas.style.display = 'block';
-      this.recordingMessage.textContent = '🔴 Recording... (Press Space/Enter to submit)';
+      this.recordingTimeDisplay.classList.add('recording-active');
+      this.recordingMessage.textContent = '🔴 Recording...';
       
       // Start visualization
       this.visualize();
@@ -709,30 +814,31 @@ class PronunciationRecorder {
         console.error('❌ No audio chunks captured!');
         window.pronunciationDebugger?.log('warn', 'No audio chunks captured');
         this.recordingMessage.textContent = '❌ Recording failed - no audio captured';
-        this.recordButton.disabled = false;
+        this._resetRecordButton();
         return;
       }
-      
+
       this.recordedBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
       console.log(`✅ Recording stopped. Size: ${this.recordedBlob.size} bytes, Chunks: ${this.audioChunks.length}`);
       window.pronunciationDebugger?.log('info', 'Recording blob created', {
         size: this.recordedBlob.size,
         chunks: this.audioChunks.length
       });
-      
+
       if (this.recordedBlob.size === 0) {
         console.error('❌ Audio blob is empty!');
         window.pronunciationDebugger?.log('error', 'Audio blob empty');
         this.recordingMessage.textContent = '❌ Recording failed - no audio data';
-        this.recordButton.disabled = false;
+        this._resetRecordButton();
         return;
       }
       
-      // Update UI
-      this.recordButton.disabled = false;
+      // Update UI — restore record button to initial state
+      this._resetRecordButton();
       this.stopButton.disabled = true;
       this.playbackButton.disabled = false;
       this.waveformCanvas.style.display = 'none';
+      this.recordingTimeDisplay.classList.remove('recording-active');
       this.recordingMessage.textContent = submit ? '⏳ Submitting recording...' : '✅ Recording saved.';
       
       if (submit) {
@@ -760,11 +866,12 @@ class PronunciationRecorder {
     this.audioChunks = [];
     this.recordedBlob = null;
     
-    this.recordButton.disabled = false;
+    this._resetRecordButton();
     this.stopButton.disabled = true;
     this.playbackButton.disabled = true;
     this.waveformCanvas.style.display = 'none';
-    this.recordingMessage.textContent = '🛑 Recording aborted.';
+    this.recordingTimeDisplay.classList.remove('recording-active');
+    this.recordingMessage.textContent = '🛑 Recording cancelled.';
     this.recordingTimeDisplay.textContent = '00:00';
   }
   
@@ -898,6 +1005,7 @@ class PronunciationRecorder {
   
   async submitRecording() {
     if (!this.recordedBlob) return;
+    if (!this._isVisible()) return; // Don't submit from hidden recorder
     
     console.log('📤 Submitting recording...');
     window.pronunciationDebugger?.log('info', 'Submitting recording', {
@@ -959,7 +1067,7 @@ class PronunciationRecorder {
   }
 
   async renderPersonalizedAudio(result) {
-    const container = document.getElementById('personalized-audio-container');
+    const container = this.container.querySelector('#personalized-audio-container');
     if (!container) return;
 
     // Clear previous content
@@ -1034,16 +1142,17 @@ class PronunciationRecorder {
             <li>Your microphone is not muted</li>
             <li>Microphone is properly connected</li>
           </ul>
-          <button onclick="window.pronunciationRecorder?.reset()" class="btn btn-primary">
+          <button class="btn btn-primary retry-btn">
             🔄 Try Again
           </button>
         </div>
       `;
+      this.resultsContainer.querySelector('.retry-btn').addEventListener('click', () => this.reset());
       this.resultsContainer.style.display = 'block';
       this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    
+
     if (result.error === 'no_speech' || !result.transcribed_text || result.transcribed_text.trim() === '') {
       this.resultsContainer.innerHTML = `
         <div class="pronunciation-warning-state">
@@ -1055,22 +1164,31 @@ class PronunciationRecorder {
             <li>Reduce background noise</li>
             <li>Make sure you're speaking during the recording</li>
           </ul>
-          <button onclick="window.pronunciationRecorder?.reset()" class="btn btn-primary">
+          <button class="btn btn-primary retry-btn">
             🔄 Try Again
           </button>
         </div>
       `;
+      this.resultsContainer.querySelector('.retry-btn').addEventListener('click', () => this.reset());
       this.resultsContainer.style.display = 'block';
       this.resultsContainer.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     
     // Normal results display
+    // Restore results HTML if it was replaced by an error/warning state
+    if (!this.container.querySelector('#score-circle')) {
+      this.resultsContainer.innerHTML = this._getResultsInnerHTML();
+      // Re-bind close button
+      const closeBtn = this.resultsContainer.querySelector('#close-results');
+      closeBtn?.addEventListener('click', () => this.closeResults());
+    }
+
     // Set overall score
     const scorePercentage = Math.round(result.overall_score * 100);
-    const scoreCircle = document.getElementById('score-circle');
-    const scorePercentageEl = document.getElementById('score-percentage');
-    const scoreMessageEl = document.getElementById('score-message');
+    const scoreCircle = this.container.querySelector('#score-circle');
+    const scorePercentageEl = this.container.querySelector('#score-percentage');
+    const scoreMessageEl = this.container.querySelector('#score-message');
     
     scorePercentageEl.textContent = `${scorePercentage}%`;
     
@@ -1078,23 +1196,23 @@ class PronunciationRecorder {
     scoreCircle.className = 'score-circle';
     if (result.overall_score >= 0.85) {
       scoreCircle.classList.add('excellent');
-      scoreMessageEl.textContent = 'Excellent pronunciation!';
+      scoreMessageEl.textContent = 'Clearly understood!';
     } else if (result.overall_score >= 0.70) {
       scoreCircle.classList.add('good');
-      scoreMessageEl.textContent = 'Good job! Keep practicing.';
+      scoreMessageEl.textContent = 'Mostly understood. Keep practicing.';
     } else if (result.overall_score >= 0.60) {
       scoreCircle.classList.add('acceptable');
-      scoreMessageEl.textContent = 'Acceptable. Room for improvement.';
+      scoreMessageEl.textContent = 'Partially understood. Try again.';
     } else {
       scoreCircle.classList.add('needs-work');
-      scoreMessageEl.textContent = 'Keep practicing. You\'ll improve!';
+      scoreMessageEl.textContent = 'Not recognized. Speak more clearly.';
     }
     
     // Set transcribed text
-    document.getElementById('transcribed-text').textContent = result.transcribed_text;
-    
+    this.container.querySelector('#transcribed-text').textContent = result.transcribed_text;
+
     // Display word scores
-    const wordScoresList = document.getElementById('word-scores-list');
+    const wordScoresList = this.container.querySelector('#word-scores-list');
     wordScoresList.innerHTML = '';
     
     result.word_scores.forEach(score => {
@@ -1111,8 +1229,8 @@ class PronunciationRecorder {
     });
     
     // Set IPA
-    document.getElementById('ipa-target').textContent = result.ipa_target || '';
-    const ipaTranscribedEl = document.getElementById('ipa-transcribed');
+    this.container.querySelector('#ipa-target').textContent = result.ipa_target || '';
+    const ipaTranscribedEl = this.container.querySelector('#ipa-transcribed');
     
     if (ipaTranscribedEl && result.ipa_diff) {
       // Display color-coded phoneme alignment if available
@@ -1142,7 +1260,7 @@ class PronunciationRecorder {
     }
     
     // Set feedback
-      document.getElementById('feedback-text').textContent = result.feedback || 'Keep practicing!';
+      this.container.querySelector('#feedback-text').textContent = result.feedback || 'Keep practicing!';
 
     // Personalized audio (voice clone)
     await this.renderPersonalizedAudio(result);
@@ -1185,8 +1303,20 @@ class PronunciationRecorder {
   }
   
   displayProgress(progress) {
-    const statsContainer = document.getElementById('progress-stats');
-    
+    const statsContainer = this.container.querySelector('#progress-stats');
+
+    if (this.config.compactProgress) {
+      // Compact single-row display for Practice mode
+      statsContainer.innerHTML = `
+        <div class="compact-stats">
+          <span>Attempts: <strong>${progress.total_attempts}</strong></span>
+          <span>Avg: <strong>${Math.round(progress.avg_confidence * 100)}%</strong></span>
+          <span>Trend: <strong>${progress.improvement_trend}</strong></span>
+        </div>
+      `;
+      return;
+    }
+
     let html = `
       <div class="stat-item">
         <div class="stat-label">Total Attempts</div>
@@ -1201,20 +1331,20 @@ class PronunciationRecorder {
         <div class="stat-value">${progress.improvement_trend}</div>
       </div>
     `;
-    
+
     if (progress.problem_words && progress.problem_words.length > 0) {
       html += `
         <div class="stat-item">
           <div class="stat-label">Problem Words (Top 3)</div>
           <div class="stat-value" style="font-size: 14px; text-align: left;">
-            ${progress.problem_words.slice(0, 3).map(w => 
+            ${progress.problem_words.slice(0, 3).map(w =>
               `<div>• ${w.word} (${Math.round(w.avg_confidence * 100)}%)</div>`
             ).join('')}
           </div>
         </div>
       `;
     }
-    
+
     statsContainer.innerHTML = html;
   }
   
@@ -1228,10 +1358,7 @@ class PronunciationRecorder {
     this.isRecording = false;
     
     // Reset buttons
-    if (this.recordButton) {
-      this.recordButton.disabled = false;
-      this.recordButton.innerHTML = '<span class="icon">🎤</span> Start Recording (Space/Enter)';
-    }
+    this._resetRecordButton();
     if (this.stopButton) {
       this.stopButton.disabled = true;
     }
@@ -1245,13 +1372,13 @@ class PronunciationRecorder {
     }
     
     // Reset time display
-    const timeDisplay = document.getElementById('recording-time');
+    const timeDisplay = this.container?.querySelector('#recording-time');
     if (timeDisplay) {
       timeDisplay.textContent = '00:00';
     }
-    
+
     // Reset message
-    const messageEl = document.getElementById('recording-message');
+    const messageEl = this.container?.querySelector('#recording-message');
     if (messageEl) {
       messageEl.textContent = '';
     }

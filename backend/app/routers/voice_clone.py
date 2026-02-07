@@ -103,7 +103,7 @@ async def create_voice_clone(
 
     # Upload samples to GCS for backup
     for i, audio_bytes in enumerate(audio_bytes_list):
-        gcs_url = await upload_to_gcs(
+        gcs_url = upload_to_gcs(
             audio_bytes,
             f"voice-clones/{current_user.id}/sample_{i}.wav",
             content_type="audio/wav"
@@ -140,7 +140,7 @@ async def generate_pronunciation(
     if cached:
         # Return cached audio
         crud.increment_play_count(db, cached.GenerationID)
-        audio_bytes = await download_from_gcs(cached.AudioURL)
+        audio_bytes = download_from_gcs(cached.AudioURL)
         return {
             "success": True,
             "audio_base64": base64.b64encode(audio_bytes).decode(),
@@ -163,7 +163,7 @@ async def generate_pronunciation(
     audio_bytes = result["audio_bytes"]
 
     # Upload to GCS for caching
-    gcs_url = await upload_to_gcs(
+    gcs_url = upload_to_gcs(
         audio_bytes,
         f"voice-clones/{current_user.id}/generated/{language_code}/{hash(text)}.mp3",
         content_type="audio/mpeg"

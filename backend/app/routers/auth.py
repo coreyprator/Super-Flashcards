@@ -16,13 +16,16 @@ from app.database import get_db
 from app import models, schemas, crud
 from app.services.auth_service import (
     create_access_token,
+    create_refresh_token,
     decode_access_token,
+    decode_refresh_token,
     verify_password,
     get_password_hash,
     validate_email,
     validate_password_strength,
     generate_username_from_email,
-    sanitize_oauth_data
+    sanitize_oauth_data,
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -153,8 +156,57 @@ async def get_current_user_optional(request: Request, db: Session = Depends(get_
         return None
 
 
+def _set_refresh_cookie(response: Response, refresh_token: str):
+    """Set refresh token as HTTP-only cookie with iOS-compatible settings."""
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,  # Always secure (Cloud Run is HTTPS)
+        samesite="none",  # Required for cross-origin on iOS Safari
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth",  # Only sent to auth endpoints
+    )
+
+
+@router.post("/refresh")
+async def refresh_access_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Exchange a refresh token (from cookie) for a new access token."""
+    refresh_tok = request.cookies.get("refresh_token")
+    if not refresh_tok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token",
+        )
+
+    payload = decode_refresh_token(refresh_tok)
+    user_id = payload.get("user_id")
+
+    # Verify user still exists and is active
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    # Issue new access token
+    token_data = {"user_id": str(user.id), "email": user.email}
+    new_access = create_access_token(token_data)
+
+    # Rotate refresh token (issue a fresh one)
+    new_refresh = create_refresh_token(token_data)
+    _set_refresh_cookie(response, new_refresh)
+
+    return {
+        "access_token": new_access,
+        "token_type": "bearer",
+        "expires_in": 900,  # 15 minutes in seconds
+    }
+
+
 @router.post("/register", response_model=schemas.Token)
-async def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+async def register(user_data: schemas.UserCreate, response: Response, db: Session = Depends(get_db)):
     """
     Register a new user with email and password.
     """
@@ -207,13 +259,15 @@ async def register(user_data: schemas.UserCreate, db: Session = Depends(get_db))
     db.commit()
     db.refresh(new_user)
     
-    # Create JWT token
+    # Create tokens
     token_data = {
         'user_id': str(new_user.id),
         'email': new_user.email
     }
     access_token = create_access_token(token_data)
-    
+    refresh_token = create_refresh_token(token_data)
+    _set_refresh_cookie(response, refresh_token)
+
     return schemas.Token(
         access_token=access_token,
         token_type="bearer",
@@ -252,24 +306,15 @@ async def login(login_data: schemas.UserLogin, response: Response, db: Session =
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create JWT token
+    # Create tokens
     token_data = {
         'user_id': str(user.id),
         'email': user.email
     }
     access_token = create_access_token(token_data)
-    
-    # Set HTTP-only cookie (secure in production)
-    is_production = os.getenv('ENVIRONMENT', 'development') == 'production'
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=is_production,  # HTTPS only in production
-        samesite="lax",
-        max_age=30 * 24 * 60 * 60  # 30 days
-    )
-    
+    refresh_token = create_refresh_token(token_data)
+    _set_refresh_cookie(response, refresh_token)
+
     return schemas.Token(
         access_token=access_token,
         token_type="bearer",
@@ -482,33 +527,26 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         db_time = (time.time() - db_start) * 1000
         print(f"✅ User created/updated in {db_time:.2f}ms: {user.email}")
         
-        # Create JWT token
-        print(f"🔄 Step 5/5: Creating JWT token...")
+        # Create tokens (access + refresh)
+        print(f"🔄 Step 5/5: Creating JWT tokens...")
         jwt_start = time.time()
-        
+
         token_data = {
             'user_id': str(user.id),
             'email': user.email
         }
         access_token = create_access_token(token_data)
-        
+        refresh_token = create_refresh_token(token_data)
+
         jwt_time = (time.time() - jwt_start) * 1000
-        print(f"🎫 JWT token created in {jwt_time:.2f}ms")
-        
-        # Set HTTP-only cookie
+        print(f"🎫 JWT tokens created in {jwt_time:.2f}ms (access + refresh)")
+
+        # Set refresh token as HTTP-only cookie
         cookie_start = time.time()
-        is_production = os.getenv('ENVIRONMENT', 'development') == 'production'
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=is_production,
-            samesite="lax",
-            max_age=30 * 24 * 60 * 60  # 30 days
-        )
-        
+        _set_refresh_cookie(response, refresh_token)
+
         cookie_time = (time.time() - cookie_start) * 1000
-        print(f"🍪 Cookie set in {cookie_time:.2f}ms")
+        print(f"🍪 Refresh cookie set in {cookie_time:.2f}ms")
         
         # Redirect to frontend login page with token (will be picked up by frontend)
         redirect_start = time.time()
@@ -520,9 +558,9 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
             frontend_url = origin
         redirect_url = f"{frontend_url}/login?auth=success&token={access_token}"
         redirect_time = (time.time() - redirect_start) * 1000
-        
+
         total_time = (time.time() - start_time) * 1000
-        
+
         print(f"🚀 Redirecting to: {redirect_url} (prepared in {redirect_time:.2f}ms)")
         print(f"")
         print(f"⏱️  CALLBACK TIMING BREAKDOWN:")
@@ -536,8 +574,12 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         print(f"   ----------------------------------------")
         print(f"   TOTAL TIME:            {total_time:>8.2f}ms ({total_time/1000:.3f}s)")
         print(f"{'='*80}\n")
-        
-        return RedirectResponse(url=redirect_url)
+
+        # BUG-006 fix: Set refresh cookie on the ACTUAL RedirectResponse,
+        # not the injected `response` param (which is discarded on redirect).
+        redirect_response = RedirectResponse(url=redirect_url)
+        _set_refresh_cookie(redirect_response, refresh_token)
+        return redirect_response
         
     except Exception as e:
         elapsed = (time.time() - start_time) * 1000
@@ -562,9 +604,10 @@ async def get_me(current_user: models.User = Depends(get_current_user)):
 @router.post("/logout")
 async def logout(response: Response):
     """
-    Logout user by clearing the auth cookie.
+    Logout user by clearing auth cookies.
     """
     response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token", path="/api/auth")
     return {"message": "Successfully logged out"}
 
 

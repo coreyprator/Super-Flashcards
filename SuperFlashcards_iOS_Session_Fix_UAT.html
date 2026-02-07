@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAT: Super-Flashcards iOS Session Fix</title>
+    <style>
+        :root {
+            --sf-yellow: #F59E0B;
+            --sf-yellow-light: #FEF3C7;
+            --pass-green: #22C55E;
+            --fail-red: #EF4444;
+            --warning-amber: #F59E0B;
+            --bg-light: #F9FAFB;
+            --border-gray: #E5E7EB;
+            --text-dark: #111827;
+            --text-muted: #6B7280;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--sf-yellow), #D97706);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        
+        header h1 { font-size: 1.5rem; margin-bottom: 8px; }
+        
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+            font-size: 0.875rem;
+        }
+        
+        .meta-item {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        .meta-label {
+            opacity: 0.8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .meta-value { font-weight: 600; }
+        
+        section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-gray);
+        }
+        
+        section h2 {
+            font-size: 1.125rem;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--sf-yellow-light);
+            color: #B45309;
+        }
+        
+        .fix-summary {
+            background: #FFFBEB;
+            border-left: 4px solid var(--sf-yellow);
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .fix-summary h3 { color: #B45309; margin-bottom: 8px; }
+        .fix-summary ul { margin-left: 20px; }
+        .fix-summary li { margin-bottom: 4px; }
+        
+        .test-case {
+            border: 1px solid var(--border-gray);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .test-header {
+            background: var(--bg-light);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-gray);
+        }
+        
+        .test-id { font-weight: 700; color: #B45309; }
+        
+        .test-priority {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .priority-critical { background: #FEE2E2; color: #991B1B; }
+        .priority-high { background: #FEF3C7; color: #92400E; }
+        .priority-medium { background: #E0E7FF; color: #3730A3; }
+        
+        .test-body { padding: 16px; }
+        .test-title { font-weight: 600; margin-bottom: 12px; }
+        
+        .test-steps { margin-bottom: 16px; }
+        .test-steps h4 { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 8px; }
+        .test-steps ol { margin-left: 20px; }
+        .test-steps li { margin-bottom: 6px; }
+        
+        .expected {
+            background: #F0FDF4;
+            border-left: 3px solid var(--pass-green);
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 0.875rem;
+        }
+        
+        .expected h4 {
+            color: #166534;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        
+        .result-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .result-buttons { display: flex; gap: 8px; }
+        
+        .result-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .result-btn.pass { border-color: var(--pass-green); color: var(--pass-green); }
+        .result-btn.pass:hover, .result-btn.pass.selected { background: var(--pass-green); color: white; }
+        
+        .result-btn.fail { border-color: var(--fail-red); color: var(--fail-red); }
+        .result-btn.fail:hover, .result-btn.fail.selected { background: var(--fail-red); color: white; }
+        
+        .result-btn.blocked { border-color: var(--warning-amber); color: var(--warning-amber); }
+        .result-btn.blocked:hover, .result-btn.blocked.selected { background: var(--warning-amber); color: white; }
+        
+        .notes-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-gray);
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .checklist { list-style: none; }
+        .checklist li { padding: 8px 0; border-bottom: 1px solid var(--border-gray); }
+        .checklist li:last-child { border-bottom: none; }
+        .checklist input[type="checkbox"] { margin-right: 12px; transform: scale(1.2); }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .summary-card {
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .summary-card.total { background: #DBEAFE; color: #1E40AF; }
+        .summary-card.passed { background: #D1FAE5; color: #065F46; }
+        .summary-card.failed { background: #FEE2E2; color: #991B1B; }
+        .summary-card.blocked { background: #FEF3C7; color: #92400E; }
+        
+        .summary-number { font-size: 2rem; font-weight: 700; }
+        .summary-label { font-size: 0.75rem; text-transform: uppercase; }
+        
+        .overall-result {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .overall-result.pending { background: #F3F4F6; border: 2px dashed #9CA3AF; }
+        
+        .overall-buttons { display: flex; gap: 16px; justify-content: center; margin-top: 12px; }
+        
+        .overall-btn {
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .overall-btn.approve { background: var(--pass-green); color: white; }
+        .overall-btn.reject { background: var(--fail-red); color: white; }
+        
+        .device-info {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .device-info h3 { color: #1E40AF; margin-bottom: 12px; }
+        .device-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .device-grid label { font-size: 0.875rem; color: var(--text-muted); }
+        .device-grid input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-gray);
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+        
+        @media print {
+            body { padding: 0; }
+            .result-btn, .overall-btn { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🟡 Super-Flashcards — iOS Session Fix UAT</h1>
+        <p>User Acceptance Testing for iOS Safari Session Persistence</p>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <div class="meta-label">Version</div>
+                <div class="meta-value">Session Fix</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Revision</div>
+                <div class="meta-value">00268-bxz</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Test URL</div>
+                <div class="meta-value">super-flashcards.rentyourcio.com</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Date</div>
+                <div class="meta-value" id="test-date-display"></div>
+            </div>
+        </div>
+    </header>
+
+    <section>
+        <div class="fix-summary">
+            <h3>🔧 Fixes Applied</h3>
+            <ul>
+                <li><strong>P0:</strong> Cookie-based refresh attempt on startup when localStorage is empty</li>
+                <li><strong>P1:</strong> Aligned SessionMiddleware <code>same_site="none"</code> in production</li>
+                <li><strong>P2:</strong> Resilient session flag checking cookie existence before refresh</li>
+            </ul>
+        </div>
+        
+        <div class="device-info">
+            <h3>📱 Test Device Information</h3>
+            <div class="device-grid">
+                <div>
+                    <label>Device Model</label>
+                    <input type="text" placeholder="e.g., iPhone 14 Pro">
+                </div>
+                <div>
+                    <label>iOS Version</label>
+                    <input type="text" placeholder="e.g., iOS 17.2">
+                </div>
+                <div>
+                    <label>Browser</label>
+                    <input type="text" value="Safari" readonly>
+                </div>
+                <div>
+                    <label>Network</label>
+                    <input type="text" placeholder="e.g., WiFi / LTE">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>✅ Pre-Test Checklist</h2>
+        <ul class="checklist">
+            <li><input type="checkbox"> Clear Safari cookies/data for super-flashcards.rentyourcio.com</li>
+            <li><input type="checkbox"> Force close Super-Flashcards if open in Safari</li>
+            <li><input type="checkbox"> Confirm WiFi/LTE connection is stable</li>
+            <li><input type="checkbox"> Note: Tests must be done on PHYSICAL iPhone, not simulator</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>📱 Test Cases — iOS Session Persistence</h2>
+
+        <!-- TC-001 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-001</span>
+                <span class="test-priority priority-critical">CRITICAL</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Initial Login Success</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>Open Safari on iPhone</li>
+                        <li>Navigate to https://super-flashcards.rentyourcio.com</li>
+                        <li>Tap "Sign in with Google"</li>
+                        <li>Complete Google OAuth flow</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>Login completes successfully. User sees their dashboard/home screen with their data.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="Notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC-002 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-002</span>
+                <span class="test-priority priority-critical">CRITICAL</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Session Survives App Switch (Short)</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>While logged in, press Home button (or swipe up)</li>
+                        <li>Open another app (e.g., Messages, Settings)</li>
+                        <li>Wait 30 seconds</li>
+                        <li>Return to Safari</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>User is STILL logged in. No login prompt. Dashboard shows immediately.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="Notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC-003 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-003</span>
+                <span class="test-priority priority-critical">CRITICAL</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Session Survives App Close + Reopen</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>While logged in, swipe up from bottom to show app switcher</li>
+                        <li>Swipe Safari UP to force close it completely</li>
+                        <li>Wait 10 seconds</li>
+                        <li>Open Safari again</li>
+                        <li>Navigate to https://super-flashcards.rentyourcio.com</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>User is STILL logged in. No login prompt. Session persisted across app restart.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="Notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC-004 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-004</span>
+                <span class="test-priority priority-high">HIGH</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Session Survives Extended Idle (5 minutes)</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>While logged in, lock the iPhone (press side button)</li>
+                        <li>Set a timer for 5 minutes</li>
+                        <li>After 5 minutes, unlock iPhone</li>
+                        <li>Return to Safari / Super-Flashcards tab</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>User is STILL logged in. Page may refresh but should auto-restore session.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="Notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC-005 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-005</span>
+                <span class="test-priority priority-high">HIGH</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Login Prompt Speed (If Logged Out)</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>Clear Safari cookies for the site (Settings > Safari > Clear History)</li>
+                        <li>Open Safari and navigate to https://super-flashcards.rentyourcio.com</li>
+                        <li>Time how long until login button/prompt appears</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>Login prompt appears within 3-5 seconds. NOT 30+ seconds like before.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="Time measured: ___ seconds"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TC-006 -->
+        <div class="test-case">
+            <div class="test-header">
+                <span class="test-id">TC-006</span>
+                <span class="test-priority priority-medium">MEDIUM</span>
+            </div>
+            <div class="test-body">
+                <div class="test-title">Comparison with MetaPM (Control)</div>
+                <div class="test-steps">
+                    <h4>Steps</h4>
+                    <ol>
+                        <li>Open Safari on iPhone</li>
+                        <li>Navigate to https://metapm.rentyourcio.com</li>
+                        <li>Login to MetaPM</li>
+                        <li>Force close Safari, reopen, navigate back</li>
+                        <li>Compare behavior with Super-Flashcards</li>
+                    </ol>
+                </div>
+                <div class="expected">
+                    <h4>Expected Result</h4>
+                    <p>Super-Flashcards should behave the SAME as MetaPM — both stay logged in.</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-buttons">
+                        <button class="result-btn pass" onclick="selectResult(this, 'pass')">✓ PASS</button>
+                        <button class="result-btn fail" onclick="selectResult(this, 'fail')">✗ FAIL</button>
+                        <button class="result-btn blocked" onclick="selectResult(this, 'blocked')">⊘ BLOCKED</button>
+                    </div>
+                    <div>
+                        <textarea class="notes-input" placeholder="MetaPM behavior: ___  |  SF behavior: ___"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>📊 Test Summary</h2>
+        <div class="summary-grid">
+            <div class="summary-card total">
+                <div class="summary-number" id="total-count">6</div>
+                <div class="summary-label">Total Tests</div>
+            </div>
+            <div class="summary-card passed">
+                <div class="summary-number" id="pass-count">0</div>
+                <div class="summary-label">Passed</div>
+            </div>
+            <div class="summary-card failed">
+                <div class="summary-number" id="fail-count">0</div>
+                <div class="summary-label">Failed</div>
+            </div>
+            <div class="summary-card blocked">
+                <div class="summary-number" id="blocked-count">0</div>
+                <div class="summary-label">Blocked</div>
+            </div>
+        </div>
+
+        <div class="overall-result pending">
+            <h3>Overall UAT Result</h3>
+            <div class="overall-buttons">
+                <button class="overall-btn approve" onclick="setOverallResult('approved')">✓ APPROVED</button>
+                <button class="overall-btn reject" onclick="setOverallResult('rejected')">✗ REJECTED</button>
+            </div>
+            <p style="margin-top: 12px; color: var(--text-muted); font-size: 0.875rem;">
+                Approve only if ALL CRITICAL tests pass. Session must persist across app restarts.
+            </p>
+        </div>
+    </section>
+
+    <section>
+        <h2>📝 Additional Notes / Issues Found</h2>
+        <textarea class="notes-input" style="min-height: 120px;" placeholder="Document any additional observations, edge cases, or issues discovered during testing..."></textarea>
+    </section>
+
+    <script>
+        // Set today's date
+        document.getElementById('test-date-display').textContent = new Date().toLocaleDateString();
+
+        function selectResult(btn, result) {
+            const buttons = btn.parentElement.querySelectorAll('.result-btn');
+            buttons.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            updateCounts();
+        }
+
+        function updateCounts() {
+            const passed = document.querySelectorAll('.result-btn.pass.selected').length;
+            const failed = document.querySelectorAll('.result-btn.fail.selected').length;
+            const blocked = document.querySelectorAll('.result-btn.blocked.selected').length;
+            
+            document.getElementById('pass-count').textContent = passed;
+            document.getElementById('fail-count').textContent = failed;
+            document.getElementById('blocked-count').textContent = blocked;
+        }
+
+        function setOverallResult(result) {
+            const container = document.querySelector('.overall-result');
+            container.classList.remove('pending');
+            
+            if (result === 'approved') {
+                container.style.background = '#F0FDF4';
+                container.style.border = '2px solid #22C55E';
+                container.innerHTML = '<h3 style="color: #166534;">✓ UAT APPROVED</h3><p>iOS Session Fix accepted. Session persistence working.</p>';
+            } else {
+                container.style.background = '#FEF2F2';
+                container.style.border = '2px solid #EF4444';
+                container.innerHTML = '<h3 style="color: #991B1B;">✗ UAT REJECTED</h3><p>Session persistence still failing. See failed tests above.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
