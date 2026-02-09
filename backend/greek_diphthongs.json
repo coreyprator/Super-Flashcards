@@ -1,0 +1,155 @@
+[
+  {
+    "word_or_phrase": "αι",
+    "definition": "[e] as in 'bed' - Example: και (ke) = 'and'",
+    "ipa_pronunciation": "/e/",
+    "etymology": "Greek diphthong - always pronounced as single 'e' sound",
+    "english_cognates": "Similar to 'e' in 'bet'",
+    "related_words": ["και", "αίμα", "παιδί"],
+    "image_description": "Greek letters alpha-iota representing the 'e' sound"
+  },
+  {
+    "word_or_phrase": "ει",
+    "definition": "[i] as in 'see' - Example: είναι (ine) = 'is/are'",
+    "ipa_pronunciation": "/i/",
+    "etymology": "Greek diphthong - pronounced as long 'ee' sound",
+    "english_cognates": "Similar to 'ee' in 'see'",
+    "related_words": ["είναι", "είδα", "είκοσι"],
+    "image_description": "Greek letters epsilon-iota representing the 'ee' sound"
+  },
+  {
+    "word_or_phrase": "οι",
+    "definition": "[i] as in 'see' - Example: οι (i) = 'the' (plural)",
+    "ipa_pronunciation": "/i/",
+    "etymology": "Greek diphthong - also pronounced as long 'ee' sound (same as ει)",
+    "english_cognates": "Similar to 'ee' in 'see'",
+    "related_words": ["οι", "ποιος", "οικογένεια"],
+    "image_description": "Greek letters omicron-iota representing the 'ee' sound"
+  },
+  {
+    "word_or_phrase": "υι",
+    "definition": "[i] as in 'see' - Example: υιός (ios) = 'son'",
+    "ipa_pronunciation": "/i/",
+    "etymology": "Greek diphthong - less common, also 'ee' sound",
+    "english_cognates": "Similar to 'ee' in 'see'",
+    "related_words": ["υιός", "υιοθεσία"],
+    "image_description": "Greek letters upsilon-iota representing the 'ee' sound"
+  },
+  {
+    "word_or_phrase": "αυ",
+    "definition": "[av] before vowels/voiced consonants, [af] before voiceless - Example: αυτός (aftos) = 'he'",
+    "ipa_pronunciation": "/av/ or /af/",
+    "etymology": "CONTEXT-DEPENDENT: [af] before κ,π,τ,χ,φ,θ,σ,ξ,ψ; [av] elsewhere",
+    "english_cognates": "Like 'av' in 'have' or 'af' in 'after'",
+    "related_words": ["αυτός", "αύριο", "αυγό"],
+    "image_description": "Greek letters alpha-upsilon with context-dependent pronunciation"
+  },
+  {
+    "word_or_phrase": "ευ",
+    "definition": "[ev] before vowels/voiced consonants, [ef] before voiceless - Example: ευχαριστώ (efcharisto) = 'thank you'",
+    "ipa_pronunciation": "/ev/ or /ef/",
+    "etymology": "CONTEXT-DEPENDENT: [ef] before κ,π,τ,χ,φ,θ,σ,ξ,ψ; [ev] elsewhere",
+    "english_cognates": "Like 'ev' in 'ever' or 'ef' in 'effort'",
+    "related_words": ["ευχαριστώ", "Ευρώπη", "ευτυχία"],
+    "image_description": "Greek letters epsilon-upsilon with context-dependent pronunciation"
+  },
+  {
+    "word_or_phrase": "ου",
+    "definition": "[u] as in 'food' - Example: που (pu) = 'where/that'",
+    "ipa_pronunciation": "/u/",
+    "etymology": "Greek diphthong - always 'oo' sound",
+    "english_cognates": "Similar to 'oo' in 'food'",
+    "related_words": ["που", "ούτε", "μου"],
+    "image_description": "Greek letters omicron-upsilon representing the 'oo' sound"
+  },
+  {
+    "word_or_phrase": "ντ",
+    "definition": "[d] at start of word, [nd] in middle - Example: ντομάτα (domata) = 'tomato'",
+    "ipa_pronunciation": "/d/ or /nd/",
+    "etymology": "POSITION-DEPENDENT: [d] word-initially, [nd] word-medially",
+    "english_cognates": "Like 'd' in 'dog' or 'nd' in 'and'",
+    "related_words": ["ντομάτα", "κόντρα", "πέντε"],
+    "image_description": "Greek letters nu-tau representing d/nd sounds"
+  },
+  {
+    "word_or_phrase": "μπ",
+    "definition": "[b] at start of word, [mb] in middle - Example: μπάλα (bala) = 'ball'",
+    "ipa_pronunciation": "/b/ or /mb/",
+    "etymology": "POSITION-DEPENDENT: [b] word-initially, [mb] word-medially",
+    "english_cognates": "Like 'b' in 'ball' or 'mb' in 'number'",
+    "related_words": ["μπάλα", "μπαμπάς", "κόμπος"],
+    "image_description": "Greek letters mu-pi representing b/mb sounds"
+  },
+  {
+    "word_or_phrase": "γγ",
+    "definition": "[ng] as in 'finger' - Example: αγγελία (angelia) = 'announcement'",
+    "ipa_pronunciation": "/ŋg/",
+    "etymology": "Double gamma - nasal 'ng' followed by hard 'g'",
+    "english_cognates": "Like 'ng' in 'finger' (not 'singer')",
+    "related_words": ["αγγελία", "άγγελος", "Αγγλία"],
+    "image_description": "Greek double gamma representing the 'ng' sound"
+  },
+  {
+    "word_or_phrase": "γκ",
+    "definition": "[g] at start of word, [ng] in middle - Example: γκαράζ (garaz) = 'garage'",
+    "ipa_pronunciation": "/g/ or /ŋg/",
+    "etymology": "POSITION-DEPENDENT: [g] word-initially, [ng] word-medially",
+    "english_cognates": "Like 'g' in 'go' or 'ng' in 'finger'",
+    "related_words": ["γκαράζ", "αγκαλιά", "έλεγχος"],
+    "image_description": "Greek letters gamma-kappa representing g/ng sounds"
+  },
+  {
+    "word_or_phrase": "τσ",
+    "definition": "[ts] as in 'cats' - Example: τσάι (tsai) = 'tea'",
+    "ipa_pronunciation": "/ts/",
+    "etymology": "Greek consonant cluster - always 'ts' sound",
+    "english_cognates": "Like 'ts' in 'cats' or 'pizza'",
+    "related_words": ["τσάι", "τσάντα", "πίτσα"],
+    "image_description": "Greek letters tau-sigma representing the 'ts' sound"
+  },
+  {
+    "word_or_phrase": "τζ",
+    "definition": "[dz] as in 'adze' - Example: τζάμι (dzami) = 'window/glass'",
+    "ipa_pronunciation": "/dz/",
+    "etymology": "Greek consonant cluster - voiced 'dz' sound",
+    "english_cognates": "Like 'ds' in 'beds' or Italian 'z' in 'pizza'",
+    "related_words": ["τζάμι", "τζατζίκι", "τζάκι"],
+    "image_description": "Greek letters tau-zeta representing the 'dz' sound"
+  },
+  {
+    "word_or_phrase": "ντζ",
+    "definition": "[ndz] as in 'hands' - Example: πορτζιά (portza) = 'orange (tree)'",
+    "ipa_pronunciation": "/ndz/",
+    "etymology": "Greek consonant cluster - nasal plus 'dz'",
+    "english_cognates": "Like 'nds' in 'hands'",
+    "related_words": ["πορτοκάλι", "τζιτζίκι"],
+    "image_description": "Greek letters nu-tau-zeta representing the 'ndz' sound"
+  },
+  {
+    "word_or_phrase": "ξ",
+    "definition": "[ks] as in 'box' - Example: ξένος (ksenos) = 'foreign/stranger'",
+    "ipa_pronunciation": "/ks/",
+    "etymology": "Single letter representing 'ks' cluster",
+    "english_cognates": "Like 'x' in 'box' or 'ks' in 'thanks'",
+    "related_words": ["ξένος", "ξέρω", "ξύλο"],
+    "image_description": "Greek letter xi representing the 'ks' sound"
+  },
+  {
+    "word_or_phrase": "ψ",
+    "definition": "[ps] as in 'lips' - Example: ψωμί (psomi) = 'bread'",
+    "ipa_pronunciation": "/ps/",
+    "etymology": "Single letter representing 'ps' cluster",
+    "english_cognates": "Like 'ps' in 'lips' or 'lapse'",
+    "related_words": ["ψωμί", "ψάρι", "ψυχή"],
+    "image_description": "Greek letter psi representing the 'ps' sound"
+  },
+  {
+    "word_or_phrase": "γχ",
+    "definition": "[ŋx] as in 'synchro' - Example: σύγχρονος (sinchronos) = 'contemporary'",
+    "ipa_pronunciation": "/ŋx/",
+    "etymology": "Greek consonant cluster - nasal 'ng' plus 'ch' sound",
+    "english_cognates": "Like 'nch' in German 'München'",
+    "related_words": ["σύγχρονος", "έλεγχος", "άγχος"],
+    "image_description": "Greek letters gamma-chi representing the 'nch' sound"
+  }
+]
