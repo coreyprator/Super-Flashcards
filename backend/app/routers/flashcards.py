@@ -1,9 +1,10 @@
 # backend/app/routers/flashcards.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 
-from app import crud, schemas
+from app import crud, schemas, models
 from app.database import get_db
 
 router = APIRouter()
@@ -40,6 +41,33 @@ def search_flashcards(
 ):
     """Search flashcards by word, definition, or etymology"""
     return crud.search_flashcards(db, search_term=q, language_id=language_id)
+
+
+@router.get("/exists")
+def check_card_exists(word: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Case-insensitive card existence check by exact word_or_phrase."""
+    normalized = word.strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="word is required")
+
+    card = db.query(models.Flashcard).filter(
+        func.lower(models.Flashcard.word_or_phrase) == normalized.lower()
+    ).first()
+
+    if not card:
+        return {
+            "word": normalized,
+            "exists": False,
+            "card_id": None,
+            "url": None,
+        }
+
+    return {
+        "word": normalized,
+        "exists": True,
+        "card_id": str(card.id),
+        "url": f"/?cardId={card.id}",
+    }
 
 @router.get("/{flashcard_id}", response_model=schemas.Flashcard)
 def read_flashcard(flashcard_id: str, db: Session = Depends(get_db)):

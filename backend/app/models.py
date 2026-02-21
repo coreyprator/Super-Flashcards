@@ -109,15 +109,28 @@ class Flashcard(Base):
     source = Column(NVARCHAR(50), default="manual")  # manual, ai_generated, imported
     times_reviewed = Column(Integer, default=0)
     last_reviewed = Column(DateTime)
-    
+
+    # Spaced Repetition (SM-2 algorithm) — Sprint 9 (SF-005)
+    ease_factor = Column(sqlalchemy.Float, default=2.5)        # SM-2 ease factor (min 1.3)
+    review_interval = Column(Integer, default=0)               # Days until next review
+    repetition_count = Column(Integer, default=0)              # Successful reviews in a row
+    next_review_date = Column(sqlalchemy.Date, nullable=True)  # Scheduled next review date
+
+    # Difficulty level — Sprint 9 (SF-008)
+    difficulty = Column(NVARCHAR(20), default="unrated")  # beginner/intermediate/advanced/unrated
+
+    # PIE Root Etymology — Sprint 9 (SF-013)
+    pie_root = Column(NVARCHAR(100), nullable=True)    # Proto-Indo-European root e.g. *bher-
+    pie_meaning = Column(NVARCHAR(255), nullable=True)  # PIE root meaning e.g. "to carry"
+
     # Sync metadata (for offline support)
     is_synced = Column(Boolean, default=True)
     local_only = Column(Boolean, default=False)  # Created offline, not yet synced
-    
+
     # Timestamps - Using DATETIME2 for better precision
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
-    
+
     # Relationships - CORRECTED: language_id exists, so enable relationship
     language = relationship("Language", back_populates="flashcards")
     # user = relationship("User", back_populates="flashcards")  # user_id doesn't exist yet
