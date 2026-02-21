@@ -486,7 +486,7 @@ Source: `PROJECT_STATUS.md`, `README.md`, `CLAUDE.md`, code inspection
 - **Session recording** -- Every review writes a row to study_sessions for analytics
 - **Difficulty labels** -- Per-card difficulty field ('unrated'/'easy'/'medium'/'hard'/'mastered'), auto-assign and manual set endpoints
 - **Gender articles (SF-016)** -- French/Spanish/Portuguese noun cards now have grammatical gender articles prepended (le/la/l'/el/o/a). 311 noun cards updated: French 199, Spanish 87, Portuguese 39.
-- **PIE roots (SF-013)** -- Proto-Indo-European roots extracted from etymology data using GPT-4o-mini. pie_root and pie_meaning columns populated. ~59% of cards with etymology have traceable PIE roots (extraction in progress at time of Sprint 9 close).
+- **PIE roots (SF-013)** -- Proto-Indo-European roots extracted from etymology data using GPT-4o-mini. pie_root and pie_meaning columns populated. 61.1% of cards with etymology have traceable PIE roots (961 cards updated, 562 marked N/A, 50 errors from UUID batch issue remain NULL and are re-processable).
 
 ### Pronunciation Practice (Sprint 8 / 8.5)
 - **Audio recording** -- Upload user recordings to GCS
@@ -1070,12 +1070,12 @@ Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
 - BUG-006 partially fixed (refresh cookie on RedirectResponse)
 
 **SF-013: PIE Root Data**
-- Status: **IN PROGRESS (Sprint 9 — batch running)**
+- Status: **DONE (Sprint 9 — batch complete)**
 - Schema: `pie_root` NVARCHAR(100) and `pie_meaning` NVARCHAR(200) added to flashcards table
 - Batch script: `backend/scripts/sf013_pie_roots.py` — processes 50 cards/batch via GPT-4o-mini
 - Sentinel: `pie_root = 'N/A'` marks cards with no applicable PIE root (prevents re-processing); NULL = not yet processed
-- Extraction ongoing: 1,552 cards with etymology data being processed across 32 batches
-- Expected: ~59% cards have traceable PIE roots based in-progress batch data (145/245 processed so far = 59%)
+- Final results: 1,573 processed, 961 with PIE roots, 562 N/A, 50 errors (UUID conversion issue batch 16, those cards remain NULL and can be re-processed)
+- Coverage: 61.1% of processed cards have traceable PIE roots
 
 **SF-015: Greek Words Import**
 - Status: **IN PROGRESS (separate session)**
@@ -1117,7 +1117,7 @@ Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
 6. ~~**Sprint 12**: SF-005 SM-2 Spaced Repetition Algorithm~~ → **DONE Sprint 9**
 7. **Sprint 11**: Visual learning charts (reviews per day, chart.js) — data accumulates as users review cards
 8. ~~**Future**: SF-008 Difficulty Levels~~ → **DONE Sprint 9**
-9. ~~**Future**: SF-013 PIE Root Data~~ → **IN PROGRESS Sprint 9 (batch script running)**
+9. ~~**Future**: SF-013 PIE Root Data~~ → **DONE Sprint 9 (961/1,573 cards, 61.1% coverage)**
 10. **Future**: Migrate SR metadata to user_flashcard_sr junction table (when user_id FK added)
 
 ### Items Closer to Done Than Expected (Audit 2026-02-20)
@@ -1150,7 +1150,7 @@ Session: CC Sprint — SuperFlashcards Build (cc-deploy@super-flashcards-475210.
 | Progress Dashboard (SF-007) | `frontend/progress.js`, `frontend/index.html`, `backend/app/routers/study.py` | DONE |
 | Difficulty Levels (SF-008) | `backend/app/routers/study.py`, `backend/app/models.py` | DONE |
 | Gender Articles (SF-016) | `backend/scripts/sf016_gender_articles.py` | DONE |
-| PIE Root Extraction (SF-013) | `backend/scripts/sf013_pie_roots.py` | IN PROGRESS |
+| PIE Root Extraction (SF-013) | `backend/scripts/sf013_pie_roots.py` | DONE |
 
 ### Schema Changes
 
@@ -1181,7 +1181,7 @@ DROP TABLE pronunciation_attempts;  -- lowercase, was empty (0 rows)
 | Spanish nouns updated with gender articles | 87 cards |
 | Portuguese nouns updated with gender articles | 39 cards |
 | Total cards updated with gender articles | 311 nouns |
-| Cards with PIE roots extracted (in progress) | ~59% of 1,552 cards with etymology |
+| Cards with PIE roots extracted | 961 with PIE roots, 562 N/A, 50 errors, 61.1% coverage (1,573 total processed) |
 | Reference_Audio_URL rows with data | 0 (confirmed empty, safe to drop column) |
 | study_sessions rows at deploy | 0 (write path now active, data accumulates with use) |
 
@@ -1204,9 +1204,9 @@ DROP TABLE pronunciation_attempts;  -- lowercase, was empty (0 rows)
 
 - **French l' article quality**: ~5-10 vowel-initial nouns may have "la ambiance" instead of "l'ambiance". PL review recommended.
 - **SR metadata on flashcard row**: ease_factor/interval lives on flashcard, not per-user. MVP tradeoff; requires migration when user_id FK is added.
-- **PIE root extraction**: Batch script still running at sprint close. Re-runnable safely (N/A sentinel prevents re-processing).
+- **PIE root extraction**: Batch script completed after sprint. 961/1,573 processed cards have PIE roots (61.1%). 50 cards errored (batch 16 UUID conversion issue) and remain NULL; re-runnable safely (N/A sentinel prevents re-processing of already-classified cards).
 
 ---
 
 *End of Project Knowledge Document*
-*Last updated: 2026-02-20 (Sprint 9 Build)*
+*Last updated: 2026-02-20 (Sprint 9 — SF-013 final completion)*
