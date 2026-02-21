@@ -61,6 +61,12 @@ const BACKEND_BASE = (() => {
     }
 })();
 
+const ETYMYTHON_BASE_URL = window.location.origin.includes('localhost')
+    ? 'http://localhost:8001'
+    : 'https://etymython.rentyourcio.com';
+
+const etymythonLookupCache = new Map();
+
 console.log(`🌐 Frontend origin: ${window.location.origin}`);
 console.log(`🌐 Backend base: ${BACKEND_BASE}`);
 
@@ -820,6 +826,52 @@ async function markAsReviewed(flashcardId) {
     }
 }
 
+// SR rating submission — Sprint 9 (SF-005)
+window.submitSRRating = async function(quality) {
+    const card = state.flashcards[state.currentCardIndex];
+    if (!card) return;
+
+    // Disable buttons immediately to prevent double-submit
+    const ratingButtons = document.getElementById('sr-rating-buttons');
+    if (ratingButtons) {
+        ratingButtons.querySelectorAll('button').forEach(b => b.disabled = true);
+    }
+
+    try {
+        const result = await apiRequest(`/study/review/${card.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quality: quality })
+        });
+
+        // Show next review date briefly
+        const nextReviewEl = document.getElementById('sr-next-review');
+        if (nextReviewEl && result && result.next_review_date) {
+            const qualityLabels = { 0: 'Again', 2: 'Hard', 4: 'Good', 5: 'Easy' };
+            nextReviewEl.textContent = `${qualityLabels[quality] || ''} — next review: ${result.next_review_date}`;
+            nextReviewEl.classList.remove('hidden');
+        }
+
+        // Update the in-memory card with new SR data so stats stay fresh
+        if (result && state.flashcards[state.currentCardIndex]) {
+            state.flashcards[state.currentCardIndex].ease_factor = result.new_ease_factor;
+            state.flashcards[state.currentCardIndex].next_review_date = result.next_review_date;
+            state.flashcards[state.currentCardIndex].repetition_count = result.repetition_count;
+        }
+    } catch (err) {
+        console.error('[SR] Failed to submit rating:', err);
+    }
+
+    // Advance to next card after a short pause
+    setTimeout(() => {
+        if (ratingButtons) {
+            ratingButtons.classList.add('hidden');
+            ratingButtons.querySelectorAll('button').forEach(b => b.disabled = false);
+        }
+        nextCard();
+    }, 1200);
+};
+
 // ========================================
 // Image Generation Functions
 // ========================================
@@ -1046,6 +1098,87 @@ async function copyShareLink(cardId) {
     }
 }
 
+async function injectEtymythonLink(flashcard, targetElementId) {
+    if (!flashcard || !flashcard.word_or_phrase || !flashcard.etymology) {
+        return;
+    }
+
+    const target = document.getElementById(targetElementId);
+    if (!target) {
+        return;
+    }
+
+    const wordKey = flashcard.word_or_phrase.toLowerCase().trim();
+    if (!wordKey) {
+        return;
+    }
+
+    try {
+        let lookup = etymythonLookupCache.get(wordKey);
+        if (!lookup) {
+            const response = await fetch(`${ETYMYTHON_BASE_URL}/api/v1/cognates/lookup?word=${encodeURIComponent(flashcard.word_or_phrase)}`);
+            if (!response.ok) {
+                return;
+            }
+            lookup = await response.json();
+            etymythonLookupCache.set(wordKey, lookup);
+        }
+
+        const pickBestFigure = (payload, card) => {
+            const figures = payload?.figures || [];
+            if (!figures.length) {
+                return null;
+            }
+
+            const cardWord = (card?.word_or_phrase || '').toLowerCase().trim();
+            const cardEtymology = (card?.etymology || '').toLowerCase();
+            const cardCognates = (card?.english_cognates || '').toLowerCase();
+
+            const scoreFigure = (figureCandidate) => {
+                const englishName = (figureCandidate?.english_name || '').toLowerCase();
+                const greekName = (figureCandidate?.greek_name || '').toLowerCase();
+                let score = 0;
+
+                if (cardWord && (cardWord === englishName || cardWord === greekName)) {
+                    score += 100;
+                }
+                if (cardWord && (englishName.includes(cardWord) || greekName.includes(cardWord))) {
+                    score += 40;
+                }
+                if (englishName && (cardEtymology.includes(englishName) || cardCognates.includes(englishName))) {
+                    score += 25;
+                }
+                if (greekName && (cardEtymology.includes(greekName) || cardCognates.includes(greekName))) {
+                    score += 25;
+                }
+
+                return score;
+            };
+
+            const ranked = [...figures].sort((a, b) => scoreFigure(b) - scoreFigure(a));
+            return ranked[0];
+        };
+
+        const figure = pickBestFigure(lookup, flashcard);
+        if (!figure || !figure.id) {
+            return;
+        }
+
+        const figureName = figure.english_name || flashcard.word_or_phrase;
+        const figureUrl = `${ETYMYTHON_BASE_URL}/app#figure/${figure.id}`;
+        target.innerHTML = `
+            <div class="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <span class="text-sm text-purple-700">From Greek mythology:</span>
+                <a href="${figureUrl}" target="_blank" rel="noopener noreferrer" class="ml-2 text-sm font-semibold text-purple-800 hover:text-purple-900 underline">
+                    View ${figureName} in Etymython 🟣
+                </a>
+            </div>
+        `;
+    } catch (error) {
+        console.warn('Etymython lookup unavailable:', error);
+    }
+}
+
 function renderFlashcard(flashcard) {
     const container = document.getElementById('flashcard-container');
     
@@ -1174,6 +1307,7 @@ function renderFlashcard(flashcard) {
                             <div>
                                 <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">Etymology</h3>
                                 <p class="text-gray-700">${flashcard.etymology}</p>
+                                <div id="etymython-link-study-${flashcard.id}"></div>
                             </div>
                         ` : ''}
                         
@@ -1265,6 +1399,10 @@ function renderFlashcard(flashcard) {
         }, 150);
     }
 
+    if (flashcard.etymology) {
+        injectEtymythonLink(flashcard, `etymython-link-study-${flashcard.id}`);
+    }
+
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();
 }
@@ -1273,10 +1411,22 @@ function flipCard() {
     const card = document.querySelector('.flashcard');
     card.classList.toggle('flipped');
     state.isFlipped = !state.isFlipped;
-    
+
     // Mark as reviewed when flipping
     if (state.flashcards[state.currentCardIndex]) {
         markAsReviewed(state.flashcards[state.currentCardIndex].id);
+    }
+
+    // Show SR rating buttons when card is revealed (flipped to answer side)
+    const ratingButtons = document.getElementById('sr-rating-buttons');
+    if (ratingButtons) {
+        if (state.isFlipped) {
+            ratingButtons.classList.remove('hidden');
+        } else {
+            ratingButtons.classList.add('hidden');
+            const nextReview = document.getElementById('sr-next-review');
+            if (nextReview) nextReview.classList.add('hidden');
+        }
     }
 }
 
@@ -1430,6 +1580,7 @@ function renderReadCard(flashcard) {
                                 <span class="text-lg">🌱</span> Etymology
                             </h3>
                             <p class="text-gray-700 leading-relaxed">${flashcard.etymology}</p>
+                            <div id="etymython-link-read-${flashcard.id}"></div>
                         </div>
                     ` : ''}
                     
@@ -1490,6 +1641,10 @@ function renderReadCard(flashcard) {
             </div>
         </div>
     `;
+
+    if (flashcard.etymology) {
+        injectEtymythonLink(flashcard, `etymython-link-read-${flashcard.id}`);
+    }
     
     // Add touch/swipe support for mobile navigation in read mode
     addReadModeSwipeSupport();
@@ -3522,7 +3677,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('✅ Adding file upload listener');
         importFileInput.addEventListener('change', handleFileUpload);
     } else {
-        console.error('❌ Import file input not found');
+        console.debug('ℹ️ Import file input not present on this view');
     }
     
     if (csvTemplateBtn) {
@@ -3532,7 +3687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             downloadTemplate('csv');
         });
     } else {
-        console.error('❌ CSV template button not found');
+        console.debug('ℹ️ CSV template button not present on this view');
     }
     
     if (jsonTemplateBtn) {
@@ -3542,7 +3697,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             downloadTemplate('json');
         });
     } else {
-        console.error('❌ JSON template button not found');
+        console.debug('ℹ️ JSON template button not present on this view');
     }
     
     if (importAnotherBtn) {
@@ -4627,6 +4782,7 @@ function switchMode(mode) {
     const practiceBtn = document.getElementById('mode-practice');
     const browseBtn = document.getElementById('mode-browse');
     const importBtn = document.getElementById('mode-import');
+    const progressBtn = document.getElementById('mode-progress');
 
     console.log('🔍 Mode containers found:', {
         studyMode: !!document.getElementById('study-mode'),
@@ -4638,7 +4794,7 @@ function switchMode(mode) {
     });
 
     // Reset all buttons
-    [studyBtn, readBtn, practiceBtn, browseBtn, importBtn].forEach(btn => {
+    [studyBtn, readBtn, practiceBtn, browseBtn, importBtn, progressBtn].forEach(btn => {
         if (btn) {
             btn.classList.remove('active', 'bg-indigo-600', 'text-white');
             btn.classList.add('text-gray-600');
@@ -4651,12 +4807,14 @@ function switchMode(mode) {
     const practiceModeEl = document.getElementById('practice-mode');
     const browseModeEl = document.getElementById('browse-mode');
     const importModeEl = document.getElementById('content-import');
+    const progressModeEl = document.getElementById('progress-mode');
 
     if (studyModeEl) studyModeEl.classList.add('hidden');
     if (readModeEl) readModeEl.classList.add('hidden');
     if (practiceModeEl) practiceModeEl.classList.add('hidden');
     if (browseModeEl) browseModeEl.classList.add('hidden');
     if (importModeEl) importModeEl.classList.add('hidden');
+    if (progressModeEl) progressModeEl.classList.add('hidden');
     
     console.log(`🎯 Switching to: ${mode}`);
     
@@ -4739,18 +4897,34 @@ function switchMode(mode) {
         
     } else if (mode === 'import') {
         console.log('📁 Activating Import mode');
-        
+
         if (importBtn) {
             importBtn.classList.add('active', 'bg-indigo-600', 'text-white');
             importBtn.classList.remove('text-gray-600');
         }
-        
+
         // Show import mode content
         if (importModeEl) {
             importModeEl.classList.remove('hidden');
             console.log('📁 Import mode container now visible');
         } else {
             console.error('❌ Import mode element not found!');
+        }
+    } else if (mode === 'progress') {
+        console.log('📊 Activating Progress mode');
+
+        if (progressBtn) {
+            progressBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            progressBtn.classList.remove('text-gray-600');
+        }
+
+        if (progressModeEl) {
+            progressModeEl.classList.remove('hidden');
+        }
+
+        // Initialize progress dashboard (progress.js)
+        if (typeof window.initProgressDashboard === 'function') {
+            window.initProgressDashboard();
         }
     }
     
@@ -4941,6 +5115,12 @@ function initializeNewUI() {
     importBtn?.addEventListener('click', () => {
         console.log('📁 Import button clicked');
         switchMode('import');
+    });
+
+    const progressBtn2 = document.getElementById('mode-progress');
+    progressBtn2?.addEventListener('click', () => {
+        console.log('📊 Progress button clicked');
+        switchMode('progress');
     });
     
     // Primary action button - show the add card form

@@ -1,7 +1,7 @@
 # backend/app/schemas.py
 from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 
 # Language Schemas
@@ -32,11 +32,14 @@ class FlashcardBase(BaseModel):
     related_words: Optional[str] = None  # JSON string
     image_url: Optional[str] = None
     image_description: Optional[str] = None
-    audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
-    audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
-    ipa_pronunciation: Optional[str] = None  # IPA phonetic transcription
-    ipa_audio_url: Optional[str] = None  # TTS from IPA pronunciation
-    ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
+    audio_url: Optional[str] = None
+    audio_generated_at: Optional[datetime] = None
+    ipa_pronunciation: Optional[str] = None
+    ipa_audio_url: Optional[str] = None
+    ipa_generated_at: Optional[datetime] = None
+    # PIE Root
+    pie_root: Optional[str] = None
+    pie_meaning: Optional[str] = None
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
@@ -50,29 +53,73 @@ class FlashcardUpdate(BaseModel):
     related_words: Optional[str] = None
     image_url: Optional[str] = None
     image_description: Optional[str] = None
-    audio_url: Optional[str] = None  # Sprint 4: TTS audio file URL
-    audio_generated_at: Optional[datetime] = None  # Sprint 4: When audio was generated
-    ipa_pronunciation: Optional[str] = None  # IPA phonetic transcription
-    ipa_audio_url: Optional[str] = None  # TTS from IPA pronunciation
-    ipa_generated_at: Optional[datetime] = None  # When IPA audio was generated
+    audio_url: Optional[str] = None
+    audio_generated_at: Optional[datetime] = None
+    ipa_pronunciation: Optional[str] = None
+    ipa_audio_url: Optional[str] = None
+    ipa_generated_at: Optional[datetime] = None
+    difficulty: Optional[str] = None
+    pie_root: Optional[str] = None
+    pie_meaning: Optional[str] = None
 
 class Flashcard(FlashcardBase):
-    id: UUID  # CORRECTED: id DOES exist in Cloud SQL!
-    language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
+    id: UUID
+    language_id: UUID
     source: str
     times_reviewed: Optional[int] = 0
     last_reviewed: Optional[datetime] = None
+    # Spaced repetition fields
+    ease_factor: Optional[float] = 2.5
+    review_interval: Optional[int] = 0
+    repetition_count: Optional[int] = 0
+    next_review_date: Optional[date] = None
+    difficulty: Optional[str] = "unrated"
     is_synced: bool
     local_only: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     @field_serializer('id', 'language_id')
     def serialize_uuid(self, value):
         return str(value)
-    
+
     class Config:
         from_attributes = True
+
+
+# Study / Spaced Repetition Schemas
+class StudyReviewRequest(BaseModel):
+    quality: int = Field(..., ge=0, le=5, description="Review quality 0-5 (0=again, 2=hard, 4=good, 5=easy)")
+    time_spent_seconds: Optional[int] = None
+
+class StudyReviewResponse(BaseModel):
+    flashcard_id: str
+    quality: int
+    new_interval: int
+    new_ease_factor: float
+    next_review_date: date
+    repetition_count: int
+    difficulty: str
+    session_recorded: bool
+
+class StudyStatsResponse(BaseModel):
+    total_cards: int
+    due_today: int
+    overdue: int
+    new_cards: int        # never reviewed
+    learning: int         # 1-3 reviews
+    familiar: int         # 4-10 reviews
+    mastered: int         # 10+ reviews
+    streak_days: int
+    total_sessions: int
+    avg_ease_factor: Optional[float]
+    by_language: List[dict]
+
+class StudyProgressResponse(BaseModel):
+    reviews_last_30_days: List[dict]   # [{date, count}]
+    cumulative_learned: List[dict]     # [{date, count}]
+    mastery_distribution: dict         # {new, learning, familiar, mastered}
+    pronunciation_stats: Optional[dict]
 
 # AI Generation Schemas
 class AIGenerateRequest(BaseModel):

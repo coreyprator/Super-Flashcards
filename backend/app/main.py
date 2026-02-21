@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 2.9.0 - BUG-006 fix: refresh cookie on OAuth redirect
+# Version: 3.0.0 - Sprint 9: Spaced Repetition (SM-2), Progress Dashboard, Difficulty Levels
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import os
 import logging
 import time
@@ -17,10 +18,11 @@ import secrets
 
 from app.database import engine, get_db
 from app import models
-from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone
+from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone, study
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
+# Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -70,7 +72,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="2.9.0" + (" [QA]" if IS_QA else "")
+    version="3.0.0" + (" [QA]" if IS_QA else "")
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
@@ -219,6 +221,7 @@ app.include_router(batch_processing.router, prefix="/api", tags=["batch_processi
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
 app.include_router(pronunciation.router, prefix="/api/v1/pronunciation", tags=["pronunciation"])  # Sprint 8 - Pronunciation practice
 app.include_router(voice_clone.router, prefix="/api/v1", tags=["voice-clone"])  # Sprint 8.5e - Voice clone
+app.include_router(study.router, prefix="/api/study", tags=["study"])  # Sprint 9 - Spaced Repetition
 
 # Import document parser router
 from .routers import document_parser
@@ -245,12 +248,18 @@ if os.path.exists(frontend_path):
 @app.get("/manifest.json")
 async def serve_manifest():
     """Serve manifest.json from frontend directory for PWA support"""
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, JSONResponse
     manifest_path = os.path.join(frontend_path, "manifest.json")
     if os.path.exists(manifest_path):
         return FileResponse(manifest_path, media_type="application/json")
-    else:
-        raise HTTPException(status_code=404, detail="manifest.json not found")
+    return JSONResponse({
+        "name": "Super Flashcards",
+        "short_name": "Flashcards",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#4f46e5"
+    })
 
 # Cloud Storage configuration for media files
 CLOUD_STORAGE_BUCKET = "super-flashcards-media"
@@ -344,11 +353,18 @@ async def serve_login():
 @app.get("/manifest.json")
 async def get_manifest():
     """Serve the PWA manifest file"""
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, JSONResponse
     manifest_file = os.path.join(frontend_path, "manifest.json")
     if os.path.exists(manifest_file):
         return FileResponse(manifest_file, media_type="application/json")
-    raise HTTPException(status_code=404, detail="Manifest not found")
+    return JSONResponse({
+        "name": "Super Flashcards",
+        "short_name": "Flashcards",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#4f46e5"
+    })
 
 @app.get("/favicon.ico")
 async def get_favicon():
@@ -435,6 +451,15 @@ async def serve_oauth_tracker_js():
         return FileResponse(js_file, media_type="application/javascript")
     return {"error": "File not found"}
 
+@app.get("/error-tracker.js")
+async def serve_error_tracker_js():
+    """Serve error-tracker.js (performance/debug tracking)."""
+    from fastapi.responses import FileResponse
+    js_file = os.path.join(frontend_path, "error-tracker.js")
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
 @app.get("/pronunciation-recorder.js")
 async def serve_pronunciation_recorder_js():
     """Serve pronunciation-recorder.js (Sprint 8 - Pronunciation practice)"""
@@ -489,6 +514,15 @@ async def serve_first_time_loader_js():
         return FileResponse(js_file, media_type="application/javascript")
     return {"error": "File not found"}
 
+@app.get("/progress.js")
+async def serve_progress_js():
+    """Serve progress.js (Sprint 9 - Progress Dashboard)"""
+    from fastapi.responses import FileResponse
+    js_file = os.path.join(frontend_path, "progress.js")
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return {"error": "File not found"}
+
 @app.get("/oauth-simple-test.html", response_class=HTMLResponse)
 async def serve_oauth_simple_test():
     """Serve OAuth simple test page (debugging tool)"""
@@ -505,7 +539,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "2.9.0",
+        "version": "3.0.0",
         "database": "connected"
     }
 
@@ -536,6 +570,32 @@ async def sync_status():
     return {
         "server_time": "2025-10-03T12:00:00Z",
         "sync_available": True
+    }
+
+
+@app.get("/api/v1/cards/exists")
+async def card_exists(word: str, db: Session = Depends(get_db)):
+    normalized = (word or "").strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="word is required")
+
+    card = db.query(models.Flashcard).filter(
+        func.lower(models.Flashcard.word_or_phrase) == normalized.lower()
+    ).first()
+
+    if not card:
+        return {
+            "word": normalized,
+            "exists": False,
+            "card_id": None,
+            "url": None,
+        }
+
+    return {
+        "word": normalized,
+        "exists": True,
+        "card_id": str(card.id),
+        "url": f"/?cardId={card.id}",
     }
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '2.10.2';
+        window.APP_VERSION = '3.0.0';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -430,7 +430,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v2.10.2</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.0.0</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -534,6 +534,9 @@
                     <button id="mode-import" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
                         📁 <span class="mode-button-label">Import</span>
                     </button>
+                    <button id="mode-progress" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
+                        📊 <span class="mode-button-label">Progress</span>
+                    </button>
                 </div>
                 
                 <!-- Primary Action -->
@@ -546,6 +549,16 @@
             <div id="main-content" class="p-6">
                 <!-- Study Mode -->
                 <div id="study-mode" class="mode-content">
+                    <!-- SR Queue Header (shown when SR mode is active) -->
+                    <div id="sr-queue-header" class="hidden mb-4 flex items-center justify-between bg-indigo-50 rounded-lg px-4 py-2">
+                        <span class="text-sm font-medium text-indigo-700">
+                            📅 Spaced Repetition Study
+                        </span>
+                        <span class="text-sm text-indigo-500">
+                            <span id="sr-cards-remaining">0</span> cards due
+                        </span>
+                    </div>
+
                     <div id="flashcard-container">
                         <!-- Flashcard will be inserted here -->
                         <div class="text-center text-gray-500 py-12">
@@ -553,7 +566,31 @@
                             <p class="text-sm">Use the "Add Card" button to create your first flashcard</p>
                         </div>
                     </div>
-                    
+
+                    <!-- SR Rating Buttons (visible after card is flipped in SR mode) -->
+                    <div id="sr-rating-buttons" class="hidden mt-4">
+                        <p class="text-xs text-center text-gray-400 mb-2">How well did you know this?</p>
+                        <div class="flex gap-2 justify-center flex-wrap">
+                            <button onclick="window.submitSRRating(0)"
+                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition border border-red-200">
+                                😰 Again
+                            </button>
+                            <button onclick="window.submitSRRating(2)"
+                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 transition border border-orange-200">
+                                😓 Hard
+                            </button>
+                            <button onclick="window.submitSRRating(4)"
+                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition border border-blue-200">
+                                🙂 Good
+                            </button>
+                            <button onclick="window.submitSRRating(5)"
+                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition border border-green-200">
+                                😊 Easy
+                            </button>
+                        </div>
+                        <p id="sr-next-review" class="text-xs text-center text-gray-400 mt-2 hidden"></p>
+                    </div>
+
                     <!-- Navigation Controls (legacy - now on cards) -->
                     <div id="study-controls" class="mt-6 flex justify-between items-center hidden">
                         <button id="prev-card" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
@@ -628,6 +665,11 @@
                             <p class="text-sm">Select a language to see your flashcards</p>
                         </div>
                     </div>
+                </div>
+
+                <!-- Progress Mode (SF-007) -->
+                <div id="progress-mode" class="mode-content hidden">
+                    <!-- Rendered by progress.js -->
                 </div>
             </div>
 
@@ -1434,7 +1476,8 @@
     <script src="/pronunciation-recorder.js?v=2.10.3"></script>
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
-    <script src="/app.js?v=2.10.2"></script>
+    <script src="/progress.js?v=3.0.0"></script>
+    <script src="/app.js?v=3.0.0"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         

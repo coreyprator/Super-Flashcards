@@ -1,7 +1,8 @@
 # backend/app/crud.py
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func, text
 from typing import List, Optional
+from datetime import date, datetime, timezone, timedelta
 from app import models, schemas
 
 # Language CRUD
@@ -394,3 +395,226 @@ def get_pronunciation_prompt_template(
         models.PronunciationPromptTemplate.language_code == language_code,
         models.PronunciationPromptTemplate.is_active == True
     ).first()
+
+
+# ============================================
+# SPACED REPETITION — Sprint 9 (SF-005/SF-007)
+# ============================================
+
+def get_cards_due_for_review(
+    db: Session,
+    language_id: Optional[str] = None,
+    limit: int = 50
+) -> List[models.Flashcard]:
+    """Return cards due today (next_review_date <= today or never reviewed).
+    Orders: overdue first, then new cards."""
+    today = date.today()
+    query = db.query(models.Flashcard).filter(
+        or_(
+            models.Flashcard.next_review_date == None,  # noqa: E711 — SQLAlchemy requires ==
+            models.Flashcard.next_review_date <= today
+        )
+    )
+    if language_id:
+        query = query.filter(models.Flashcard.language_id == language_id)
+    # MSSQL: NULLs sort first in ASC — new cards first, then overdue by date
+    query = query.order_by(
+        models.Flashcard.next_review_date.asc(),
+        models.Flashcard.created_at.asc()
+    )
+    return query.limit(limit).all()
+
+
+def update_card_sr(
+    db: Session,
+    flashcard_id: str,
+    ease_factor: float,
+    review_interval: int,
+    repetition_count: int,
+    next_review_date: date,
+    difficulty: str,
+) -> Optional[models.Flashcard]:
+    """Update SM-2 fields on a flashcard after a review."""
+    card = get_flashcard(db, flashcard_id)
+    if not card:
+        return None
+    card.ease_factor = ease_factor
+    card.review_interval = review_interval
+    card.repetition_count = repetition_count
+    card.next_review_date = next_review_date
+    card.difficulty = difficulty
+    card.times_reviewed = (card.times_reviewed or 0) + 1
+    card.last_reviewed = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(card)
+    return card
+
+
+def record_study_session(
+    db: Session,
+    flashcard_id: str,
+    ease_rating: int,
+    time_spent_seconds: Optional[int] = None,
+    user_id: Optional[str] = None,
+) -> models.StudySession:
+    """Write a study session record to study_sessions table."""
+    session = models.StudySession(
+        flashcard_id=flashcard_id,
+        user_id=user_id,
+        ease_rating=ease_rating,
+        time_spent_seconds=time_spent_seconds,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def get_study_stats(db: Session, language_id: Optional[str] = None) -> dict:
+    """Aggregate statistics for the progress dashboard."""
+    today = date.today()
+
+    base = db.query(models.Flashcard)
+    if language_id:
+        base = base.filter(models.Flashcard.language_id == language_id)
+
+    total_cards = base.count()
+
+    due_today = base.filter(
+        or_(
+            models.Flashcard.next_review_date == None,  # noqa: E711
+            models.Flashcard.next_review_date <= today
+        )
+    ).count()
+
+    overdue = base.filter(
+        models.Flashcard.next_review_date < today
+    ).count()
+
+    new_cards = base.filter(models.Flashcard.repetition_count == 0).count()
+    learning = base.filter(
+        models.Flashcard.repetition_count > 0,
+        models.Flashcard.repetition_count <= 3
+    ).count()
+    familiar = base.filter(
+        models.Flashcard.repetition_count > 3,
+        models.Flashcard.repetition_count <= 10
+    ).count()
+    mastered = base.filter(models.Flashcard.repetition_count > 10).count()
+
+    # Average ease factor (only for reviewed cards)
+    ef_result = base.filter(
+        models.Flashcard.repetition_count > 0
+    ).with_entities(func.avg(models.Flashcard.ease_factor)).scalar()
+    avg_ef = round(float(ef_result), 3) if ef_result else None
+
+    # Total study sessions
+    total_sessions = db.query(models.StudySession).count()
+
+    # Streak: consecutive days with at least one study session
+    streak_days = _calculate_streak(db)
+
+    # By language breakdown
+    lang_query = (
+        db.query(
+            models.Language.name,
+            func.count(models.Flashcard.id).label("total"),
+            func.sum(
+                func.iif(models.Flashcard.repetition_count > 10, 1, 0)
+            ).label("mastered"),
+        )
+        .join(models.Flashcard, models.Flashcard.language_id == models.Language.id)
+        .group_by(models.Language.name)
+        .order_by(func.count(models.Flashcard.id).desc())
+    )
+    by_language = [
+        {"language": row.name, "total": row.total, "mastered": int(row.mastered or 0)}
+        for row in lang_query.all()
+    ]
+
+    return {
+        "total_cards": total_cards,
+        "due_today": due_today,
+        "overdue": overdue,
+        "new_cards": new_cards,
+        "learning": learning,
+        "familiar": familiar,
+        "mastered": mastered,
+        "streak_days": streak_days,
+        "total_sessions": total_sessions,
+        "avg_ease_factor": avg_ef,
+        "by_language": by_language,
+    }
+
+
+def get_study_progress(db: Session) -> dict:
+    """Return time-series data for progress charts."""
+    today = date.today()
+    thirty_days_ago = today - timedelta(days=29)
+
+    # Reviews per day (last 30 days) from study_sessions
+    sessions_raw = (
+        db.query(
+            func.cast(models.StudySession.reviewed_at, sqlalchemy_date_type()).label("review_date"),
+            func.count(models.StudySession.id).label("cnt"),
+        )
+        .filter(models.StudySession.reviewed_at >= thirty_days_ago)
+        .group_by(func.cast(models.StudySession.reviewed_at, sqlalchemy_date_type()))
+        .all()
+    )
+    reviews_by_date = {str(row.review_date): row.cnt for row in sessions_raw}
+
+    # Build 30-day list filling zeros for missing days
+    reviews_last_30 = []
+    for i in range(29, -1, -1):
+        d = str(today - timedelta(days=i))
+        reviews_last_30.append({"date": d, "count": reviews_by_date.get(d, 0)})
+
+    mastery_distribution = {
+        "new": db.query(models.Flashcard).filter(models.Flashcard.repetition_count == 0).count(),
+        "learning": db.query(models.Flashcard).filter(
+            models.Flashcard.repetition_count > 0,
+            models.Flashcard.repetition_count <= 3
+        ).count(),
+        "familiar": db.query(models.Flashcard).filter(
+            models.Flashcard.repetition_count > 3,
+            models.Flashcard.repetition_count <= 10
+        ).count(),
+        "mastered": db.query(models.Flashcard).filter(
+            models.Flashcard.repetition_count > 10
+        ).count(),
+    }
+
+    return {
+        "reviews_last_30_days": reviews_last_30,
+        "cumulative_learned": [],  # Placeholder — costly to compute
+        "mastery_distribution": mastery_distribution,
+        "pronunciation_stats": None,
+    }
+
+
+def _calculate_streak(db: Session) -> int:
+    """Count consecutive days with at least one study session ending today."""
+    today = date.today()
+    streak = 0
+    d = today
+    while True:
+        start = datetime.combine(d, datetime.min.time())
+        end = datetime.combine(d, datetime.max.time())
+        count = db.query(models.StudySession).filter(
+            models.StudySession.reviewed_at >= start,
+            models.StudySession.reviewed_at <= end,
+        ).count()
+        if count == 0:
+            break
+        streak += 1
+        d -= timedelta(days=1)
+        if streak > 3650:  # Safety cap
+            break
+    return streak
+
+
+def sqlalchemy_date_type():
+    """Return SQLAlchemy Date type for casting."""
+    from sqlalchemy import Date
+    return Date
