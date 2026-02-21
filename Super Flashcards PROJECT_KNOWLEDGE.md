@@ -196,7 +196,7 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 | code | NVARCHAR(5) | Unique, e.g., "fr", "el" |
 | created_at | DATETIME | |
 
-**flashcards** (Source: `backend/app/models.py`)
+**flashcards** (Source: `backend/app/models.py`, verified 2026-02-20 audit)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UNIQUEIDENTIFIER (PK) | UUID |
@@ -220,6 +220,7 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 | local_only | BIT | Default 0 |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
+| Reference_Audio_URL | NVARCHAR | **UNDOCUMENTED** — exists in DB but NOT in models.py ORM. Added outside ORM. Not used by app code. Tech debt — needs documentation or removal. |
 
 **users** (Source: `backend/app/models.py`, `backend/create_missing_tables.sql`)
 | Column | Type | Notes |
@@ -282,6 +283,13 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 
 **api_debug_logs** (Source: `backend/app/models.py`)
 - Debug logging for image/audio generation operations
+
+**PronunciationDebugLogs** (Source: DB audit 2026-02-20 — NOT in models.py)
+- Step-by-step debug log for pronunciation pipeline requests
+- Columns: LogID (INT PK), RequestID (NVARCHAR), UserID (UUID), Step (NVARCHAR), Status (NVARCHAR), Data (NVARCHAR), ErrorMessage (NVARCHAR), DurationMs (INT), CreatedAt (DATETIME2)
+
+**pronunciation_attempts** (lowercase — GHOST TABLE, Source: DB audit 2026-02-20)
+- Empty duplicate of PronunciationAttempts (0 rows). Different schema (11 cols, snake_case, no Gemini columns). Was likely a migration artifact. Safe to DROP. App uses PascalCase table exclusively (134 rows active).
 
 ### Key Database Notes
 - `user_id` FK on flashcards is NOT in the Cloud SQL schema yet (commented out in models.py) -- all flashcards are shared across users
@@ -961,5 +969,116 @@ Source: `.claude/settings.json`
 
 ---
 
+---
+
+## 16. AUDIT FINDINGS — 2026-02-20
+
+Session: CC Sprint — SF Audit + Verify Features
+Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
+
+### General App Health
+
+| Item | Status |
+|------|--------|
+| Production URL | https://super-flashcards-wmrla7fhwa-uc.a.run.app |
+| Custom domain | https://learn.rentyourcio.com — HTTP 200 |
+| /health | `{"status":"healthy","version":"2.9.0","database":"connected"}` |
+| /health/db | `{"status":"healthy","database":"connected","test_query":"SUCCESS (result=1)"}` |
+| Google OAuth login | Working (per project history; BUG-006 mobile partial fix in place) |
+| Card display | Not tested (browser required) |
+| Audio pronunciation | Working per PL |
+
+### Flashcard Counts by Language (2026-02-20)
+
+| Language | Cards |
+|----------|-------|
+| Greek | 478 |
+| English | 414 |
+| French | 357 |
+| Spanish | 147 |
+| Italian | 74 |
+| German | 69 |
+| Portuguese | 44 |
+| **Total** | **1,583** |
+
+### Feature Assessments
+
+**SF-005: Spaced Repetition**
+- Status: **SCHEMA STUB ONLY — NOT STARTED (algorithm)**
+- `study_sessions` table exists with `ease_rating`, `time_spent_seconds`, `reviewed_at` — data collection layer is in place
+- Table has **0 rows** — POST /api/flashcards/{id}/review endpoint does NOT write to study_sessions
+- No SM-2 algorithm columns: no next_review_date, ef_factor, interval, repetition_count
+- No SR-specific tables or views
+- Roadmap target: Sprint 12
+
+**SF-007: Progress Tracking Dashboard**
+- Status: **PRONUNCIATION ONLY — General dashboard NOT STARTED**
+- `vw_UserPronunciationProgress` VIEW exists (aggregates PronunciationAttempts per user/card)
+- No general study stats (streaks, total cards studied, accuracy rate)
+- study_sessions has 0 rows so no data to aggregate
+- Roadmap target: Sprint 11
+
+**SF-008: Difficulty Levels**
+- Status: **NOT STARTED**
+- No difficulty/level/grade column on flashcards table
+- No data, no UI evidence
+
+**SF-010: Google OAuth**
+- Status: **DONE (working)**
+- OAuth client 57478301787-... configured
+- BUG-006 partially fixed (refresh cookie on RedirectResponse)
+
+**SF-013: PIE Root Data**
+- Status: **NOT STARTED**
+- No pie/root/proto columns exist on flashcards table
+- etymology + english_cognates columns exist as general etymology (not PIE-specific)
+
+**SF-015: Greek Words Import**
+- Status: **IN PROGRESS (separate session)**
+- Current: 478 Greek cards
+- Target: 1,084
+- Remaining: 606 cards (~12 batches of 50)
+
+**Etymython Integration**
+- Cards with etymology data: 1,565
+- Cards with English cognates: 1,146
+- Cross-app links: not tested (browser required)
+
+### Schema Discoveries
+
+| Discovery | Impact |
+|-----------|--------|
+| `Reference_Audio_URL` column on flashcards | Undocumented, not in ORM, not used by app — tech debt, needs owner |
+| `pronunciation_attempts` (lowercase) — GHOST TABLE | Empty, different schema from live `PronunciationAttempts`. Safe to DROP. |
+| `PronunciationDebugLogs` table | Exists in DB, not in models.py. Debug logging for pronunciation pipeline. |
+| `study_sessions` has 0 rows | Table exists and is schema-correct but API never writes to it |
+| 1 voice clone, 7 generated pronunciations | Voice cloning backend is active (1 user has cloned) |
+| 8 PronunciationPromptTemplates loaded | Confirmed — all 8 language templates present |
+
+### Recommended Priority Order for Future Sprints
+
+1. **Immediate**: DROP ghost `pronunciation_attempts` table (avoid confusion)
+2. **Immediate**: Document or remove `Reference_Audio_URL` column
+3. **Next sprint**: Wire up study_sessions writes in `/api/flashcards/{id}/review` (prerequisite for SF-005 and SF-007)
+4. **SF-015 continued**: Track Greek import completion (478 → 1,084)
+5. **Sprint 11**: SF-007 General Progress Dashboard (after study_sessions is populated)
+6. **Sprint 12**: SF-005 SM-2 Spaced Repetition Algorithm
+7. **Future**: SF-008 Difficulty Levels (add column to flashcards)
+8. **Future**: SF-013 PIE Root Data (requires schema design decision)
+
+### Items Closer to Done Than Expected
+
+- SF-010 Google OAuth: **FULLY DONE** (was listed as backlog — it works)
+- SF-007 (pronunciation): `vw_UserPronunciationProgress` already exists — pronunciation progress tracking is structurally ready
+- Voice Cloning: 1 real user clone exists, backend fully operational
+
+### Items With No Code At All
+
+- SF-008 Difficulty Levels (no schema, no data, no UI)
+- SF-013 PIE Root Data (no schema at all)
+- SM-2 algorithm logic (only data collection table stub)
+
+---
+
 *End of Project Knowledge Document*
-*Last updated: 2026-02-15*
+*Last updated: 2026-02-20 (Audit sprint)*
