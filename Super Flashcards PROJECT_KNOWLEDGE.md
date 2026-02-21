@@ -18,8 +18,8 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | GCP Project ID | `super-flashcards-475210` | `CLAUDE.md` |
 | GCP Region | `us-central1` | `CLAUDE.md` |
 | Methodology | coreyprator/project-methodology v3.14 | `CLAUDE.md` |
-| Current Version | 2.9.0 | `backend/app/main.py` |
-| Current Sprint | Sprint 8.5 (Pronunciation Practice Enhancement) | `PROJECT_STATUS.md` |
+| Current Version | 3.0.0 | `backend/app/main.py` |
+| Current Sprint | Sprint 9 COMPLETE (SM-2 Spaced Repetition + Progress Dashboard + PIE Roots + Gender Articles) | `PROJECT_STATUS.md` |
 | Owner | Corey Prator (Project Lead), Claude (Architect) | `PROJECT_STATUS.md` |
 | First User Login | October 25, 2025 | `README.md` |
 
@@ -99,6 +99,7 @@ backend/
 │   │   ├── languages.py     # Language CRUD
 │   │   ├── pronunciation.py # Pronunciation recording and analysis
 │   │   ├── search.py        # Search endpoint
+│   │   ├── study.py         # SM-2 spaced repetition + progress stats (Sprint 9)
 │   │   ├── tts_testing.py   # TTS testing (dev only, not mounted in prod)
 │   │   ├── users.py         # User management
 │   │   └── voice_clone.py   # ElevenLabs voice cloning
@@ -113,6 +114,7 @@ backend/
 │   │   ├── ipa_service.py        # IPA conversion service
 │   │   ├── pronunciation_service.py  # Full pronunciation analysis pipeline
 │   │   ├── service_registry.py   # Singleton service registry
+│   │   ├── spaced_repetition.py  # SM-2 algorithm implementation (Sprint 9)
 │   │   └── storage_service.py    # GCS upload/download helpers
 │   └── models/
 │       ├── pronunciation_attempt.py
@@ -197,7 +199,7 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 | code | NVARCHAR(5) | Unique, e.g., "fr", "el" |
 | created_at | DATETIME | |
 
-**flashcards** (Source: `backend/app/models.py`, verified 2026-02-20 audit)
+**flashcards** (Source: `backend/app/models.py`, verified 2026-02-20 audit, updated Sprint 9)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UNIQUEIDENTIFIER (PK) | UUID |
@@ -221,7 +223,14 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 | local_only | BIT | Default 0 |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
-| Reference_Audio_URL | NVARCHAR | **UNDOCUMENTED** — exists in DB but NOT in models.py ORM. Added outside ORM. Not used by app code. Tech debt — needs documentation or removal. |
+| ease_factor | FLOAT | **Sprint 9 (SF-005)** SM-2 ease factor, default 2.5, min 1.3 |
+| review_interval | INT | **Sprint 9 (SF-005)** Days until next review, 0=new |
+| repetition_count | INT | **Sprint 9 (SF-005)** How many times reviewed with quality ≥ 3 |
+| next_review_date | DATE | **Sprint 9 (SF-005)** NULL=unscheduled (new card) |
+| difficulty | NVARCHAR(20) | **Sprint 9 (SF-008)** 'unrated','easy','medium','hard','mastered'. Default 'unrated' |
+| pie_root | NVARCHAR(100) | **Sprint 9 (SF-013)** PIE root with asterisk e.g. *bher-. 'N/A'=no PIE root. NULL=not yet processed. |
+| pie_meaning | NVARCHAR(200) | **Sprint 9 (SF-013)** PIE root meaning e.g. "to carry" |
+| Reference_Audio_URL | NVARCHAR | **UNDOCUMENTED** — exists in DB but NOT in models.py ORM. Added outside ORM. Not used by app code. 0 cards have data. Tech debt — safe to drop. |
 
 **users** (Source: `backend/app/models.py`, `backend/create_missing_tables.sql`)
 | Column | Type | Notes |
@@ -246,6 +255,8 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 
 **study_sessions** (Source: `backend/app/models.py`)
 - Tracks flashcard reviews with ease_rating (1-5) and time_spent_seconds
+- **Sprint 9:** Now populated by POST /api/study/review/{id} on every SM-2 review
+- 0 rows post-deployment (users have not yet done any reviews through new SR UI)
 
 **PronunciationAttempts** (Source: `backend/app/models.py`, `create_pronunciation_attempts_table.sql`)
 | Column | Type | Notes |
@@ -289,8 +300,9 @@ Source: `backend/app/database.py`, `CLAUDE.md`
 - Step-by-step debug log for pronunciation pipeline requests
 - Columns: LogID (INT PK), RequestID (NVARCHAR), UserID (UUID), Step (NVARCHAR), Status (NVARCHAR), Data (NVARCHAR), ErrorMessage (NVARCHAR), DurationMs (INT), CreatedAt (DATETIME2)
 
-**pronunciation_attempts** (lowercase — GHOST TABLE, Source: DB audit 2026-02-20)
-- Empty duplicate of PronunciationAttempts (0 rows). Different schema (11 cols, snake_case, no Gemini columns). Was likely a migration artifact. Safe to DROP. App uses PascalCase table exclusively (134 rows active).
+**pronunciation_attempts** (lowercase — DROPPED Sprint 9)
+- ~~Empty duplicate of PronunciationAttempts (0 rows). Different schema (11 cols, snake_case, no Gemini columns). Migration artifact.~~
+- **DROPPED in Sprint 9** — confirmed 0 rows, safely removed to reduce confusion.
 
 ### Key Database Notes
 - `user_id` FK on flashcards is NOT in the Cloud SQL schema yet (commented out in models.py) -- all flashcards are shared across users
@@ -320,6 +332,7 @@ Source: `backend/app/main.py`
 | `/api/v1/pronunciation` | pronunciation.router | pronunciation | Recording + analysis |
 | `/api/v1/voice-clone` | voice_clone.router | voice-clone | Voice cloning |
 | `/api/document` | document_parser.router | document-parser | Document parsing |
+| `/api/study` | study.router | study | SM-2 spaced repetition + progress stats (Sprint 9) |
 
 ### Key Endpoints
 
@@ -377,6 +390,14 @@ Source: `backend/app/main.py`
 - `POST /api/import` -- Import CSV/JSON flashcards
 - `GET /api/template/csv` and `/api/template/json` -- Download import templates
 
+**Spaced Repetition / Study** (Source: `backend/app/routers/study.py`, Sprint 9)
+- `POST /api/study/review/{id}` -- Submit SM-2 review (quality 0/2/4/5), updates card SR fields, writes study_session row
+- `GET /api/study/due` -- Get cards due for review today (next_review_date ≤ today OR NULL)
+- `GET /api/study/stats` -- Aggregate learning stats (total cards, due today, overdue, mastered, streak)
+- `GET /api/study/progress` -- Progress data by language with mastery breakdown
+- `POST /api/study/difficulty/{id}` -- Manually set card difficulty ('easy','medium','hard','mastered')
+- `POST /api/study/difficulty/auto-assign` -- Batch auto-assign difficulty based on review history
+
 ### Authentication Model
 Source: `backend/app/services/auth_service.py`, `backend/app/routers/auth.py`
 
@@ -418,6 +439,7 @@ Source: `frontend/` directory listing, `backend/app/main.py` (route serving)
 | `audio-player.js` | TTS audio playback |
 | `pronunciation-recorder.js` | Audio recording, waveform, submission |
 | `pronunciation-deep-analysis.js` | Gemini coaching UI |
+| `progress.js` | Progress dashboard: learning stats, mastery breakdown by language (Sprint 9) |
 | `voice-clone.js` | Voice cloning UI |
 | `first-time-loader.js` | Progressive loading for new users |
 | `sw.js` | Service worker for PWA caching |
@@ -456,6 +478,15 @@ Source: `PROJECT_STATUS.md`, `README.md`, `CLAUDE.md`, code inspection
 - **Cross-device sync** -- Laptop and iPhone accessing same cloud database
 - **Responsive design** -- Desktop and mobile support
 - **Edit capabilities** -- Inline flashcard editing in Browse mode
+
+### Spaced Repetition & Learning Tracking (Sprint 9)
+- **SM-2 algorithm** -- Proven flashcard spacing algorithm: quality ratings (Again/Hard/Good/Easy), ease factor, review interval, repetition count on each card
+- **Study mode** -- Dedicated study queue showing cards due for review; SR rating buttons after flip; completes with "You're done for today" when queue is empty
+- **Progress dashboard** -- "📊 Progress" tab with total/due/overdue stats, mastery levels (New/Learning/Familiar/Mastered), per-language breakdowns, average ease factor
+- **Session recording** -- Every review writes a row to study_sessions for analytics
+- **Difficulty labels** -- Per-card difficulty field ('unrated'/'easy'/'medium'/'hard'/'mastered'), auto-assign and manual set endpoints
+- **Gender articles (SF-016)** -- French/Spanish/Portuguese noun cards now have grammatical gender articles prepended (le/la/l'/el/o/a). 311 noun cards updated: French 199, Spanish 87, Portuguese 39.
+- **PIE roots (SF-013)** -- Proto-Indo-European roots extracted from etymology data using GPT-4o-mini. pie_root and pie_meaning columns populated. ~59% of cards with etymology have traceable PIE roots (extraction in progress at time of Sprint 9 close).
 
 ### Pronunciation Practice (Sprint 8 / 8.5)
 - **Audio recording** -- Upload user recordings to GCS
@@ -518,10 +549,10 @@ Source: `ROADMAP.md`
 
 | Sprint | Goal |
 |--------|------|
-| 9 | Subscription & Billing (Stripe) |
+| ~~9~~ | ~~Subscription & Billing (Stripe)~~ → Pivoted to SM-2 SR + PIE Roots + Gender Articles |
 | 10 | Admin Dashboard |
-| 11 | Performance Tracking Phase 1 (study metrics, streaks) |
-| 12 | Performance Tracking Phase 2 (spaced repetition SM-2 algorithm) |
+| 11 | Performance Tracking Phase 2 (visual charts, streaks) |
+| 12 | Subscription & Billing (Stripe) |
 | 13 | Polish & Launch Prep |
 
 ### Planned Features
@@ -529,14 +560,16 @@ Source: `ROADMAP.md`, `BUGS_AND_TODOS.md`
 
 - **Freemium model** -- Free tier (50 cards, 5 AI/day, 2 languages) + Premium ($9.99/mo, unlimited)
 - **Stripe integration** for payments
-- **Spaced repetition** (SM-2 algorithm)
-- **Gender field for nouns** (French le/la, German der/die/das)
+- ~~**Spaced repetition** (SM-2 algorithm)~~ → **DONE Sprint 9**
+- ~~**Gender field for nouns** (French le/la, German der/die/das)~~ → **DONE Sprint 9 (French/Spanish/Portuguese)**
+- **German gender** (der/die/das) -- not yet done
 - **Preposition field for verbs** (German warten auf, French penser a)
 - **Multiple choice quizzes** (AI-generated, 10 per flashcard)
 - **Anki export compatibility**
 - **Multi-language card display** (beginner vs advanced mode)
 - **Admin dashboard** for user/subscription management
 - **Error tracking** (Sentry or similar)
+- **Visual charts for progress** (reviews per day chart -- data available after users complete reviews)
 
 ---
 
@@ -769,9 +802,11 @@ Source: `PROJECT_STATUS.md`, `ROADMAP.md`, `BUGS_AND_TODOS.md`
 | No error tracking (Sentry) | Medium | Only know about bugs when user reports them |
 | user_id not on flashcards table | Medium | All flashcards shared across all users |
 | Greek Unicode rendering | Medium | Database stores correct Unicode but UI can display corrupted Latin-1 |
-| Ghost `pronunciation_attempts` table | Medium | Empty table (0 rows) coexists with active `PronunciationAttempts` (134 rows, PascalCase). Orphan from old migration. Code correctly uses PascalCase version. Safe to drop the empty lowercase table. |
-| Undocumented `Reference_Audio_URL` column | Low | Column exists on `flashcards` table in DB but is absent from models.py ORM and no backend code references it. Likely added manually for a feature that was not implemented. |
-| `study_sessions` table never used | Medium | Table exists with correct schema (flashcard_id, user_id, ease_rating, time_spent_seconds) but has 0 rows — no code writes to it. App shows `times_reviewed` on flashcards but does not populate study_sessions. Required for spaced repetition (Sprint 12). |
+| ~~Ghost `pronunciation_attempts` table~~ | ~~Medium~~ | **DROPPED Sprint 9** — empty table removed |
+| Undocumented `Reference_Audio_URL` column | Low | Column exists on `flashcards` table in DB but is absent from models.py ORM and no backend code references it. 0 rows have data. Confirmed safe to drop. |
+| ~~`study_sessions` table never used~~ | ~~Medium~~ | **FIXED Sprint 9** — now populated by SM-2 review endpoint |
+| French l' article quality (SF-016) | Low | GPT-4o-mini inconsistently returned "la ambiance" instead of "l'ambiance" for ~5-10 vowel-initial nouns. Cards were updated but may have wrong article form. PL should review and fix edge cases. |
+| SR metadata on flashcard (not per-user) | Medium | ease_factor/interval/repetition_count live on the flashcard row, not per user. Multi-user SR accuracy will require migrating to user_flashcard_sr junction table when user_id FK is added. MVP tradeoff accepted. |
 
 ### Bug Tracking Policy
 Bugs BUG-001, BUG-002, BUG-006 referenced in PROJECT_STATUS.md should be tracked in MetaPM
@@ -1008,24 +1043,26 @@ Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
 ### Feature Assessments
 
 **SF-005: Spaced Repetition**
-- Status: **SCHEMA STUB ONLY — NOT STARTED (algorithm)**
-- `study_sessions` table exists with `ease_rating`, `time_spent_seconds`, `reviewed_at` — data collection layer is in place
-- Table has **0 rows** — POST /api/flashcards/{id}/review endpoint does NOT write to study_sessions
-- No SM-2 algorithm columns: no next_review_date, ef_factor, interval, repetition_count
-- No SR-specific tables or views
-- Roadmap target: Sprint 12
+- Status: **DONE (Sprint 9)**
+- SM-2 algorithm implemented in `backend/app/services/spaced_repetition.py`
+- New flashcard columns: ease_factor (default 2.5), review_interval, repetition_count, next_review_date
+- Review endpoint: `POST /api/study/review/{id}` writes to study_sessions, updates card SR fields
+- 1,583 existing cards backfilled with defaults (ease_factor=2.5, repetition_count=0, difficulty='unrated')
+- study_sessions now receives writes; 0 rows at time of deployment (no reviews done yet)
 
 **SF-007: Progress Tracking Dashboard**
-- Status: **PRONUNCIATION ONLY — General dashboard NOT STARTED**
-- `vw_UserPronunciationProgress` VIEW exists (aggregates PronunciationAttempts per user/card)
-- No general study stats (streaks, total cards studied, accuracy rate)
-- study_sessions has 0 rows so no data to aggregate
-- Roadmap target: Sprint 11
+- Status: **DONE — Phase 1 (Sprint 9)**
+- "📊 Progress" tab added to main navigation, rendered by `frontend/progress.js`
+- Stats shown: total cards, cards due today, overdue, new/learning/familiar/mastered breakdown, average ease, per-language progress bars
+- Backend: `GET /api/study/stats` and `GET /api/study/progress` provide data
+- Visual charts (reviews per day) deferred to Sprint 11 — requires actual review data first
 
 **SF-008: Difficulty Levels**
-- Status: **NOT STARTED**
-- No difficulty/level/grade column on flashcards table
-- No data, no UI evidence
+- Status: **DONE (Sprint 9)**
+- `difficulty` column added to flashcards: NVARCHAR(20), values 'unrated'/'easy'/'medium'/'hard'/'mastered'
+- Default 'unrated' backfilled to all 1,583 existing cards
+- Manual set: `POST /api/study/difficulty/{id}`
+- Auto-assign: `POST /api/study/difficulty/auto-assign` (based on repetition_count and ease_factor)
 
 **SF-010: Google OAuth**
 - Status: **DONE (working)**
@@ -1033,9 +1070,12 @@ Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
 - BUG-006 partially fixed (refresh cookie on RedirectResponse)
 
 **SF-013: PIE Root Data**
-- Status: **NOT STARTED**
-- No pie/root/proto columns exist on flashcards table
-- etymology + english_cognates columns exist as general etymology (not PIE-specific)
+- Status: **IN PROGRESS (Sprint 9 — batch running)**
+- Schema: `pie_root` NVARCHAR(100) and `pie_meaning` NVARCHAR(200) added to flashcards table
+- Batch script: `backend/scripts/sf013_pie_roots.py` — processes 50 cards/batch via GPT-4o-mini
+- Sentinel: `pie_root = 'N/A'` marks cards with no applicable PIE root (prevents re-processing); NULL = not yet processed
+- Extraction ongoing: 1,552 cards with etymology data being processed across 32 batches
+- Expected: ~59% cards have traceable PIE roots based in-progress batch data (145/245 processed so far = 59%)
 
 **SF-015: Greek Words Import**
 - Status: **IN PROGRESS (separate session)**
@@ -1043,46 +1083,130 @@ Auth: cc-deploy@super-flashcards-475210.iam.gserviceaccount.com
 - Target: 1,084
 - Remaining: 606 cards (~12 batches of 50)
 
+**SF-016: Gender Articles (Sprint 9)**
+- Status: **DONE**
+- French/Spanish/Portuguese nouns classified by GPT-4o-mini and updated with definite articles
+- Script: `backend/scripts/sf016_gender_articles.py`
+- Results: French 199 nouns updated (197 new + 2 pre-existing), Spanish 87 (75 new + 12 pre-existing), Portuguese 39 (all new)
+- Known issue: ~5-10 French vowel-initial nouns may have "la/le" instead of "l'" — GPT-4o-mini inconsistency. PL review recommended.
+
 **Etymython Integration**
 - Cards with etymology data: 1,565
 - Cards with English cognates: 1,146
 - Cross-app links: not tested (browser required)
 
-### Schema Discoveries
+### Schema Discoveries (Audit 2026-02-20, updated Sprint 9)
 
 | Discovery | Impact |
 |-----------|--------|
-| `Reference_Audio_URL` column on flashcards | Undocumented, not in ORM, not used by app — tech debt, needs owner |
-| `pronunciation_attempts` (lowercase) — GHOST TABLE | Empty, different schema from live `PronunciationAttempts`. Safe to DROP. |
+| `Reference_Audio_URL` column on flashcards | Undocumented, not in ORM, not used by app, 0 rows with data. Safe to DROP. |
+| `pronunciation_attempts` (lowercase) — GHOST TABLE | **DROPPED Sprint 9** |
 | `PronunciationDebugLogs` table | Exists in DB, not in models.py. Debug logging for pronunciation pipeline. |
-| `study_sessions` has 0 rows | Table exists and is schema-correct but API never writes to it |
+| `study_sessions` had 0 rows | **FIXED Sprint 9** — now populated by SM-2 review endpoint |
 | 1 voice clone, 7 generated pronunciations | Voice cloning backend is active (1 user has cloned) |
 | 8 PronunciationPromptTemplates loaded | Confirmed — all 8 language templates present |
+| Sprint 9 added 7 new flashcard columns | ease_factor, review_interval, repetition_count, next_review_date, difficulty, pie_root, pie_meaning |
 
 ### Recommended Priority Order for Future Sprints
 
-1. **Immediate**: DROP ghost `pronunciation_attempts` table (avoid confusion)
-2. **Immediate**: Document or remove `Reference_Audio_URL` column
-3. **Next sprint**: Wire up study_sessions writes in `/api/flashcards/{id}/review` (prerequisite for SF-005 and SF-007)
+1. ~~**Immediate**: DROP ghost `pronunciation_attempts` table (avoid confusion)~~ → **DONE Sprint 9**
+2. **Immediate**: DROP `Reference_Audio_URL` column (confirmed 0 data rows, not in ORM)
+3. ~~**Next sprint**: Wire up study_sessions writes in `/api/flashcards/{id}/review`~~ → **DONE Sprint 9**
 4. **SF-015 continued**: Track Greek import completion (478 → 1,084)
-5. **Sprint 11**: SF-007 General Progress Dashboard (after study_sessions is populated)
-6. **Sprint 12**: SF-005 SM-2 Spaced Repetition Algorithm
-7. **Future**: SF-008 Difficulty Levels (add column to flashcards)
-8. **Future**: SF-013 PIE Root Data (requires schema design decision)
+5. ~~**Sprint 11**: SF-007 General Progress Dashboard~~ → **DONE Sprint 9 (Phase 1)**
+6. ~~**Sprint 12**: SF-005 SM-2 Spaced Repetition Algorithm~~ → **DONE Sprint 9**
+7. **Sprint 11**: Visual learning charts (reviews per day, chart.js) — data accumulates as users review cards
+8. ~~**Future**: SF-008 Difficulty Levels~~ → **DONE Sprint 9**
+9. ~~**Future**: SF-013 PIE Root Data~~ → **IN PROGRESS Sprint 9 (batch script running)**
+10. **Future**: Migrate SR metadata to user_flashcard_sr junction table (when user_id FK added)
 
-### Items Closer to Done Than Expected
+### Items Closer to Done Than Expected (Audit 2026-02-20)
 
 - SF-010 Google OAuth: **FULLY DONE** (was listed as backlog — it works)
 - SF-007 (pronunciation): `vw_UserPronunciationProgress` already exists — pronunciation progress tracking is structurally ready
 - Voice Cloning: 1 real user clone exists, backend fully operational
+- Sprint 9 moved ALL of SF-005, SF-007, SF-008 from backlog (Sprint 11-12) to DONE in Sprint 9
 
-### Items With No Code At All
+### Items With No Code At All (pre-Sprint-9)
 
-- SF-008 Difficulty Levels (no schema, no data, no UI)
-- SF-013 PIE Root Data (no schema at all)
-- SM-2 algorithm logic (only data collection table stub)
+- ~~SF-008 Difficulty Levels (no schema, no data, no UI)~~ → DONE Sprint 9
+- ~~SF-013 PIE Root Data (no schema at all)~~ → IN PROGRESS Sprint 9
+- ~~SM-2 algorithm logic (only data collection table stub)~~ → DONE Sprint 9
+
+---
+
+## 17. SPRINT 9 SUMMARY (2026-02-20)
+
+Session: CC Sprint — SuperFlashcards Build (cc-deploy@super-flashcards-475210.iam.gserviceaccount.com)
+
+### Version
+- **v2.9.0 → v3.0.0**
+
+### Features Shipped
+
+| Feature | Files Changed | Result |
+|---------|--------------|--------|
+| SM-2 Spaced Repetition (SF-005) | `backend/app/services/spaced_repetition.py`, `backend/app/routers/study.py`, `backend/app/crud.py`, `backend/app/models.py`, `backend/app/schemas.py`, `frontend/app.js` | DONE |
+| Progress Dashboard (SF-007) | `frontend/progress.js`, `frontend/index.html`, `backend/app/routers/study.py` | DONE |
+| Difficulty Levels (SF-008) | `backend/app/routers/study.py`, `backend/app/models.py` | DONE |
+| Gender Articles (SF-016) | `backend/scripts/sf016_gender_articles.py` | DONE |
+| PIE Root Extraction (SF-013) | `backend/scripts/sf013_pie_roots.py` | IN PROGRESS |
+
+### Schema Changes
+
+```sql
+-- Added to flashcards table:
+ALTER TABLE flashcards ADD ease_factor FLOAT DEFAULT 2.5;
+ALTER TABLE flashcards ADD review_interval INT DEFAULT 0;
+ALTER TABLE flashcards ADD repetition_count INT DEFAULT 0;
+ALTER TABLE flashcards ADD next_review_date DATE NULL;
+ALTER TABLE flashcards ADD difficulty NVARCHAR(20) DEFAULT 'unrated';
+ALTER TABLE flashcards ADD pie_root NVARCHAR(100) NULL;
+ALTER TABLE flashcards ADD pie_meaning NVARCHAR(200) NULL;
+
+-- Backfilled existing 1,583 cards:
+UPDATE flashcards SET ease_factor = 2.5, repetition_count = 0, difficulty = 'unrated'
+    WHERE ease_factor IS NULL;
+
+-- Dropped ghost table:
+DROP TABLE pronunciation_attempts;  -- lowercase, was empty (0 rows)
+```
+
+### Data Changes
+
+| Change | Count |
+|--------|-------|
+| SR defaults backfilled (ease_factor=2.5, etc.) | 1,583 cards |
+| French nouns updated with gender articles | 199 cards |
+| Spanish nouns updated with gender articles | 87 cards |
+| Portuguese nouns updated with gender articles | 39 cards |
+| Total cards updated with gender articles | 311 nouns |
+| Cards with PIE roots extracted (in progress) | ~59% of 1,552 cards with etymology |
+| Reference_Audio_URL rows with data | 0 (confirmed empty, safe to drop column) |
+| study_sessions rows at deploy | 0 (write path now active, data accumulates with use) |
+
+### New API Endpoints
+
+- `POST /api/study/review/{id}` — SM-2 review submission
+- `GET /api/study/due` — Get due cards for study queue
+- `GET /api/study/stats` — Aggregate stats for progress dashboard
+- `GET /api/study/progress` — Per-language mastery breakdown
+- `POST /api/study/difficulty/{id}` — Manual difficulty set
+- `POST /api/study/difficulty/auto-assign` — Batch auto-assign
+
+### Deployment
+
+- Deployed to Cloud Run: `https://super-flashcards-wmrla7fhwa-uc.a.run.app`
+- Health check: `{"status":"healthy","version":"3.0.0","database":"connected"}`
+- Custom domain: https://learn.rentyourcio.com
+
+### Known Issues from This Sprint
+
+- **French l' article quality**: ~5-10 vowel-initial nouns may have "la ambiance" instead of "l'ambiance". PL review recommended.
+- **SR metadata on flashcard row**: ease_factor/interval lives on flashcard, not per-user. MVP tradeoff; requires migration when user_id FK is added.
+- **PIE root extraction**: Batch script still running at sprint close. Re-runnable safely (N/A sentinel prevents re-processing).
 
 ---
 
 *End of Project Knowledge Document*
-*Last updated: 2026-02-20 (Audit sprint)*
+*Last updated: 2026-02-20 (Sprint 9 Build)*
