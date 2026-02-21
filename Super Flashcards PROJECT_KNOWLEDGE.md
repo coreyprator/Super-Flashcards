@@ -1,5 +1,6 @@
 # Super-Flashcards — Project Knowledge Document
 Generated: 2026-02-15 by CC Session
+Last Audited: 2026-02-20 by CC Audit Sprint (CC_Sprint_SuperFlashcards_Audit.md)
 Purpose: Canonical reference for all AI sessions working on this project.
 
 ---
@@ -768,6 +769,9 @@ Source: `PROJECT_STATUS.md`, `ROADMAP.md`, `BUGS_AND_TODOS.md`
 | No error tracking (Sentry) | Medium | Only know about bugs when user reports them |
 | user_id not on flashcards table | Medium | All flashcards shared across all users |
 | Greek Unicode rendering | Medium | Database stores correct Unicode but UI can display corrupted Latin-1 |
+| Ghost `pronunciation_attempts` table | Medium | Empty table (0 rows) coexists with active `PronunciationAttempts` (134 rows, PascalCase). Orphan from old migration. Code correctly uses PascalCase version. Safe to drop the empty lowercase table. |
+| Undocumented `Reference_Audio_URL` column | Low | Column exists on `flashcards` table in DB but is absent from models.py ORM and no backend code references it. Likely added manually for a feature that was not implemented. |
+| `study_sessions` table never used | Medium | Table exists with correct schema (flashcard_id, user_id, ease_rating, time_spent_seconds) but has 0 rows — no code writes to it. App shows `times_reviewed` on flashcards but does not populate study_sessions. Required for spaced repetition (Sprint 12). |
 
 ### Bug Tracking Policy
 Bugs BUG-001, BUG-002, BUG-006 referenced in PROJECT_STATUS.md should be tracked in MetaPM
@@ -896,7 +900,7 @@ Source: `.claude/settings.json`
 
 7. **Should `openai.api_key = "your-openai-api-key-here"` in batch_processing.py be fixed?** -- This is dead code since the actual API key comes from environment, but it's a hardcoded string. (Source: `backend/app/routers/batch_processing.py` line 40)
 
-8. **What is the current flashcard count by language?** -- README says 758 total (as of Oct 2025), but Greek cards were recently modified (405 remaining after 17 deletions). Total count may have changed. (Source: `README.md`, handoff docs)
+8. **What is the current flashcard count by language?** — Audited 2026-02-20: 1,583 total cards. English: 414, French: 357, German: 69, Greek: 478, Italian: 74, Japanese: 0, Mandarin Chinese: 0, Portuguese: 44, Spanish: 147. Greek target is 1,084 (separate import session in flight). (Source: `README.md` outdated, current count verified by direct DB query 2026-02-20)
 
 ---
 
