@@ -313,15 +313,19 @@ class CachedAudioPlayer {
 // Global cached audio player instance
 const audioPlayer = new CachedAudioPlayer();
 
-function showToast(message, duration = 3000) {
+// Standard B: type='error' defaults to 10s and logs to console.error
+function showToast(message, duration = 3000, type = '') {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     toastMessage.textContent = message;
     toast.classList.remove('hidden');
-    
-    setTimeout(() => {
+    // Standard B: errors persist at least 10 seconds
+    const finalDuration = type === 'error' ? Math.max(duration, 10000) : duration;
+    if (type === 'error') console.error('[Super-Flashcards Error]', message);
+    if (toast._toastTimer) clearTimeout(toast._toastTimer);
+    toast._toastTimer = setTimeout(() => {
         toast.classList.add('hidden');
-    }, duration);
+    }, finalDuration);
 }
 
 function showLoading() {
@@ -341,28 +345,35 @@ async function apiRequest(endpoint, options = {}) {
                 ...options.headers
             }
         });
-        
+
         if (!response.ok) {
-            // Try to get detailed error message from response
+            // Standard A: capture and log the full response body
             let errorDetail = `API Error: ${response.status}`;
+            let rawBody = '';
             try {
                 const errorData = await response.json();
+                rawBody = JSON.stringify(errorData);
                 if (errorData.detail) {
                     errorDetail = errorData.detail;
                 }
             } catch (e) {
-                // Couldn't parse error response, use status code
+                try { rawBody = await response.text(); } catch { rawBody = ''; }
             }
+            console.error(`[API Error] ${options.method || 'GET'} ${endpoint}`, {
+                status: response.status,
+                statusText: response.statusText,
+                body: rawBody
+            });
             throw new Error(errorDetail);
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error('API Request failed:', error);
         if (!state.isOnline) {
-            showToast('You are offline. Changes will sync when back online.');
+            showToast('You are offline. Changes will sync when back online.', 10000, 'error');
         } else {
-            showToast('Network error. Please try again.');
+            showToast(error.message || 'Network error. Please try again.', 10000, 'error');
         }
         throw error;
     }

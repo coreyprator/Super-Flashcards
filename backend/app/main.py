@@ -1,11 +1,11 @@
 # backend/app/main.py
-# Version: 3.0.1 - Rework: version sync, PIE root display, difficulty filter, SRS ordering
+# Version: 3.0.2 - Error logging standard: global exception handler, 10s toast, full response body logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from sqlalchemy import func
 import os
 import logging
 import time
+import traceback
 from datetime import datetime
 import secrets
 
@@ -72,8 +73,23 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.0.1" + (" [QA]" if IS_QA else "")
+    version="3.0.2" + (" [QA]" if IS_QA else "")
 )
+
+# Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    error_detail = str(exc)
+    traceback_str = traceback.format_exc()
+    logger.error(f"Unhandled exception on {request.method} {request.url}: {error_detail}\n{traceback_str}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": error_detail,
+            "path": str(request.url.path)
+        }
+    )
 
 # DEBUG: Check if SQL_PASSWORD is available
 sql_password = os.getenv("SQL_PASSWORD", "")
@@ -539,7 +555,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.0.1",
+        "version": "3.0.2",
         "database": "connected"
     }
 
