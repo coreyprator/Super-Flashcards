@@ -18,8 +18,8 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | GCP Project ID | `super-flashcards-475210` | `CLAUDE.md` |
 | GCP Region | `us-central1` | `CLAUDE.md` |
 | Methodology | coreyprator/project-methodology v3.14 | `CLAUDE.md` |
-| Current Version | 3.0.0 | `backend/app/main.py` |
-| Current Sprint | Sprint 9 COMPLETE (SM-2 Spaced Repetition + Progress Dashboard + PIE Roots + Gender Articles) | `PROJECT_STATUS.md` |
+| Current Version | 3.0.1 | `backend/app/main.py` |
+| Current Sprint | v3.0.1 Rework COMPLETE (version sync, PIE root display, difficulty filter, SRS ordering) | rework session 2026-02-21 |
 | Owner | Corey Prator (Project Lead), Claude (Architect) | `PROJECT_STATUS.md` |
 | First User Login | October 25, 2025 | `README.md` |
 
@@ -1209,4 +1209,4 @@ DROP TABLE pronunciation_attempts;  -- lowercase, was empty (0 rows)
 ---
 
 *End of Project Knowledge Document*
-*Last updated: 2026-02-20 (Sprint 9 — SF-013 final completion)*
+*Last updated: 2026-02-21 (v3.0.1 Rework — version sync, PIE root display, difficulty filter, SRS ordering)*
