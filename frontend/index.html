@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.0.0';
+        window.APP_VERSION = '3.0.1';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -430,7 +430,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.0.0</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.0.1</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -647,14 +647,27 @@
                     </div>
                     
                     <!-- Sort Controls -->
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-sm text-gray-600 font-medium">Sort by:</span>
-                        <select id="sort-dropdown" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="name-asc">Name (A-Z)</option>
-                            <option value="name-desc">Name (Z-A)</option>
-                            <option value="date-desc">Date Modified (Newest)</option>
-                            <option value="date-asc">Date Modified (Oldest)</option>
-                        </select>
+                    <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-600 font-medium">Sort by:</span>
+                            <select id="sort-dropdown" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="name-asc">Name (A-Z)</option>
+                                <option value="name-desc">Name (Z-A)</option>
+                                <option value="date-desc">Date Modified (Newest)</option>
+                                <option value="date-asc">Date Modified (Oldest)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-600 font-medium">Difficulty:</span>
+                            <select id="difficulty-filter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="all">All levels</option>
+                                <option value="unrated">Unrated</option>
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                                <option value="mastered">Mastered</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <!-- Cards List -->
