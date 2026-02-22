@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 2.8.7 (AttemptID INT IDENTITY alignment)
+// Version: 3.0.1 (v3.0.1: version sync, PIE root display, difficulty filter, SRS ordering)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '2.10.2'; // Practice Tab Mini-Sprint
+const APP_JS_VERSION = '3.0.1';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -80,7 +80,8 @@ let state = {
     languages: [],
     syncStatus: 'offline',
     currentMode: 'study', // Track current mode: 'study', 'read', or 'browse'
-    sortOrder: localStorage.getItem('flashcard_sort_order') || 'date-desc' // Persist sort order, default to newest first
+    sortOrder: localStorage.getItem('flashcard_sort_order') || 'date-desc', // Persist sort order, default to newest first
+    difficultyFilter: 'all' // 'all' | 'unrated' | 'easy' | 'medium' | 'hard' | 'mastered'
 };
 
 // ========================================
@@ -515,9 +516,28 @@ async function loadFlashcards(options = {}) {
             }
         }
         
-        // ✅ FIX: Apply sort order to state.flashcards so they're in correct order from the start
-        state.flashcards = sortFlashcards(flashcards, state.sortOrder);
+        // Apply sort: SRS ordering in study mode, user preference elsewhere
+        const effectiveSort = (state.currentMode === 'study' || !state.currentMode) ? 'srs' : state.sortOrder;
+        state.flashcards = sortFlashcards(flashcards, effectiveSort);
         state.currentCardIndex = 0;
+
+        // Update SR queue header in study mode
+        const srHeader = document.getElementById('sr-queue-header');
+        const srRemaining = document.getElementById('sr-cards-remaining');
+        if (srHeader && (state.currentMode === 'study' || !state.currentMode)) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueCount = flashcards.filter(c => {
+                if (!c.next_review_date) return true; // new cards count as due
+                const d = new Date(c.next_review_date);
+                d.setHours(0, 0, 0, 0);
+                return d <= today;
+            }).length;
+            if (srRemaining) srRemaining.textContent = dueCount;
+            srHeader.classList.remove('hidden');
+        } else if (srHeader) {
+            srHeader.classList.add('hidden');
+        }
         
         if (flashcards.length > 0) {
             // Check current mode and render appropriately
@@ -1310,7 +1330,15 @@ function renderFlashcard(flashcard) {
                                 <div id="etymython-link-study-${flashcard.id}"></div>
                             </div>
                         ` : ''}
-                        
+
+                        ${flashcard.pie_root && flashcard.pie_root !== 'N/A' ? `
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                                <h3 class="text-sm font-semibold text-amber-900 uppercase mb-1">PIE Root</h3>
+                                <p class="text-amber-800 font-mono font-semibold">${flashcard.pie_root}</p>
+                                ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
+                            </div>
+                        ` : ''}
+
                         ${flashcard.english_cognates ? `
                             <div>
                                 <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">English Cognates</h3>
@@ -1592,7 +1620,17 @@ function renderReadCard(flashcard) {
                             <p class="text-gray-700">${flashcard.english_cognates}</p>
                         </div>
                     ` : ''}
-                    
+
+                    ${flashcard.pie_root && flashcard.pie_root !== 'N/A' ? `
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                            <h3 class="text-sm font-semibold text-amber-900 uppercase mb-1 flex items-center gap-2">
+                                <span class="text-lg">🌳</span> PIE Root
+                            </h3>
+                            <p class="text-amber-800 font-mono font-semibold text-lg">${flashcard.pie_root}</p>
+                            ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
+                        </div>
+                    ` : ''}
+
                     ${flashcard.example_sentences ? `
                         <div>
                             <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2 flex items-center gap-2">
@@ -1877,7 +1915,7 @@ function addSwipeSupport() {
 /**
  * Sort flashcards based on specified order
  * @param {Array} cards - Array of flashcards to sort
- * @param {string} sortOrder - Sort order ('name-asc', 'name-desc', 'date-asc', 'date-desc')
+ * @param {string} sortOrder - Sort order ('name-asc', 'name-desc', 'date-asc', 'date-desc', 'srs')
  * @returns {Array} - Sorted array of flashcards
  */
 function sortFlashcards(cards, sortOrder) {
@@ -1891,6 +1929,24 @@ function sortFlashcards(cards, sortOrder) {
                 return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
             case 'date-asc':
                 return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
+            case 'srs': {
+                // SRS priority: overdue > due today > new (no review date) > not due yet
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const srsBucket = (card) => {
+                    if (!card.next_review_date) return 1; // new card — second priority
+                    const reviewDate = new Date(card.next_review_date);
+                    reviewDate.setHours(0, 0, 0, 0);
+                    if (reviewDate < today) return 0; // overdue — highest priority
+                    if (reviewDate.getTime() === today.getTime()) return 1; // due today
+                    return 2; // not due yet — lowest priority
+                };
+                const aBucket = srsBucket(a);
+                const bBucket = srsBucket(b);
+                if (aBucket !== bBucket) return aBucket - bBucket;
+                // Within same bucket, sort by ease_factor ascending (hardest first)
+                return (a.ease_factor || 2.5) - (b.ease_factor || 2.5);
+            }
             default:
                 return 0;
         }
@@ -1911,7 +1967,19 @@ function renderFlashcardList() {
     }
     
     // Use the helper function instead of inline sort
-    const sortedCards = sortFlashcards(state.flashcards, state.sortOrder);
+    let cardsToDisplay = state.flashcards;
+
+    // Apply difficulty filter if set
+    if (state.difficultyFilter && state.difficultyFilter !== 'all') {
+        cardsToDisplay = cardsToDisplay.filter(c => (c.difficulty || 'unrated') === state.difficultyFilter);
+    }
+
+    if (cardsToDisplay.length === 0) {
+        listContainer.innerHTML = `<p class="text-center text-gray-500 py-8">No cards match the selected difficulty filter.</p>`;
+        return;
+    }
+
+    const sortedCards = sortFlashcards(cardsToDisplay, state.sortOrder);
     
     listContainer.innerHTML = sortedCards.map((card) => {
         const originalIndex = state.flashcards.indexOf(card);
@@ -3574,7 +3642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Set initial value from state
         sortDropdown.value = state.sortOrder;
         console.log('📋 Sort dropdown initialized with saved order:', state.sortOrder);
-        
+
         sortDropdown.addEventListener('change', (e) => {
             console.log('📋 Sort order changed to:', e.target.value);
             state.sortOrder = e.target.value;
@@ -3584,6 +3652,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('✅ Sort dropdown initialized');
     } else {
         console.warn('⚠️ Sort dropdown not found');
+    }
+
+    // Difficulty filter event listener
+    const difficultyFilterDropdown = document.getElementById('difficulty-filter');
+    if (difficultyFilterDropdown) {
+        difficultyFilterDropdown.addEventListener('change', (e) => {
+            state.difficultyFilter = e.target.value;
+            renderFlashcardList();
+        });
+        console.log('✅ Difficulty filter initialized');
     }
     
     // Clear form button

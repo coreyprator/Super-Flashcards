@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.0.0 - Sprint 9: Spaced Repetition (SM-2), Progress Dashboard, Difficulty Levels
+# Version: 3.0.1 - Rework: version sync, PIE root display, difficulty filter, SRS ordering
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,7 +72,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.0.0" + (" [QA]" if IS_QA else "")
+    version="3.0.1" + (" [QA]" if IS_QA else "")
 )
 
 # DEBUG: Check if SQL_PASSWORD is available
@@ -539,7 +539,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.0.0",
+        "version": "3.0.1",
         "database": "connected"
     }
 
