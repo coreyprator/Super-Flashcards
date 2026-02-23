@@ -9,6 +9,11 @@ Usage:
     python import_greek_vocab.py --no-images      # skip DALL-E (faster, cheaper)
 """
 import sys
+# Force UTF-8 output on Windows (handles Greek characters on cp1252 terminals)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import time
 import argparse
 import json
@@ -16,8 +21,8 @@ import requests
 
 BASE_URL = "https://learn.rentyourcio.com"
 VOCAB_FILE = "greek_core_vocab.txt"
-BATCH_SIZE = 50
-PAUSE_SECONDS = 60
+BATCH_SIZE = 20   # Reduced from 50: 20 × ~8s (GPT-4 only, --no-images) = ~160s < 300s Cloud Run limit
+PAUSE_SECONDS = 30  # Shorter pause since smaller batches
 LANGUAGE_CODE = "el"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
