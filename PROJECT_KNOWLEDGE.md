@@ -1,6 +1,6 @@
 # Super-Flashcards -- Project Knowledge Document
 
-Generated/Updated: 2026-02-18 — Sprint "Etymython Integration + MetaPM Dashboard Rework"
+Generated/Updated: 2026-02-23 — Sprint "Greek Core Vocabulary Batch Import"
 Purpose: Canonical reference for all AI sessions working on this project.
 
 ---
@@ -22,9 +22,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 2.9.0 | `backend/app/main.py` (as of 2026-02-15 PK generation) |
-| **Latest Revision** | super-flashcards-00288-hr9 | `Sprint_CloseOut_2026-02-18.md` |
-| **Current Sprint** | Sprint 8.5 — Pronunciation Practice + Etymython Integration | `CLAUDE.md` |
+| **Version** | 3.0.2 | `backend/app/main.py` (as of 2026-02-23) |
+| **Latest Revision** | super-flashcards-00288-hr9 (see Sprint 2026-02-23 for update after import) | `Sprint_CloseOut_2026-02-18.md` |
+| **Current Sprint** | Greek Core Vocabulary Batch Import (data sprint) | `CC_Retry_SF_Greek_Import_Diagnostic.md` |
 
 ---
 
@@ -193,6 +193,16 @@ super-flashcards/
 - Debug logs in PronunciationDebugLogs table
 - UserVoiceClones + VoiceCloneSamples for custom voice
 
+### Greek Core Vocabulary Import (Sprint 2026-02-23)
+- **Source**: `greek_core_vocab.txt` (1,084 words from Major's 80% frequency list)
+- **Pre-import baseline**: 481 Greek cards (471 unique words), as of 2/22/2026 UAT
+- **Import strategy**: Option A — API-based via `POST /api/ai/batch-generate` (50 words/batch, 60s pauses)
+- **Delta**: 77 words already in SF (skipped), target 1,007 new cards
+- **Import status**: IN PROGRESS as of 2026-02-23 — results TBD (update after import completes)
+- **Script**: `import_greek_vocab.py` (supports --dry-run, --start-batch, --no-images)
+- **Note**: Do NOT re-run `import_greek_vocab.py` without verifying current count first
+- **Note**: `batch_processing.py:40` has placeholder OpenAI key — use `ai_generate` endpoints, not batch_processing router
+
 ### Etymython Integration (Sprint 2026-02-18)
 - **340 English cognate cards imported** from Etymython (etymology_cognates → english_cognates chain)
   - All 340 cards received AI-generated images
@@ -280,15 +290,18 @@ Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears
 
 ---
 
-## 10. WHAT'S NEXT (per Roadmap_Status_Report_2026-02-18.md)
+## 10. WHAT'S NEXT (updated 2026-02-23 per PL UAT 2/22/2026)
 
-| ID | Feature | Priority | Notes |
-|----|---------|----------|-------|
-| SF-007 | Spaced repetition verification | P2 | study_sessions collects ease_rating — verify if SM-2 is implemented or just data collection |
-| SF-013 | PIE root field + API enrichment | P2 | Add depth layer: SF card → Etymython etymology → PIE root |
-| SF-014 | Cross-language search from header bar | P2 | New requirement from sprint |
-| SF-006 | Etymology bridge normalization | P2 | Columns exist, check data quality |
-| AU02 | Fix post-login redirect (minor, shared with Etymython) | P3 | |
+| ID | Feature | Priority | Status | Notes |
+|----|---------|----------|--------|-------|
+| SF-005 | Spaced Repetition System (SRS) | P1 | **Backlog** | PL UAT 2/22: SRS not implemented end-to-end, needs membership model first |
+| SF-007 | Spaced repetition verification | P2 | Backlog | study_sessions collects ease_rating — verify if SM-2 is implemented or just data collection |
+| SF-013 | PIE root field + API enrichment | P2 | Backlog | Add depth layer: SF card → Etymython etymology → PIE root |
+| SF-014 | PIE Root Pronunciation Audio | P3 | Backlog | Generate and store pronunciation audio for PIE roots |
+| SF-017 | Language Reassignment | P2 | Backlog | Allow cards to be moved between languages |
+| SF-018 | Error Tracker Fix | P3 | Backlog | |
+| SF-006 | Etymology bridge normalization | P2 | Backlog | Columns exist, check data quality |
+| AU02 | Fix post-login redirect (minor, shared with Etymython) | P3 | Backlog | |
 
 ---
 
