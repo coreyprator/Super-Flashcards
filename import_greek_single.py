@@ -22,6 +22,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 import argparse
 import time
+import random
 import requests
 from datetime import datetime
 
@@ -30,6 +31,8 @@ GREEK_LANG_ID  = "21d23a9e-4ef7-4d53-ad17-371d164d0f0f"
 VOCAB_FILE     = "G:/My Drive/Code/Python/Super-Flashcards/greek_core_vocab.txt"
 DEFAULT_SLEEP  = 60   # seconds between cards
 API_TIMEOUT    = 180  # seconds — single card with DALL-E finishes well within this
+RETRY_ATTEMPTS = 5
+RETRY_BASE_SEC = 2
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -45,12 +48,32 @@ def log(msg, logf=None):
         logf.write(line + "\n")
         logf.flush()
 
+def request_with_retries(method, url, *, timeout, logf=None, **kwargs):
+    """HTTP request with bounded retries for transient network failures."""
+    last_error = None
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            return requests.request(method, url, timeout=timeout, **kwargs)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            last_error = e
+            if attempt == RETRY_ATTEMPTS:
+                break
+            backoff = RETRY_BASE_SEC * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+            log(
+                f"WARN  Network error on {method.upper()} {url} (attempt {attempt}/{RETRY_ATTEMPTS}): "
+                f"{type(e).__name__}: {str(e)[:120]} | retrying in {backoff:.1f}s",
+                logf,
+            )
+            time.sleep(backoff)
+    raise last_error
+
 def get_existing_greek_words():
     """Return set of words already in SF for Greek, via API."""
     existing = set()
     offset, limit = 0, 1000
     while True:
-        r = requests.get(
+        r = request_with_retries(
+            "GET",
             f"{BASE_URL}/api/flashcards/",
             params={"language_id": GREEK_LANG_ID, "limit": limit, "offset": offset},
             timeout=30,
@@ -71,7 +94,8 @@ def import_word(word):
     POST one word to /api/ai/batch-generate with include_images=True.
     Returns (status, detail) where status is 'imported'|'duplicate'|'error'.
     """
-    r = requests.post(
+    r = request_with_retries(
+        "POST",
         f"{BASE_URL}/api/ai/batch-generate",
         json={
             "words": [word],
