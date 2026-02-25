@@ -1,0 +1,10 @@
+ed3885d fix: add retry with exponential backoff for Greek import TLS reset recovery
+ec9d5eb chore: add Greek single-card import scripts + PK.md updates (data sprint)
+ab8bc93 v3.0.2: error logging standardization (Standards A/B/C)
+b0eea91 docs: v3.0.1 rework — update PROJECT_KNOWLEDGE + SESSION_CLOSEOUT
+62eabd4 fix: v3.0.1 rework — version sync, PIE root display, difficulty filter, SRS ordering
+3e4123d docs: Update PROJECT_KNOWLEDGE with SF-013 final results (61.1% PIE root coverage)
+5a40c8c chore: Session closeout for Sprint 9 (v3.0.0)
+4a143df feat: Sprint 9 — Gender Articles (SF-016) + PIE Root Extraction (SF-013) + PROJECT_KNOWLEDGE update
+4731f90 feat: Sprint 9 — Spaced Repetition (SM-2), Progress Dashboard, Difficulty Levels (v3.0.0)
+e54f3ed docs: SF Audit sprint — feature verification + schema inventory (2026-02-20)
