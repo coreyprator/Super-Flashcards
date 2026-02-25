@@ -215,6 +215,14 @@ super-flashcards/
 - Known issue: GET /api/flashcards hangs at 800+ cards
 - Fix: SQL delta mode added in this session (Part C of consolidated sprint)
 - Import must run from PL terminal (not CC session — sessions timeout)
+- Remaining delta (as of 2026-02-24): 383 words still to import
+
+### Import Script Modes (added 2026-02-24)
+- Default: `--db-password` → SQL query to Cloud SQL (handles 800+ cards)
+- Alternative: `--delta-file <file>` → pre-computed delta, skips all queries
+- Legacy: `--use-api` → original API GET (hangs at 800+ cards, use only for small sets)
+- Dry run: `--dry-run` → shows delta count, writes delta file, no import
+- DB user: `sqlserver` (not `flashcards_user` — task doc was incorrect)
 
 ### Etymython Integration (Sprint 2026-02-18)
 - **340 English cognate cards imported** from Etymython (etymology_cognates → english_cognates chain)
