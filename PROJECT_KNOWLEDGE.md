@@ -198,10 +198,23 @@ super-flashcards/
 - **Pre-import baseline**: 481 Greek cards (471 unique words), as of 2/22/2026 UAT
 - **Import strategy**: Option A — API-based via `POST /api/ai/batch-generate` (50 words/batch, 60s pauses)
 - **Delta**: 77 words already in SF (skipped), target 1,007 new cards
-- **Import status**: IN PROGRESS as of 2026-02-23 — results TBD (update after import completes)
-- **Script**: `import_greek_vocab.py` (supports --dry-run, --start-batch, --no-images)
-- **Note**: Do NOT re-run `import_greek_vocab.py` without verifying current count first
+- **Import status**: SUBSTANTIALLY COMPLETE as of 2026-02-25 audit — 1098 unique Greek words in DB (1111 total cards)
+- **Script (batch)**: `import_greek_vocab.py` (supports --dry-run, --start-batch, --no-images)
+- **Script (single-card)**: `import_greek_single.py` (one card at a time, 60s sleep, retry w/ backoff)
+- **Retry logic**: Added in `ed3885d` — exponential backoff on ConnectionResetError/500 errors
+- **Known issue**: GET /api/flashcards hangs at 800+ cards — do NOT use API-based duplicate detection
+- **Note**: Do NOT re-run import scripts without verifying current count first via SQL
 - **Note**: `batch_processing.py:40` has placeholder OpenAI key — use `ai_generate` endpoints, not batch_processing router
+
+### Greek Import Status (as of 2026-02-25 audit)
+- Vocab file: `greek_core_vocab.txt` (1,084 words)
+- Cards imported: 1098 unique words (1111 total cards including duplicates/variants)
+- Remaining: ~0 (vocab file fully covered; 14 extra words from Etymython cognate import)
+- Import script: `import_greek_single.py`
+- Retry logic: present, committed in `ed3885d`
+- Known issue: GET /api/flashcards hangs at 800+ cards
+- Fix: SQL delta mode added in this session (Part C of consolidated sprint)
+- Import must run from PL terminal (not CC session — sessions timeout)
 
 ### Etymython Integration (Sprint 2026-02-18)
 - **340 English cognate cards imported** from Etymython (etymology_cognates → english_cognates chain)

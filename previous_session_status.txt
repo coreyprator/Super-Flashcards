@@ -1,0 +1,62 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	## Chat Customization Diagnostics.md
+	CC_Audit_SF_Greek_Import_Session_Recovery_and_Bootstrap_v1.3.md
+	CC_Consolidated_Audit_Bootstrap_v1.3_Greek_Import_SQL_Delta.md
+	CC_Hotfix_SF_Greek_Import_Recovery.md
+	CC_Hotfix_SF_Greek_Import_SQL_Delta.md
+	CC_Retry_SF_Greek_Import_Diagnostic.md
+	CC_Rework_SuperFlashcards_v3.0.1.md
+	CC_Sprint_MetaPM_SF_Requirements.md
+	CC_Sprint_SF_Greek_Batch_Import.md
+	UAT_SuperFlashcards_Sprint9.html
+	backend/scripts/tmpclaude-2f23-cwd
+	backend/scripts/tmpclaude-d9dc-cwd
+	previous_session_commits.txt
+	previous_session_status.txt
+	previous_session_uncommitted_diff.txt
+	tmpclaude-0853-cwd
+	tmpclaude-09b4-cwd
+	tmpclaude-11e0-cwd
+	tmpclaude-21e9-cwd
+	tmpclaude-2379-cwd
+	tmpclaude-2c36-cwd
+	tmpclaude-34aa-cwd
+	tmpclaude-35a0-cwd
+	tmpclaude-38e0-cwd
+	tmpclaude-4394-cwd
+	tmpclaude-48b9-cwd
+	tmpclaude-49e3-cwd
+	tmpclaude-5827-cwd
+	tmpclaude-5968-cwd
+	tmpclaude-5b5d-cwd
+	tmpclaude-6400-cwd
+	tmpclaude-66fa-cwd
+	tmpclaude-6709-cwd
+	tmpclaude-6806-cwd
+	tmpclaude-6888-cwd
+	tmpclaude-6c03-cwd
+	tmpclaude-84c0-cwd
+	tmpclaude-85ad-cwd
+	tmpclaude-861d-cwd
+	tmpclaude-8f4b-cwd
+	tmpclaude-a2fe-cwd
+	tmpclaude-a924-cwd
+	tmpclaude-ad0c-cwd
+	tmpclaude-b27b-cwd
+	tmpclaude-b486-cwd
+	tmpclaude-c5c8-cwd
+	tmpclaude-ce66-cwd
+	tmpclaude-cff8-cwd
+	tmpclaude-d5d2-cwd
+	tmpclaude-dbd8-cwd
+	tmpclaude-e31d-cwd
+	tmpclaude-f5e6-cwd
+	tmpclaude-fa7d-cwd
+	tmpclaude-fe82-cwd
+	uat/
+
+nothing added to commit but untracked files present (use "git add" to track)
