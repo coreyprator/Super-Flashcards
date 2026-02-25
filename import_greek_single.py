@@ -6,11 +6,18 @@ Images included (single card + DALL-E fits comfortably in Cloud Run 300s limit).
 Skips duplicates (handled server-side by /api/ai/batch-generate).
 Never aborts on error — logs it and continues.
 
+Three modes for duplicate detection:
+  1. SQL query (default) — fast, handles 800+ cards. Requires --db-password or DB_PASSWORD env var.
+  2. Delta file (--delta-file) — pre-computed word list, skips all queries.
+  3. Legacy API (--use-api) — original GET /api/flashcards. Hangs at 800+ cards.
+
 Usage:
-    python import_greek_single.py
-    python import_greek_single.py --dry-run          # show plan, no API calls
-    python import_greek_single.py --start-at WORD    # resume from a specific word
-    python import_greek_single.py --sleep 60         # override inter-card sleep (default 60s)
+    python import_greek_single.py --db-password PASSWORD          # SQL delta (default)
+    python import_greek_single.py --delta-file remaining.txt      # pre-computed delta
+    python import_greek_single.py --use-api                       # legacy API mode
+    python import_greek_single.py --db-password PASSWORD --dry-run # show plan, write delta file
+    python import_greek_single.py --start-at WORD                 # resume from a specific word
+    python import_greek_single.py --sleep 60                      # override inter-card sleep
 
 Log file: greek_import_YYYYMMDD_HHMMSS.log  (created at start, appended per card)
 """
@@ -21,9 +28,11 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 import argparse
+import os
 import time
 import random
 import requests
+import pymssql
 from datetime import datetime
 
 BASE_URL       = "https://learn.rentyourcio.com"
@@ -67,8 +76,9 @@ def request_with_retries(method, url, *, timeout, logf=None, **kwargs):
             time.sleep(backoff)
     raise last_error
 
-def get_existing_greek_words():
-    """Return set of words already in SF for Greek, via API."""
+def get_existing_greek_words_api():
+    """Return set of words already in SF for Greek, via API.
+    WARNING: Hangs at 800+ cards. Use SQL mode instead."""
     existing = set()
     offset, limit = 0, 1000
     while True:
@@ -88,6 +98,31 @@ def get_existing_greek_words():
             break
         offset += limit
     return existing
+
+def get_existing_greek_words_sql(db_password):
+    """Query Cloud SQL directly for existing Greek words.
+    Replaces GET /api/flashcards which hangs at 800+ cards."""
+    conn = pymssql.connect(
+        server='35.224.242.223',
+        user='sqlserver',
+        password=db_password,
+        database='LanguageLearning',
+    )
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT DISTINCT f.word_or_phrase
+        FROM flashcards f
+        JOIN languages l ON f.language_id = l.id
+        WHERE l.name = 'Greek'
+    ''')
+    existing = set(row[0] for row in cursor.fetchall())
+    conn.close()
+    return existing
+
+def get_delta_from_file(filepath):
+    """Read pre-computed delta word list from a file."""
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return [line.strip() for line in f if line.strip()]
 
 def import_word(word):
     """
@@ -125,10 +160,16 @@ def import_word(word):
 
 def main():
     parser = argparse.ArgumentParser(description="Single-card Greek vocab import")
-    parser.add_argument("--dry-run",   action="store_true", help="Show plan, no API calls")
-    parser.add_argument("--start-at",  metavar="WORD",      help="Resume from this word (inclusive)")
-    parser.add_argument("--sleep",     type=int, default=DEFAULT_SLEEP, metavar="SECS",
+    parser.add_argument("--dry-run",      action="store_true", help="Calculate and display delta without importing")
+    parser.add_argument("--start-at",     metavar="WORD",      help="Resume from this word (inclusive)")
+    parser.add_argument("--sleep",        type=int, default=DEFAULT_SLEEP, metavar="SECS",
                         help=f"Sleep between cards (default {DEFAULT_SLEEP}s)")
+    parser.add_argument("--db-password",  type=str, default=None,
+                        help="Cloud SQL password for direct DB delta query (default mode)")
+    parser.add_argument("--delta-file",   type=str, default=None,
+                        help="Pre-computed delta file — skip duplicate detection entirely")
+    parser.add_argument("--use-api",      action="store_true",
+                        help="Use legacy API-based duplicate detection (slow for 800+ cards)")
     args = parser.parse_args()
 
     log_filename = f"G:/My Drive/Code/Python/Super-Flashcards/greek_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -146,17 +187,34 @@ def main():
         all_words = [l.strip() for l in f if l.strip()]
     print(f"\n[Step 1] Vocab file: {len(all_words)} words")
 
-    # Step 2: fetch existing Greek words
-    print(f"\n[Step 2] Fetching existing Greek cards from API ...")
-    existing = get_existing_greek_words()
-    print(f"  Existing cards: {len(existing)}")
+    # Step 2: determine delta (duplicate detection mode)
+    if args.delta_file:
+        print(f"\n[Step 2] [MODE] Delta file: {args.delta_file}")
+        words_to_import = get_delta_from_file(args.delta_file)
+        print(f"  Words from delta file: {len(words_to_import)}")
+    elif args.use_api:
+        print(f"\n[Step 2] [MODE] Legacy API query (slow for large datasets)")
+        existing = get_existing_greek_words_api()
+        print(f"  Existing cards: {len(existing)}")
+        words_to_import = [w for w in all_words if w not in existing]
+    else:
+        print(f"\n[Step 2] [MODE] SQL direct query to Cloud SQL")
+        password = args.db_password or os.environ.get('DB_PASSWORD')
+        if not password:
+            password = input("Enter Cloud SQL password (sqlserver): ")
+        existing = get_existing_greek_words_sql(password)
+        print(f"  Existing cards: {len(existing)}")
+        words_to_import = [w for w in all_words if w not in existing]
 
-    # Step 3: compute delta
-    words_to_import = [w for w in all_words if w not in existing]
-    skipped_dupes   = len(all_words) - len(words_to_import)
-    print(f"\n[Step 3] Delta")
-    print(f"  Already in SF : {skipped_dupes}")
-    print(f"  To import     : {len(words_to_import)}")
+    # Step 3: delta summary
+    if not args.delta_file:
+        skipped_dupes = len(all_words) - len(words_to_import)
+        print(f"\n[Step 3] Delta")
+        print(f"  Already in SF : {skipped_dupes}")
+        print(f"  To import     : {len(words_to_import)}")
+    else:
+        print(f"\n[Step 3] Delta (from file)")
+        print(f"  To import     : {len(words_to_import)}")
 
     if not words_to_import:
         print("\nAll words already imported. Nothing to do.")
@@ -179,9 +237,15 @@ def main():
     print(f"  Est. time        : ~{est_hours:.1f} hours (processing ~35s/card + sleep)")
 
     if args.dry_run:
+        delta_file = "G:/My Drive/Code/Python/Super-Flashcards/greek_import_delta_remaining.txt"
+        with open(delta_file, 'w', encoding='utf-8') as f:
+            for w in words_to_import:
+                f.write(w + '\n')
         print(f"\n[DRY RUN — no API calls]")
         print(f"  First 5 words : {words_to_import[:5]}")
         print(f"  Last  5 words : {words_to_import[-5:]}")
+        print(f"  Written to    : {delta_file}")
+        print(f"  Dry run complete. Exiting.")
         return
 
     # Step 5: import loop
