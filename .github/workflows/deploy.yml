@@ -47,8 +47,21 @@ jobs:
           echo "Service URL: $SERVICE_URL"
           echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
       
+      - name: Health Check
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format='value(status.url)')
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check failed: HTTP $HTTP_CODE"
+            exit 1
+          fi
+          HEALTH=$(curl -s "$SERVICE_URL/health")
+          echo "Health check passed: $HEALTH" >> $GITHUB_STEP_SUMMARY
+
       - name: Deployment Summary
         run: |
-          echo "✅ Deployment successful!" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 Service URL: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "📦 Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment successful!" >> $GITHUB_STEP_SUMMARY
+          echo "Service URL: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
