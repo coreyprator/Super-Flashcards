@@ -277,6 +277,14 @@ gcloud run logs read super-flashcards --region=us-central1 --limit=50
 ### PINEAPPLE Test (LL-044)
 Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears. If missing, deployment failed.
 
+## CI/CD
+- GitHub Actions: `.github/workflows/deploy.yml`
+- Trigger: push to `main` or manual `workflow_dispatch`
+- Auth: cc-deploy SA via `GCP_SA_KEY` secret
+- Deploy method: `--source .` (Cloud Run builds from source)
+- Health check step: added 2026-02-26 (PM-MS1)
+- Health check URL: https://learn.rentyourcio.com/health
+
 ---
 
 ## 9. KNOWN ISSUES & TECHNICAL DEBT
