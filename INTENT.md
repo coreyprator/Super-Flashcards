@@ -1,4 +1,5 @@
 # INTENT.md -- Super Flashcards
+<!-- CHECKPOINT: SF-INTENT-4A9C -->
 
 ## Primary Intent
 A language research and connection discovery tool that leverages etymology, visual learning, and pronunciation practice to accelerate Corey's ability to learn any European language by understanding words at their atomic level: PIE origins.

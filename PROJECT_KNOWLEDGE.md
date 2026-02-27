@@ -1,4 +1,5 @@
 # Super-Flashcards -- Project Knowledge Document
+<!-- CHECKPOINT: SF-PK-B1E7 -->
 
 Generated/Updated: 2026-02-23 — Sprint "Greek Core Vocabulary Batch Import"
 Purpose: Canonical reference for all AI sessions working on this project.
