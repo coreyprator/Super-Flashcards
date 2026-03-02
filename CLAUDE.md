@@ -1,4 +1,5 @@
 # CLAUDE.md - Super-Flashcards AI Instructions
+<!-- CHECKPOINT: SF-CL-7F1B -->
 
 ---
 
@@ -64,7 +65,7 @@ After processing handoff:
 | Description | French vocabulary learning with spaced repetition and pronunciation |
 | Repository | https://github.com/coreyprator/Super-Flashcards |
 | Local Path | G:\My Drive\Code\Python\Super-Flashcards |
-| Methodology | [coreyprator/project-methodology](https://github.com/coreyprator/project-methodology) v3.14 |
+| Methodology | [coreyprator/project-methodology](https://github.com/coreyprator/project-methodology) v3.17 |
 
 ---
 
@@ -257,4 +258,4 @@ See `project-methodology/CLAUDE.md` for full policy.
 ---
 
 **Last Updated**: 2026-02-07
-**Methodology Version**: 3.14
+**Methodology Version**: 3.17
