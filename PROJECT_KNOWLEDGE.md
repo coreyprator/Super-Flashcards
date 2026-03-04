@@ -23,9 +23,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.0.2 | `backend/app/main.py` (as of 2026-02-23) |
-| **Latest Revision** | super-flashcards-00288-hr9 (see Sprint 2026-02-23 for update after import) | `Sprint_CloseOut_2026-02-18.md` |
-| **Current Sprint** | Greek Core Vocabulary Batch Import (data sprint) | `CC_Retry_SF_Greek_Import_Diagnostic.md` |
+| **Version** | 3.1.0 | `backend/app/main.py` (as of 2026-03-04) |
+| **Latest Revision** | super-flashcards-00315-5hm | `SESSION_CLOSEOUT_2026-03-04.md` |
+| **Current Sprint** | SF-MS1 complete — CRUD fix + PIE root edit | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-04.md` |
 
 ---
 
@@ -305,7 +305,14 @@ Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears
 |----|-------|----------|--------|
 | SF-012 | Duplicate pronunciation_attempts tables (PascalCase + lowercase) | P3 | Open — cleanup deferred |
 | — | Console errors: import/CSV/JSON button not found | P3 | Non-blocking |
-| — | study_sessions ease_rating collected but SM-2 may not use it | P2 | Verify SF-007 |
+| SF-007 | study_sessions ease_rating and SM-2 | P2 | **RESOLVED** — SM-2 fully deployed in study.py; /api/study/review and /api/study/due functional |
+
+### Sprint SF-MS1 (2026-03-04) — RESOLVED
+| ID | Issue | Status |
+|----|-------|--------|
+| SF-020 | Delete button broken — root cause: closeEditModal() nulled currentEditingId before deleteFromEditModal() read it | **FIXED** v3.1.0 |
+| SF-013 | PIE root editing missing from edit modal | **FIXED** v3.1.0 |
+| SF-005 | Membership model | Deferred — INTENT conflict (anti-goal: multi-user features) |
 
 ### Technical Debt
 | Item | Priority |
@@ -320,13 +327,12 @@ Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears
 
 ---
 
-## 10. WHAT'S NEXT (updated 2026-02-23 per PL UAT 2/22/2026)
+## 10. WHAT'S NEXT (updated 2026-03-04 per SF-MS1 closeout)
 
 | ID | Feature | Priority | Status | Notes |
 |----|---------|----------|--------|-------|
-| SF-005 | Spaced Repetition System (SRS) | P1 | **Backlog** | PL UAT 2/22: SRS not implemented end-to-end, needs membership model first |
-| SF-007 | Spaced repetition verification | P2 | Backlog | study_sessions collects ease_rating — verify if SM-2 is implemented or just data collection |
-| SF-013 | PIE root field + API enrichment | P2 | Backlog | Add depth layer: SF card → Etymython etymology → PIE root |
+| SF-005 | Membership model (per-user flashcard ownership) | P2 | **Deferred** | INTENT conflict: anti-goal "multi-user features for users who don't exist yet." Needs explicit PL approval before opening new sprint. |
+| SF-013 | PIE root Etymython API enrichment | P2 | Partial | Edit fields added v3.1.0. Manual entry works. Auto-enrichment from Etymython not yet built. |
 | SF-014 | PIE Root Pronunciation Audio | P3 | Backlog | Generate and store pronunciation audio for PIE roots |
 | SF-017 | Language Reassignment | P2 | Backlog | Allow cards to be moved between languages |
 | SF-018 | Error Tracker Fix | P3 | Backlog | |
