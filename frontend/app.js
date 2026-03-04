@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.0.1 (v3.0.1: version sync, PIE root display, difficulty filter, SRS ordering)
+// Version: 3.1.0 (v3.1.0: SF-020 delete fix, SF-013 PIE root edit)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.0.1';
+const APP_JS_VERSION = '3.1.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1236,17 +1236,22 @@ function renderFlashcard(flashcard) {
                                     title="Copy share link">
                                 🔗 Share
                             </button>
-                            <button onclick="editCard('${flashcard.id}')" 
-                                    class="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm transition-colors" 
+                            <button onclick="editCard('${flashcard.id}')"
+                                    class="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm transition-colors"
                                     title="Edit this card">
                                 ✏️ Edit
+                            </button>
+                            <button onclick="confirmDeleteById('${flashcard.id}')"
+                                    class="px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 text-sm transition-colors"
+                                    title="Delete this card">
+                                🗑️ Delete
                             </button>
                             <div class="text-sm text-gray-500">
                                 Reviewed ${flashcard.times_reviewed} times
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="text-center">
                         <h2 class="text-5xl font-bold text-gray-900 mb-8">
                             ${flashcard.word_or_phrase}
@@ -1307,10 +1312,15 @@ function renderFlashcard(flashcard) {
                                             title="Copy share link">
                                         🔗 Share
                                     </button>
-                                    <button onclick="editCard('${flashcard.id}')" 
-                                            class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors" 
+                                    <button onclick="editCard('${flashcard.id}')"
+                                            class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors"
                                             title="Edit this card">
                                         ✏️ Edit
+                                    </button>
+                                    <button onclick="confirmDeleteById('${flashcard.id}')"
+                                            class="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm transition-colors"
+                                            title="Delete this card">
+                                        🗑️ Delete
                                     </button>
                                 </div>
                             </div>
@@ -2016,7 +2026,7 @@ function renderFlashcardList() {
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                     </button>
-                    <button onclick="confirmDelete(state.flashcards[${originalIndex}]); event.stopPropagation();" 
+                    <button onclick="confirmDeleteById('${card.id}'); event.stopPropagation();"
                         class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
@@ -2459,7 +2469,13 @@ function showEditModal(flashcard) {
         relatedWordsStr = flashcard.related_words || '';
     }
     document.getElementById('edit-related').value = relatedWordsStr;
-    
+
+    // PIE root fields (SF-013)
+    const pieRootEl = document.getElementById('edit-pie-root');
+    const pieMeaningEl = document.getElementById('edit-pie-meaning');
+    if (pieRootEl) pieRootEl.value = (flashcard.pie_root && flashcard.pie_root !== 'N/A') ? flashcard.pie_root : '';
+    if (pieMeaningEl) pieMeaningEl.value = flashcard.pie_meaning || '';
+
     // Show/hide image section and set up image data
     if (flashcard.image_url) {
         document.getElementById('edit-image-section').classList.remove('hidden');
@@ -2562,8 +2578,10 @@ async function saveEditedFlashcard() {
     const etymology = document.getElementById('edit-etymology').value.trim();
     const cognates = document.getElementById('edit-cognates').value.trim();
     const relatedInput = document.getElementById('edit-related').value.trim();
-    
-    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput });
+    const pieRoot = (document.getElementById('edit-pie-root')?.value || '').trim() || null;
+    const pieMeaning = (document.getElementById('edit-pie-meaning')?.value || '').trim() || null;
+
+    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput, pieRoot, pieMeaning });
     
     if (!word) {
         showToast('Word or phrase is required', 'error');
@@ -2590,7 +2608,9 @@ async function saveEditedFlashcard() {
             definition: definition || null,
             etymology: etymology || null,
             english_cognates: cognates || null,
-            related_words: relatedWords
+            related_words: relatedWords,
+            pie_root: pieRoot,
+            pie_meaning: pieMeaning
         };
         
         // Include image data if new image was generated
@@ -2709,6 +2729,11 @@ function confirmDelete(flashcard) {
     console.log('🗑️ Modal should now be visible');
 }
 
+function confirmDeleteById(id) {
+    const card = state.flashcards.find(c => c.id === id);
+    if (card) confirmDelete(card);
+}
+
 function closeDeleteModal() {
     console.log('🗑️ Closing delete modal');
     document.getElementById('delete-modal').classList.add('hidden');
@@ -2781,8 +2806,9 @@ async function deleteFlashcard() {
 }
 
 function deleteFromEditModal() {
+    const id = currentEditingId; // save before closeEditModal nulls it
     closeEditModal();
-    const card = state.flashcards.find(c => c.id === currentEditingId);
+    const card = state.flashcards.find(c => c.id === id);
     if (card) confirmDelete(card);
 }
 
