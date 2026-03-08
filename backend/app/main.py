@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.0.2 - Error logging standard: global exception handler, 10s toast, full response body logging
+# Version: 3.2.0 - SF-MS2: ElevenLabs TTS, Word Family Graph, Gender, Preposition Usage
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.1.0" + (" [QA]" if IS_QA else "")
+    version="3.2.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -250,6 +250,14 @@ app.include_router(batch_ai_generate.router, prefix="/api/ai", tags=["batch-ai-g
 # Import batch progress router (SSE streaming)
 from .routers import batch_progress
 app.include_router(batch_progress.router, prefix="/api/ai", tags=["batch-progress"])  # Real-time batch progress via SSE
+
+# SF-MS2: ElevenLabs TTS for card audio (SF-026)
+from .routers import card_audio
+app.include_router(card_audio.router, prefix="/api", tags=["card-audio"])
+
+# SF-MS2: Word family graph (SF-027)
+from .routers import word_family
+app.include_router(word_family.router, prefix="/api", tags=["word-family"])
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
@@ -555,7 +563,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.1.0",
+        "version": "3.2.0",
         "database": "connected"
     }
 

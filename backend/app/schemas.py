@@ -40,6 +40,10 @@ class FlashcardBase(BaseModel):
     # PIE Root
     pie_root: Optional[str] = None
     pie_meaning: Optional[str] = None
+    # Grammatical Gender (SF-023)
+    gender: Optional[str] = None
+    # Preposition Usage (SF-024)
+    preposition_usage: Optional[str] = None
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
@@ -61,6 +65,8 @@ class FlashcardUpdate(BaseModel):
     difficulty: Optional[str] = None
     pie_root: Optional[str] = None
     pie_meaning: Optional[str] = None
+    gender: Optional[str] = None
+    preposition_usage: Optional[str] = None
 
 class Flashcard(FlashcardBase):
     id: UUID
