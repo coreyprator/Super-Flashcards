@@ -123,6 +123,12 @@ class Flashcard(Base):
     pie_root = Column(NVARCHAR(100), nullable=True)    # Proto-Indo-European root e.g. *bher-
     pie_meaning = Column(NVARCHAR(255), nullable=True)  # PIE root meaning e.g. "to carry"
 
+    # Grammatical Gender — SF-MS2 (SF-023)
+    gender = Column(NVARCHAR(20), nullable=True)  # masculine, feminine, neuter, or NULL
+
+    # Preposition Usage — SF-MS2 (SF-024)
+    preposition_usage = Column(NVARCHAR(None), nullable=True)  # e.g. "με + accusative (with)"
+
     # Sync metadata (for offline support)
     is_synced = Column(Boolean, default=True)
     local_only = Column(Boolean, default=False)  # Created offline, not yet synced

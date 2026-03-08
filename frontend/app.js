@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.1.0 (v3.1.0: SF-020 delete fix, SF-013 PIE root edit)
+// Version: 3.2.0 (v3.2.0: SF-020 delete fix, SF-013 PIE root edit)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.1.0';
+const APP_JS_VERSION = '3.2.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1253,18 +1253,27 @@ function renderFlashcard(flashcard) {
                     </div>
 
                     <div class="text-center">
-                        <h2 class="text-5xl font-bold text-gray-900 mb-8">
+                        <h2 class="text-5xl font-bold text-gray-900 mb-4">
                             ${flashcard.word_or_phrase}
+                            ${getGenderBadgeHTML(flashcard.gender)}
                         </h2>
-                        
+
+                        ${flashcard.preposition_usage ? `
+                            <p class="text-sm text-gray-600 mb-4 italic">${flashcard.preposition_usage}</p>
+                        ` : ''}
+
                         <!-- Audio Controls -->
-                        <div class="mb-6">
+                        <div class="mb-6 flex items-center justify-center gap-3">
                             ${getAudioButtonHTML(flashcard)}
+                            <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
+                                title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
+                                🔊
+                            </button>
                         </div>
-                        
+
                         <!-- IPA Pronunciation Section -->
                         ${getIPAHTML(flashcard)}
-                        
+
                         ${flashcard.image_url ? `
                             <img src="${fixAssetUrl(flashcard.image_url)}" 
                                  alt="${flashcard.image_description || flashcard.word_or_phrase}"
@@ -1324,19 +1333,29 @@ function renderFlashcard(flashcard) {
                                     </button>
                                 </div>
                             </div>
-                            <h2 class="text-2xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
+                            <h2 class="text-2xl font-bold text-indigo-900">
+                                ${flashcard.word_or_phrase}
+                                ${getGenderBadgeHTML(flashcard.gender)}
+                            </h2>
                             <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
+                            ${flashcard.preposition_usage ? `
+                                <p class="text-sm text-indigo-500 mt-1 italic">${flashcard.preposition_usage}</p>
+                            ` : ''}
                             <!-- Audio Controls -->
-                            <div class="mt-3">
+                            <div class="mt-3 flex items-center justify-center gap-3">
                                 ${getAudioButtonHTML(flashcard)}
+                                <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
+                                    title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
+                                    🔊
+                                </button>
                             </div>
-                            
+
                             <!-- IPA Pronunciation Section -->
                             <div class="mt-3">
                                 ${getIPAHTML(flashcard)}
                             </div>
                         </div>
-                        
+
                         ${flashcard.definition ? `
                             <div>
                                 <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">Definition</h3>
@@ -1379,7 +1398,10 @@ function renderFlashcard(flashcard) {
                                 </div>
                             </div>
                         ` : ''}
-                        
+
+                        <!-- Word Family Graph (SF-027) -->
+                        <div id="word-family-${flashcard.id}" class="word-family-container"></div>
+
                         <!-- Back to Word Button -->
                         <div class="text-center mt-8">
                             <button onclick="flipCard()" class="px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-gray-50 font-medium shadow-lg border-2 border-indigo-200 transition-all transform hover:scale-105">
@@ -1452,6 +1474,9 @@ function renderFlashcard(flashcard) {
         injectEtymythonLink(flashcard, `etymython-link-study-${flashcard.id}`);
     }
 
+    // Load word family graph (SF-027)
+    loadWordFamily(flashcard.id, flashcard.word_or_phrase);
+
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();
 }
@@ -1477,6 +1502,156 @@ function flipCard() {
             if (nextReview) nextReview.classList.add('hidden');
         }
     }
+}
+
+// ========================================
+// SF-MS2: Gender Badge (SF-023)
+// ========================================
+function getGenderBadgeHTML(gender) {
+    if (!gender) return '';
+    const badges = {
+        masculine: '<span class="inline-block ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700">m</span>',
+        feminine: '<span class="inline-block ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-rose-100 text-rose-700">f</span>',
+        neuter: '<span class="inline-block ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-gray-200 text-gray-600">n</span>'
+    };
+    return badges[gender] || '';
+}
+
+// ========================================
+// SF-MS2: ElevenLabs TTS (SF-026)
+// ========================================
+async function playCardTTS(cardId) {
+    const btn = document.querySelector(`[data-card-tts="${cardId}"]`);
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '...';
+    }
+    try {
+        const res = await fetch(`/api/cards/${cardId}/audio`, {method: 'POST'});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const audio = new Audio(data.url);
+        audio.onended = () => { if (btn) { btn.disabled = false; btn.textContent = '🔊'; } };
+        audio.onerror = () => { if (btn) { btn.disabled = false; btn.textContent = '🔊'; } };
+        await audio.play();
+    } catch (e) {
+        console.error('ElevenLabs TTS error:', e);
+        if (btn) { btn.disabled = false; btn.textContent = '🔊'; }
+        showToast('Audio generation failed', 3000);
+    }
+}
+
+// ========================================
+// SF-MS2: Word Family Graph (SF-027)
+// ========================================
+async function loadWordFamily(cardId, cardWord) {
+    const container = document.getElementById(`word-family-${cardId}`);
+    if (!container) return;
+
+    try {
+        const res = await fetch(`/api/cards/${cardId}/word-family`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!data.cognates || data.cognates.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mt-4">
+                <h3 class="text-sm font-semibold text-green-900 uppercase mb-2">Word Family</h3>
+                <div id="word-family-graph-${cardId}" style="width:100%;height:200px;"></div>
+            </div>
+        `;
+
+        renderWordFamilyGraph(`word-family-graph-${cardId}`, cardWord, data.cognates);
+    } catch (e) {
+        console.error('Word family load error:', e);
+        container.style.display = 'none';
+    }
+}
+
+function renderWordFamilyGraph(containerId, rootWord, cognates) {
+    const container = document.getElementById(containerId);
+    if (!container || !cognates.length) return;
+
+    const width = container.clientWidth || 300;
+    const height = 200;
+
+    // Build nodes and links
+    const nodes = [
+        {id: rootWord, type: 'root', x: width/2, y: height/2}
+    ];
+    const links = [];
+
+    cognates.forEach((c, i) => {
+        const angle = (2 * Math.PI * i) / cognates.length;
+        const r = Math.min(width, height) * 0.35;
+        nodes.push({
+            id: c.word,
+            type: 'cognate',
+            meaning: c.meaning,
+            figure: c.figure,
+            x: width/2 + r * Math.cos(angle),
+            y: height/2 + r * Math.sin(angle)
+        });
+        links.push({source: rootWord, target: c.word});
+    });
+
+    // Render as SVG (no D3 dependency needed for simple layout)
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    // Draw links
+    links.forEach(link => {
+        const source = nodes.find(n => n.id === link.source);
+        const target = nodes.find(n => n.id === link.target);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', source.x);
+        line.setAttribute('y1', source.y);
+        line.setAttribute('x2', target.x);
+        line.setAttribute('y2', target.y);
+        line.setAttribute('stroke', '#94a3b8');
+        line.setAttribute('stroke-width', '1.5');
+        svg.appendChild(line);
+    });
+
+    // Draw nodes
+    nodes.forEach(node => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', node.x);
+        circle.setAttribute('cy', node.y);
+        circle.setAttribute('r', node.type === 'root' ? 8 : 6);
+        circle.setAttribute('fill', node.type === 'root' ? '#3b82f6' : '#22c55e');
+        circle.setAttribute('stroke', '#fff');
+        circle.setAttribute('stroke-width', '2');
+        g.appendChild(circle);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', node.x);
+        text.setAttribute('y', node.y + (node.type === 'root' ? -14 : 18));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('fill', '#1e293b');
+        text.setAttribute('font-size', node.type === 'root' ? '12' : '10');
+        text.setAttribute('font-weight', node.type === 'root' ? 'bold' : 'normal');
+        text.textContent = node.id.length > 15 ? node.id.slice(0, 13) + '...' : node.id;
+        g.appendChild(text);
+
+        if (node.meaning) {
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            title.textContent = `${node.id}: ${node.meaning}`;
+            g.appendChild(title);
+        }
+
+        svg.appendChild(g);
+    });
+
+    container.appendChild(svg);
 }
 
 function editCard(cardId) {
@@ -1584,19 +1759,26 @@ function renderReadCard(flashcard) {
                         <div class="flex-1">
                             <div class="flex justify-between items-start mb-2">
                                 <div>
-                                    <h2 class="text-3xl font-bold text-indigo-900">${flashcard.word_or_phrase}</h2>
+                                    <h2 class="text-3xl font-bold text-indigo-900">
+                                        ${flashcard.word_or_phrase}${getGenderBadgeHTML(flashcard.gender)}
+                                    </h2>
                                     <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
+                                    ${flashcard.preposition_usage ? `<p class="text-sm text-indigo-500 mt-1 italic">${flashcard.preposition_usage}</p>` : ''}
                                 </div>
-                                <button onclick="editCard('${flashcard.id}')" 
-                                        class="px-3 py-1 bg-white text-indigo-700 rounded-md hover:bg-indigo-50 text-sm transition-colors shadow-sm" 
+                                <button onclick="editCard('${flashcard.id}')"
+                                        class="px-3 py-1 bg-white text-indigo-700 rounded-md hover:bg-indigo-50 text-sm transition-colors shadow-sm"
                                         title="Edit this card">
                                     ✏️ Edit
                                 </button>
                             </div>
-                            
+
                             <!-- Audio Controls -->
-                            <div class="mt-3">
+                            <div class="mt-3 flex items-center gap-3">
                                 ${getAudioButtonHTML(flashcard)}
+                                <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
+                                    title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
+                                    🔊
+                                </button>
                             </div>
                             
                             <!-- IPA Pronunciation -->
@@ -2008,7 +2190,7 @@ function renderFlashcardList() {
         <div class="bg-white rounded-lg p-4 shadow hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div class="flex-1 cursor-pointer" onclick="selectCard(${originalIndex})">
-                    <h3 class="font-semibold text-gray-900 text-lg mb-1">${card.word_or_phrase}</h3>
+                    <h3 class="font-semibold text-gray-900 text-lg mb-1">${card.word_or_phrase}${getGenderBadgeHTML(card.gender)}</h3>
                     <p class="text-gray-600 text-sm line-clamp-2">${card.definition || 'No definition'}</p>
                 </div>
                 <div class="ml-4 flex space-x-2 items-center">
@@ -2476,6 +2658,12 @@ function showEditModal(flashcard) {
     if (pieRootEl) pieRootEl.value = (flashcard.pie_root && flashcard.pie_root !== 'N/A') ? flashcard.pie_root : '';
     if (pieMeaningEl) pieMeaningEl.value = flashcard.pie_meaning || '';
 
+    // Gender and Preposition Usage (SF-023, SF-024)
+    const genderEl = document.getElementById('edit-gender');
+    if (genderEl) genderEl.value = flashcard.gender || '';
+    const prepEl = document.getElementById('edit-preposition-usage');
+    if (prepEl) prepEl.value = flashcard.preposition_usage || '';
+
     // Show/hide image section and set up image data
     if (flashcard.image_url) {
         document.getElementById('edit-image-section').classList.remove('hidden');
@@ -2580,8 +2768,10 @@ async function saveEditedFlashcard() {
     const relatedInput = document.getElementById('edit-related').value.trim();
     const pieRoot = (document.getElementById('edit-pie-root')?.value || '').trim() || null;
     const pieMeaning = (document.getElementById('edit-pie-meaning')?.value || '').trim() || null;
+    const gender = (document.getElementById('edit-gender')?.value || '').trim() || null;
+    const prepositionUsage = (document.getElementById('edit-preposition-usage')?.value || '').trim() || null;
 
-    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput, pieRoot, pieMeaning });
+    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput, pieRoot, pieMeaning, gender, prepositionUsage });
     
     if (!word) {
         showToast('Word or phrase is required', 'error');
@@ -2610,9 +2800,11 @@ async function saveEditedFlashcard() {
             english_cognates: cognates || null,
             related_words: relatedWords,
             pie_root: pieRoot,
-            pie_meaning: pieMeaning
+            pie_meaning: pieMeaning,
+            gender: gender,
+            preposition_usage: prepositionUsage
         };
-        
+
         // Include image data if new image was generated
         if (editImageData) {
             updateData.image_url = editImageData.url;

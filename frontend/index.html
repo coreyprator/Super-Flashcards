@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.1.0';
+        window.APP_VERSION = '3.2.0';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -430,7 +430,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.1.0</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.2.0</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -1366,6 +1366,25 @@
                         </div>
                     </div>
 
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gender <span class="text-xs text-gray-400">(Nouns only)</span></label>
+                            <select id="edit-gender"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="">-- None --</option>
+                                <option value="masculine">Masculine</option>
+                                <option value="feminine">Feminine</option>
+                                <option value="neuter">Neuter</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Preposition Usage <span class="text-xs text-gray-400">(Optional)</span></label>
+                            <input type="text" id="edit-preposition-usage"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                placeholder="με + accusative (with)">
+                        </div>
+                    </div>
+
                     <!-- Image Section -->
                     <div class="border-t pt-4">
                         <div class="flex items-center justify-between mb-3">
@@ -1506,7 +1525,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.1.0"></script>
+    <script src="/app.js?v=3.2.0"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
