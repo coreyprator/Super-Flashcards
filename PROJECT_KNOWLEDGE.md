@@ -23,9 +23,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.1.0 | `backend/app/main.py` (as of 2026-03-04) |
-| **Latest Revision** | super-flashcards-00315-5hm | `SESSION_CLOSEOUT_2026-03-04.md` |
-| **Current Sprint** | SF-MS1 complete — CRUD fix + PIE root edit | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-04.md` |
+| **Version** | 3.2.0 | `backend/app/main.py` (as of 2026-03-08) |
+| **Latest Revision** | super-flashcards-00318-f2x | `SESSION_CLOSEOUT_2026-03-08.md` |
+| **Current Sprint** | SF-MS2 complete — TTS, Word Family, Gender, Preposition Usage | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-08.md` |
 
 ---
 
@@ -93,7 +93,7 @@ super-flashcards/
 | Table | Purpose |
 |-------|---------|
 | **languages** | id, name (e.g. "French"), code (e.g. "fr") |
-| **flashcards** | id, language_id (FK), word_or_phrase, definition, etymology, english_cognates, related_words (JSON), image_url, audio_url, ipa_pronunciation, source ("manual"/"ai_generated"/"imported"), times_reviewed, last_reviewed, is_synced, created_at, updated_at |
+| **flashcards** | id, language_id (FK), word_or_phrase, definition, etymology, english_cognates, related_words (JSON), image_url, audio_url, ipa_pronunciation, source ("manual"/"ai_generated"/"imported"), times_reviewed, last_reviewed, is_synced, created_at, updated_at, **gender** (NVARCHAR(20), nullable — SF-023), **preposition_usage** (NVARCHAR(MAX), nullable — SF-024) |
 | **users** | id, username, email, password_hash (NULL for OAuth), auth_provider ("email"/"google"), google_id, name, picture, preferred_instruction_language, is_active, is_verified, last_login |
 | **user_languages** | Links users to languages with instruction_language and proficiency_level |
 | **study_sessions** | Tracks flashcard reviews: flashcard_id, user_id, ease_rating (1-5), time_spent_seconds |
@@ -137,7 +137,9 @@ super-flashcards/
 | `/api/users` | users.router | User management |
 | `/api` | import_flashcards.router | CSV/JSON import |
 | `/api/batch` | batch_processing.router | Batch word processing |
-| `/api/audio` | audio.router | TTS generation |
+| `/api/audio` | audio.router | TTS generation (Google/OpenAI) |
+| `/api` | card_audio.router | ElevenLabs TTS per card (SF-026) |
+| `/api` | word_family.router | Cognate word family graph (SF-027) |
 | `/api/v1/pronunciation` | pronunciation.router | Recording + analysis |
 | `/api/v1/voice-clone` | voice_clone.router | Voice cloning (backend complete, frontend broken) |
 | `/api/document` | document_parser.router | Document parsing |
@@ -306,6 +308,15 @@ Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears
 | SF-012 | Duplicate pronunciation_attempts tables (PascalCase + lowercase) | P3 | Open — cleanup deferred |
 | — | Console errors: import/CSV/JSON button not found | P3 | Non-blocking |
 | SF-007 | study_sessions ease_rating and SM-2 | P2 | **RESOLVED** — SM-2 fully deployed in study.py; /api/study/review and /api/study/due functional |
+
+### Sprint SF-MS2 (2026-03-08) — COMPLETE
+| ID | Feature | Status |
+|----|---------|--------|
+| SF-026 | TTS Read Aloud — ElevenLabs speaker button on each card, GCS audio caching | **DONE** v3.2.0 |
+| SF-027 | Word Family Graph — SVG cognate graph from Etymython cross-DB query | **DONE** v3.2.0 |
+| SF-023 | Grammatical Gender — gender badge (m/f/n) on noun cards with edit support | **DONE** v3.2.0 |
+| SF-024 | Preposition Usage — case pattern display for prepositions with edit support | **DONE** v3.2.0 |
+| — | Cross-DB access — granted flashcards_user db_datareader on Etymython | **DONE** |
 
 ### Sprint SF-MS1 (2026-03-04) — RESOLVED
 | ID | Issue | Status |
