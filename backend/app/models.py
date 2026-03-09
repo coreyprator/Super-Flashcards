@@ -129,6 +129,9 @@ class Flashcard(Base):
     # Preposition Usage — SF-MS2 (SF-024)
     preposition_usage = Column(NVARCHAR(None), nullable=True)  # e.g. "με + accusative (with)"
 
+    # DCC Greek Core List frequency rank — SF-DCC-001
+    dcc_frequency_rank = Column(Integer, nullable=True)  # Rank 1-519 in DCC Greek Core List
+
     # Sync metadata (for offline support)
     is_synced = Column(Boolean, default=True)
     local_only = Column(Boolean, default=False)  # Created offline, not yet synced

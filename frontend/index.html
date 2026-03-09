@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.2.0';
+        window.APP_VERSION = '3.3.0';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -277,6 +277,75 @@
             .mode-button { padding: 6px 10px; font-size: 13px; }
             .mode-button-label { display: none; }
         }
+
+        /* DCC Dictionary Panel — SF-DCC-001 */
+        .dcc-panel {
+            background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+            border: 1px solid #fbbf24;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .dcc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .dcc-badge {
+            font-weight: 700;
+            color: #92400e;
+            font-size: 13px;
+            letter-spacing: 0.02em;
+        }
+        .dcc-rank {
+            background: #f59e0b;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .dcc-definition {
+            color: #1c1917;
+            font-size: 15px;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+        .dcc-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .dcc-pos {
+            background: #fde68a;
+            color: #78350f;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-style: italic;
+        }
+        .dcc-source-link {
+            color: #b45309;
+            font-size: 12px;
+            text-decoration: underline;
+            opacity: 0.8;
+        }
+        .dcc-source-link:hover { opacity: 1; }
+        .dcc-shimmer {
+            background: linear-gradient(90deg, #fef9c3 25%, #fef3c7 50%, #fef9c3 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+            border-radius: 8px;
+            height: 20px;
+            margin-top: 16px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
     
     <!-- TIMING CHECKPOINT T1d: Head Complete -->
@@ -430,7 +499,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.2.0</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.3.0</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -1525,7 +1594,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.2.0"></script>
+    <script src="/app.js?v=3.3.0"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
