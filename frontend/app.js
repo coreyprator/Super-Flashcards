@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.2.0 (v3.2.0: SF-020 delete fix, SF-013 PIE root edit)
+// Version: 3.3.0 (v3.3.0: SF-020 delete fix, SF-013 PIE root edit)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.2.0';
+const APP_JS_VERSION = '3.3.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1402,6 +1402,9 @@ function renderFlashcard(flashcard) {
                         <!-- Word Family Graph (SF-027) -->
                         <div id="word-family-${flashcard.id}" class="word-family-container"></div>
 
+                        <!-- DCC Dictionary Panel (SF-DCC-001) -->
+                        <div id="dcc-panel-${flashcard.id}"></div>
+
                         <!-- Back to Word Button -->
                         <div class="text-center mt-8">
                             <button onclick="flipCard()" class="px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-gray-50 font-medium shadow-lg border-2 border-indigo-200 transition-all transform hover:scale-105">
@@ -1476,6 +1479,9 @@ function renderFlashcard(flashcard) {
 
     // Load word family graph (SF-027)
     loadWordFamily(flashcard.id, flashcard.word_or_phrase);
+
+    // Load DCC dictionary panel (SF-DCC-001)
+    loadDccPanel(flashcard.id);
 
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();
@@ -1652,6 +1658,42 @@ function renderWordFamilyGraph(containerId, rootWord, cognates) {
     });
 
     container.appendChild(svg);
+}
+
+// ========================================
+// SF-DCC-001: DCC Dictionary Panel
+// ========================================
+async function loadDccPanel(cardId) {
+    const container = document.getElementById(`dcc-panel-${cardId}`);
+    if (!container) return;
+
+    // Show shimmer while loading
+    container.innerHTML = '<div class="dcc-shimmer"></div>';
+
+    try {
+        const res = await fetch(`/api/v1/cards/${cardId}/dcc`);
+        if (!res.ok) { container.innerHTML = ''; return; }
+        const data = await res.json();
+
+        if (!data.matched) { container.innerHTML = ''; return; }
+
+        container.innerHTML = `
+            <div class="dcc-panel">
+                <div class="dcc-header">
+                    <span class="dcc-badge">📖 DCC Greek Core</span>
+                    <span class="dcc-rank">#${data.dcc_rank} of 519</span>
+                </div>
+                <div class="dcc-definition">${data.definition || ''}</div>
+                <div class="dcc-details">
+                    ${data.part_of_speech ? `<span class="dcc-pos">${data.part_of_speech}</span>` : ''}
+                    ${data.semantic_group ? `<span class="dcc-pos">${data.semantic_group}</span>` : ''}
+                </div>
+                <a href="${data.dcc_url}" target="_blank" rel="noopener" class="dcc-source-link">dcc.dickinson.edu ↗</a>
+            </div>
+        `;
+    } catch (e) {
+        container.innerHTML = '';
+    }
 }
 
 function editCard(cardId) {

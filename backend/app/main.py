@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.2.0 - SF-MS2: ElevenLabs TTS, Word Family Graph, Gender, Preposition Usage
+# Version: 3.3.0 - SF-DCC-001: DCC Dictionary Panel + Bulk Load Missing DCC Words
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.2.0" + (" [QA]" if IS_QA else "")
+    version="3.3.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -258,6 +258,10 @@ app.include_router(card_audio.router, prefix="/api", tags=["card-audio"])
 # SF-MS2: Word family graph (SF-027)
 from .routers import word_family
 app.include_router(word_family.router, prefix="/api", tags=["word-family"])
+
+# SF-DCC-001: DCC Greek Core List lookup
+from .routers import dcc
+app.include_router(dcc.router, prefix="/api", tags=["dcc"])
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
@@ -563,7 +567,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.2.0",
+        "version": "3.3.0",
         "database": "connected"
     }
 
