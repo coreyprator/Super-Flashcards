@@ -23,9 +23,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.2.0 | `backend/app/main.py` (as of 2026-03-08) |
-| **Latest Revision** | super-flashcards-00318-f2x | `SESSION_CLOSEOUT_2026-03-08.md` |
-| **Current Sprint** | SF-MS2 complete — TTS, Word Family, Gender, Preposition Usage | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-08.md` |
+| **Version** | 3.3.0 | `backend/app/main.py` (as of 2026-03-09) |
+| **Latest Revision** | super-flashcards-00320-hgd | `SESSION_CLOSEOUT_2026-03-09.md` |
+| **Current Sprint** | SF-DCC-001 complete — DCC Dictionary Panel + bulk load | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-09.md` |
 
 ---
 
@@ -140,6 +140,7 @@ super-flashcards/
 | `/api/audio` | audio.router | TTS generation (Google/OpenAI) |
 | `/api` | card_audio.router | ElevenLabs TTS per card (SF-026) |
 | `/api` | word_family.router | Cognate word family graph (SF-027) |
+| `/api` | dcc.router | DCC Greek Core List lookup (SF-DCC-001) |
 | `/api/v1/pronunciation` | pronunciation.router | Recording + analysis |
 | `/api/v1/voice-clone` | voice_clone.router | Voice cloning (backend complete, frontend broken) |
 | `/api/document` | document_parser.router | Document parsing |
@@ -308,6 +309,14 @@ Add `"canary": "PINEAPPLE-99999"` to /health endpoint, deploy, verify it appears
 | SF-012 | Duplicate pronunciation_attempts tables (PascalCase + lowercase) | P3 | Open — cleanup deferred |
 | — | Console errors: import/CSV/JSON button not found | P3 | Non-blocking |
 | SF-007 | study_sessions ease_rating and SM-2 | P2 | **RESOLVED** — SM-2 fully deployed in study.py; /api/study/review and /api/study/due functional |
+
+### Sprint SF-DCC-001 (2026-03-09) — COMPLETE
+| ID | Feature | Status |
+|----|---------|--------|
+| SF-DCC-001 | DCC Dictionary Panel — amber panel on card detail showing rank, gloss, POS | **DONE** v3.3.0 |
+| — | dcc_frequency_rank column on flashcards table; 455 existing cards ranked | **DONE** v3.3.0 |
+| — | Bulk import: 36 new DCC cards inserted (source='dcc_import') | **DONE** v3.3.0 |
+| — | `scripts/import_dcc_words.py` — idempotent DCC import script | **DONE** |
 
 ### Sprint SF-MS2 (2026-03-08) — COMPLETE
 | ID | Feature | Status |
