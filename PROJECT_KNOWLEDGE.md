@@ -23,9 +23,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.3.0 | `backend/app/main.py` (as of 2026-03-09) |
-| **Latest Revision** | super-flashcards-00320-hgd | `SESSION_CLOSEOUT_2026-03-09.md` |
-| **Current Sprint** | SF-DCC-001 complete — DCC Dictionary Panel + bulk load | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-09.md` |
+| **Version** | 3.3.1 | `backend/app/main.py` (as of 2026-03-10) |
+| **Latest Revision** | super-flashcards-00322-9mx | `SESSION_CLOSEOUT_2026-03-10.md` |
+| **Current Sprint** | SF-DCC-FIX-001 complete — broken img fix + schema fix | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-10.md` |
 
 ---
 
