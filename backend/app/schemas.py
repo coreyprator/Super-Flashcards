@@ -44,6 +44,8 @@ class FlashcardBase(BaseModel):
     gender: Optional[str] = None
     # Preposition Usage (SF-024)
     preposition_usage: Optional[str] = None
+    # DCC Greek Core List frequency rank (SF-DCC-001)
+    dcc_frequency_rank: Optional[int] = None
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
