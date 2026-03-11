@@ -178,6 +178,41 @@ super-flashcards/
 
 ---
 
+## Schema
+
+**Introspection URL:** https://learn.rentyourcio.com/openapi.json
+**Framework:** FastAPI (auto-generated OpenAPI 3.x)
+
+Phase 0 schema fetch:
+```bash
+curl -s https://learn.rentyourcio.com/openapi.json | python -c "
+import sys, json
+spec = json.load(sys.stdin)
+paths = spec.get('paths', {})
+for p in sorted(paths.keys()):
+    print(p)
+"
+```
+
+Key endpoint paths (update as routes change):
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health check |
+| /health/db | GET | Health check with DB test |
+| /api/flashcards/ | GET | List flashcards |
+| /api/flashcards/{flashcard_id} | GET, PUT, DELETE | Get or update card |
+| /api/flashcards/{flashcard_id}/review | POST | Submit review/study result |
+| /api/audio/generate/{card_id} | POST | Generate TTS audio via ElevenLabs |
+| /api/cards/{card_id}/audio | GET | Get audio URL for card |
+| /api/cards/{card_id}/word-family | GET | Word family graph (cross-DB Etymython) |
+| /api/v1/cards/{card_id}/dcc | GET | DCC frequency rank lookup |
+| /api/batch/process-batch | POST | Batch process words |
+| /api/import | POST | Import flashcards from CSV/JSON |
+| /api/study/due | GET | Cards due for study |
+| /api/study/stats | GET | Study statistics |
+
+---
+
 ## 6. FEATURES — WHAT EXISTS TODAY
 
 ### Core Flashcard System
