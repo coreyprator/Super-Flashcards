@@ -9,9 +9,10 @@ Results are cached in-memory (static data, rarely changes).
 import unicodedata
 import logging
 from typing import Optional
+from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -55,7 +56,7 @@ async def _load_dcc_data() -> dict:
 
 
 @router.get("/v1/cards/{card_id}/dcc")
-async def get_card_dcc(card_id: str, db: Session = Depends(get_db)):
+async def get_card_dcc(card_id: UUID = Path(...), db: Session = Depends(get_db)):
     """
     Look up DCC Greek Core List data for a flashcard's lemma.
     Returns DCC rank, definition, part of speech, and source link.

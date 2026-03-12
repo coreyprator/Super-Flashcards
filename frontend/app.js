@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.1 (v3.3.1: SF-020 delete fix, SF-013 PIE root edit)
+// Version: 3.3.2 (v3.3.2: SF-020 delete fix, SF-013 PIE root edit)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.1';
+const APP_JS_VERSION = '3.3.2';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {

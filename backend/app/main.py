@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.3.1 - SF-DCC-FIX-001: Fix broken user-picture img, add dcc_frequency_rank to schema
+# Version: 3.3.2 - SF-DCC-REWORK-001: Fix DCC endpoint 500 on invalid UUID card_id
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.3.1" + (" [QA]" if IS_QA else "")
+    version="3.3.2" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -567,7 +567,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.3.1",
+        "version": "3.3.2",
         "database": "connected"
     }
 
