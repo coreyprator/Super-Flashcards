@@ -1677,17 +1677,34 @@ async function loadDccPanel(cardId) {
 
         if (!data.matched) { container.innerHTML = ''; return; }
 
+        const cognatesHtml = data.cognates && data.cognates.length
+            ? `<div class="dcc-cognates">English cognates: ${data.cognates.join(', ')}</div>`
+            : '';
+        const usageHtml = data.usage_note
+            ? `<div class="dcc-usage">${data.usage_note}</div>`
+            : '';
+        const freqHtml = data.frequency_context
+            ? `<div class="dcc-freq">${data.frequency_context}</div>`
+            : '';
+        const pieHtml = data.pie_root
+            ? `<div class="dcc-pie">PIE root: ${data.pie_root}</div>`
+            : '';
+
         container.innerHTML = `
             <div class="dcc-panel">
                 <div class="dcc-header">
                     <span class="dcc-badge">📖 DCC Greek Core</span>
-                    <span class="dcc-rank">#${data.dcc_rank} of 519</span>
+                    <span class="dcc-rank">#${data.rank} of 519</span>
                 </div>
-                <div class="dcc-definition">${data.definition || ''}</div>
+                <div class="dcc-definition">${data.extended_def || data.gloss || ''}</div>
                 <div class="dcc-details">
-                    ${data.part_of_speech ? `<span class="dcc-pos">${data.part_of_speech}</span>` : ''}
+                    ${data.pos ? `<span class="dcc-pos">${data.pos}</span>` : ''}
                     ${data.semantic_group ? `<span class="dcc-pos">${data.semantic_group}</span>` : ''}
                 </div>
+                ${pieHtml}
+                ${cognatesHtml}
+                ${usageHtml}
+                ${freqHtml}
                 <a href="${data.dcc_url}" target="_blank" rel="noopener" class="dcc-source-link">dcc.dickinson.edu ↗</a>
             </div>
         `;
