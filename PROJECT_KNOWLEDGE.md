@@ -1,8 +1,18 @@
 # Super-Flashcards -- Project Knowledge Document
 <!-- CHECKPOINT: SF-PK-B1E7 -->
 
-Generated/Updated: 2026-02-23 — Sprint "Greek Core Vocabulary Batch Import"
+Generated/Updated: 2026-03-11 — Sprint "DCC-CONTENT-001: DCC rich content pipeline"
 Purpose: Canonical reference for all AI sessions working on this project.
+
+### Latest Session Update — 2026-03-11 (DCC-CONTENT-001, v3.3.3)
+
+- **Sprint DCC-CONTENT-001**: DCC panel upgraded from thin to rich content via Portfolio RAG
+- **Current Version**: v3.3.3 (commit `d8853f3`)
+- **DCC endpoint**: GET `/api/v1/cards/{card_id}/dcc` — in-memory cache from EFG API + RAG rich content
+- **Endpoint file**: `backend/app/routers/dcc.py`
+- **Rich fields returned**: `matched`, `rank`, `lemma`, `gloss`, `pos`, `transliteration`, `extended_def`, `cognates[]`, `usage_note`, `frequency_context`, `semantic_group`, `pie_root`, `dcc_url`
+- **RAG dependency**: `https://portfolio-rag-57478301787.us-central1.run.app` — dcc collection with 519 rich chunks
+- **MetaPM**: SF-DCC-001 cc_complete (31FF)
 
 ---
 
@@ -23,9 +33,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.3.1 | `backend/app/main.py` (as of 2026-03-10) |
+| **Version** | 3.3.3 | `backend/app/main.py` (as of 2026-03-11) |
 | **Latest Revision** | super-flashcards-00322-9mx | `SESSION_CLOSEOUT_2026-03-10.md` |
-| **Current Sprint** | SF-DCC-FIX-001 complete — broken img fix + schema fix | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-10.md` |
+| **Current Sprint** | DCC-CONTENT-001 complete — DCC rich content upgrade | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-11.md` |
 
 ---
 
