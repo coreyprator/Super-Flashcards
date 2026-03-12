@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.2 (v3.3.2: SF-020 delete fix, SF-013 PIE root edit)
+// Version: 3.3.4 (v3.3.4: SF-DCC-BATCH-LOAD-001 — batch load 519 DCC words)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.2';
+const APP_JS_VERSION = '3.3.4';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
