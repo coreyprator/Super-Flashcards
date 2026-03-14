@@ -1,7 +1,7 @@
 # backend/app/main.py
 # Version: 3.3.6 - SF-014: cross-language search endpoint /api/search + UI language filter
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException, status, Depends
+from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +18,7 @@ from datetime import datetime
 import secrets
 
 from app.database import engine, get_db
-from app import models
+from app import models, schemas, crud
 from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone, study
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
