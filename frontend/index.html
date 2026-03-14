@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.3.5';
+        window.APP_VERSION = '3.3.6';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -503,7 +503,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.3.5</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.3.6</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -704,9 +704,15 @@
                 <div id="browse-mode" class="mode-content hidden">
                     <!-- Search and Filters -->
                     <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                        <div class="mb-4">
-                            <input type="text" id="search-input" placeholder="Start typing to search flashcards..." 
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="search-input" placeholder="Start typing to search flashcards..."
+                                class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <select id="search-language-filter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="all">All Languages</option>
+                                <option value="greek">Greek</option>
+                                <option value="french">French</option>
+                                <option value="english">English</option>
+                            </select>
                         </div>
                         
                         <!-- Results info -->
@@ -1598,7 +1604,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.3.5"></script>
+    <script src="/app.js?v=3.3.6"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
