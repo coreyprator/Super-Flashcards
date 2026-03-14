@@ -37,10 +37,12 @@ def read_flashcards(
 def search_flashcards(
     q: str = Query(..., min_length=1, description="Search term"),
     language_id: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
     """Search flashcards by word, definition, or etymology"""
-    return crud.search_flashcards(db, search_term=q, language_id=language_id)
+    return crud.search_flashcards(db, search_term=q, language_id=language_id, limit=limit, offset=offset)
 
 
 @router.get("/exists")
