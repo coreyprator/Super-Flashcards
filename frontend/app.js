@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.4 (v3.3.4: SF-DCC-BATCH-LOAD-001 — batch load 519 DCC words)
+// Version: 3.3.5 (v3.3.5: SF-SEARCH-FIX — fix search pagination limit/offset)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.4';
+const APP_JS_VERSION = '3.3.5';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {

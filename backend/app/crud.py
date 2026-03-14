@@ -37,7 +37,7 @@ def get_flashcards(
         query = query.filter(models.Flashcard.language_id == language_id)
     return query.order_by(models.Flashcard.created_at.desc()).offset(skip).limit(limit).all()
 
-def search_flashcards(db: Session, search_term: str, language_id: Optional[str] = None):
+def search_flashcards(db: Session, search_term: str, language_id: Optional[str] = None, limit: int = 50, offset: int = 0):
     """Search flashcards by word or definition"""
     query = db.query(models.Flashcard).filter(
         or_(
@@ -48,7 +48,7 @@ def search_flashcards(db: Session, search_term: str, language_id: Optional[str] 
     )
     if language_id:
         query = query.filter(models.Flashcard.language_id == language_id)
-    return query.all()
+    return query.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
 
 def create_flashcard(db: Session, flashcard: schemas.FlashcardCreate):
     db_flashcard = models.Flashcard(**flashcard.dict())
