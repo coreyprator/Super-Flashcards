@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.6 (v3.3.6: SF-014 — cross-language search endpoint + UI language filter)
+// Version: 3.3.7 (v3.3.7: SF-028 — compound_parts field + word breakdown UI)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.6';
+const APP_JS_VERSION = '3.3.7';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1378,6 +1378,21 @@ function renderFlashcard(flashcard) {
                                 ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
                             </div>
                         ` : ''}
+
+                        ${flashcard.compound_parts ? (() => {
+                            try {
+                                const parts = typeof flashcard.compound_parts === 'string'
+                                    ? JSON.parse(flashcard.compound_parts)
+                                    : flashcard.compound_parts;
+                                return Array.isArray(parts) && parts.length > 0 ? `
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                                        <h3 class="text-sm font-semibold text-blue-900 uppercase mb-2">Word Breakdown</h3>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${parts.map(p => `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"><strong>${p.root}</strong> — ${p.meaning}</span>`).join('')}
+                                        </div>
+                                    </div>` : '';
+                            } catch(e) { return ''; }
+                        })() : ''}
 
                         ${flashcard.english_cognates ? `
                             <div>

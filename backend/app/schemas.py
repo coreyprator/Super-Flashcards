@@ -46,6 +46,8 @@ class FlashcardBase(BaseModel):
     preposition_usage: Optional[str] = None
     # DCC Greek Core List frequency rank (SF-DCC-001)
     dcc_frequency_rank: Optional[int] = None
+    # Compound word breakdown (SF-028) — JSON string: [{"root": str, "meaning": str}]
+    compound_parts: Optional[str] = None
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
