@@ -51,26 +51,44 @@ def search_flashcards(db: Session, search_term: str, language_id: Optional[str] 
     return query.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
 
 def search_cross_language(db: Session, search_term: str, language: Optional[str] = None, limit: int = 50, offset: int = 0):
-    """Search across all languages with optional language filter by name or code."""
-    query = db.query(models.Flashcard).join(
-        models.Language, models.Flashcard.language_id == models.Language.id
-    ).filter(
-        or_(
-            models.Flashcard.word_or_phrase.ilike(f"%{search_term}%"),
-            models.Flashcard.definition.ilike(f"%{search_term}%"),
-            models.Flashcard.etymology.ilike(f"%{search_term}%")
-        )
+    """Search across all languages with optional language filter by name or code.
+    When language=all, uses round-robin ordering to guarantee language diversity in results."""
+    from sqlalchemy import over
+    match_filter = or_(
+        models.Flashcard.word_or_phrase.ilike(f"%{search_term}%"),
+        models.Flashcard.definition.ilike(f"%{search_term}%"),
+        models.Flashcard.etymology.ilike(f"%{search_term}%")
     )
-    if language and language.lower() not in ("all", ""):
+    base = db.query(models.Flashcard).join(
+        models.Language, models.Flashcard.language_id == models.Language.id
+    ).filter(match_filter)
+
+    filter_all = not language or language.lower() in ("all", "")
+    if not filter_all:
         lang_lower = language.lower()
-        query = query.filter(
+        base = base.filter(
             or_(
                 func.lower(models.Language.name) == lang_lower,
                 models.Language.code == lang_lower
             )
         )
-    total = query.count()
-    cards = query.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
+
+    total = base.count()
+
+    if filter_all:
+        # Round-robin by language: ROW_NUMBER() OVER (PARTITION BY language_id ORDER BY word_or_phrase)
+        # ensures each language's cards are interleaved, so first N results span all languages
+        rn = func.row_number().over(
+            partition_by=models.Flashcard.language_id,
+            order_by=models.Flashcard.word_or_phrase
+        ).label('rn')
+        inner = base.add_columns(rn).subquery('rr')
+        cards = db.query(models.Flashcard).join(
+            inner, models.Flashcard.id == inner.c.id
+        ).order_by(inner.c.rn, inner.c.language_id).offset(offset).limit(limit).all()
+    else:
+        cards = base.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
+
     return cards, total
 
 
