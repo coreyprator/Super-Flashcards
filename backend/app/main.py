@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.3.6 - SF-014: cross-language search endpoint /api/search + UI language filter
+# Version: 3.3.7 - SF-028: compound_parts field + word breakdown UI
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.3.6" + (" [QA]" if IS_QA else "")
+    version="3.3.7" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -353,7 +353,21 @@ async def startup_event():
     startup_end = time.time()
     elapsed_seconds = round(startup_end - startup_start, 3)
     completion_time = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-    
+
+    # SF-028: idempotent migration — add compound_parts column if missing
+    try:
+        from sqlalchemy import text as sa_text
+        from app.database import engine as _engine
+        with _engine.connect() as conn:
+            conn.execute(sa_text(
+                "IF COL_LENGTH('flashcards', 'compound_parts') IS NULL "
+                "ALTER TABLE flashcards ADD compound_parts NVARCHAR(MAX) NULL"
+            ))
+            conn.commit()
+        logger.info("SF-028 migration: compound_parts column ready")
+    except Exception as _e:
+        logger.warning(f"SF-028 migration warning (non-fatal): {_e}")
+
     if startup_start_env:
         logger.info(f"🎉 Server startup complete at {completion_time}! (Total elapsed: {elapsed_seconds}s)")
     else:
@@ -567,7 +581,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.3.6",
+        "version": "3.3.7",
         "database": "connected"
     }
 
