@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.5 (v3.3.5: SF-SEARCH-FIX — fix search pagination limit/offset)
+// Version: 3.3.6 (v3.3.6: SF-014 — cross-language search endpoint + UI language filter)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.5';
+const APP_JS_VERSION = '3.3.6';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -2541,47 +2541,35 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 async function searchFlashcards(query) {
     const searchLoading = document.getElementById('search-loading');
     const searchStats = document.getElementById('search-stats');
-    
+
     try {
         // Show loading indicator
         searchLoading.classList.remove('hidden');
         searchStats.classList.add('hidden');
-        
-        console.log('Searching for:', query);
-        console.log('🌍 Current language for search:', state.currentLanguage);
-        
-        // Sprint 5: Use offline-first search
+
+        // SF-014: read language filter from dropdown (defaults to "all")
+        const langFilter = (document.getElementById('search-language-filter') || {}).value || 'all';
+
+        console.log('Searching for:', query, 'language:', langFilter);
+
         let searchResults = [];
-        
-        if (apiClient) {
-            try {
-                // Try API client first (works offline too)
-                const languageId = state.currentLanguage && state.currentLanguage !== 'all' 
-                    ? state.currentLanguage 
-                    : null;
-                searchResults = await apiClient.searchFlashcards(query, languageId);
-            } catch (error) {
-                console.warn('API client search failed, using local search:', error);
-                // Fallback to local IndexedDB search
-                if (offlineDB) {
-                    const languageId = state.currentLanguage && state.currentLanguage !== 'all' 
-                        ? state.currentLanguage 
-                        : null;
-                    searchResults = await offlineDB.searchFlashcards(query, languageId);
-                }
+
+        try {
+            // SF-014: use cross-language search endpoint
+            const langParam = langFilter !== 'all' ? `&language=${encodeURIComponent(langFilter)}` : '';
+            const url = `/api/search?q=${encodeURIComponent(query)}${langParam}&limit=50`;
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (response.ok) {
+                const data = await response.json();
+                searchResults = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
             }
-        } else {
-            // Old API fallback
-            try {
-                const languageParam = state.currentLanguage && state.currentLanguage !== 'all' 
-                    ? `&language_id=${state.currentLanguage}` 
-                    : '';
-                const searchUrl = `/flashcards/search?q=${encodeURIComponent(query)}${languageParam}&search_type=simple&limit=50`;
-                const response = await apiRequest(searchUrl);
-                searchResults = Array.isArray(response) ? response : [];
-            } catch (error) {
-                console.warn('Old API search failed:', error);
-                searchResults = [];
+        } catch (error) {
+            console.warn('Cross-language search failed, falling back:', error);
+            // Fallback to original per-language search
+            if (apiClient) {
+                const languageId = state.currentLanguage && state.currentLanguage !== 'all'
+                    ? state.currentLanguage : null;
+                searchResults = await apiClient.searchFlashcards(query, languageId);
             }
         }
         

@@ -50,6 +50,30 @@ def search_flashcards(db: Session, search_term: str, language_id: Optional[str] 
         query = query.filter(models.Flashcard.language_id == language_id)
     return query.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
 
+def search_cross_language(db: Session, search_term: str, language: Optional[str] = None, limit: int = 50, offset: int = 0):
+    """Search across all languages with optional language filter by name or code."""
+    query = db.query(models.Flashcard).join(
+        models.Language, models.Flashcard.language_id == models.Language.id
+    ).filter(
+        or_(
+            models.Flashcard.word_or_phrase.ilike(f"%{search_term}%"),
+            models.Flashcard.definition.ilike(f"%{search_term}%"),
+            models.Flashcard.etymology.ilike(f"%{search_term}%")
+        )
+    )
+    if language and language.lower() not in ("all", ""):
+        lang_lower = language.lower()
+        query = query.filter(
+            or_(
+                func.lower(models.Language.name) == lang_lower,
+                models.Language.code == lang_lower
+            )
+        )
+    total = query.count()
+    cards = query.order_by(models.Flashcard.word_or_phrase).offset(offset).limit(limit).all()
+    return cards, total
+
+
 def create_flashcard(db: Session, flashcard: schemas.FlashcardCreate):
     db_flashcard = models.Flashcard(**flashcard.dict())
     db.add(db_flashcard)

@@ -95,6 +95,15 @@ class Flashcard(FlashcardBase):
         from_attributes = True
 
 
+class FlashcardWithLanguage(Flashcard):
+    language: str = ""  # lowercase language name, e.g. "greek", "french"
+
+
+class SearchResponse(BaseModel):
+    results: List[FlashcardWithLanguage]
+    total: int
+
+
 # Study / Spaced Repetition Schemas
 class StudyReviewRequest(BaseModel):
     quality: int = Field(..., ge=0, le=5, description="Review quality 0-5 (0=again, 2=hard, 4=good, 5=easy)")

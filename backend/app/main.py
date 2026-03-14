@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.3.5 - SF-SEARCH-FIX: fix search pagination — add limit/offset to search endpoint
+# Version: 3.3.6 - SF-014: cross-language search endpoint /api/search + UI language filter
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.3.5" + (" [QA]" if IS_QA else "")
+    version="3.3.6" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -567,7 +567,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.3.5",
+        "version": "3.3.6",
         "database": "connected"
     }
 
@@ -588,6 +588,24 @@ async def health_check_database(db: Session = Depends(get_db)):
             "database": "failed",
             "error": str(e)
         }
+
+@app.get("/api/search", response_model=schemas.SearchResponse, tags=["search"])
+def cross_language_search(
+    q: str = Query(..., min_length=1, description="Search term"),
+    language: str = Query(default="all", description="Language filter: name (e.g. greek), code (e.g. el), or 'all'"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Cross-language search. Returns results with language name field. SF-014."""
+    cards, total = crud.search_cross_language(db, q, language, limit, offset)
+    results = []
+    for card in cards:
+        card_dict = schemas.Flashcard.model_validate(card).model_dump()
+        card_dict['language'] = card.language.name.lower() if card.language else ""
+        results.append(schemas.FlashcardWithLanguage(**card_dict))
+    return schemas.SearchResponse(results=results, total=total)
+
 
 @app.get("/api/sync")
 async def sync_status():
