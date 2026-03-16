@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.8 (v3.3.8: SF-MOBILE-UI-001 — 4-tab layout, collapsible sections, overflow fix)
+// Version: 3.3.9 (v3.3.9: SF-MOBILE-FIX-001 — touchend image tap, duplicate nav fix, dynamic language dropdown)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.8';
+const APP_JS_VERSION = '3.3.9';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -441,7 +441,20 @@ async function loadLanguages() {
             option.textContent = `${lang.name} (${lang.code})`;
             select.appendChild(option);
         });
-        
+
+        // BV-06: Populate browse language filter dynamically (SF-MOBILE-FIX-001)
+        // Use lang.code as value — backend search_cross_language accepts name or code
+        const browseFilter = document.getElementById('search-language-filter');
+        if (browseFilter) {
+            browseFilter.innerHTML = '<option value="all">All Languages</option>';
+            languages.forEach(lang => {
+                const opt = document.createElement('option');
+                opt.value = lang.code;
+                opt.textContent = lang.name;
+                browseFilter.appendChild(opt);
+            });
+        }
+
         // Select last used language or first language by default
         const savedLanguageId = localStorage.getItem('lastSelectedLanguage');
         let selectedLanguage = null;
@@ -565,7 +578,6 @@ async function loadFlashcards(options = {}) {
                 // In study mode (default), render flashcard
                 renderFlashcard(flashcards[0]);
             }
-            document.getElementById('study-controls').classList.remove('hidden');
             updateCardCounter();
         } else {
             // Empty state - show appropriate message based on mode
@@ -587,9 +599,8 @@ async function loadFlashcards(options = {}) {
                     </div>
                 `;
             }
-            document.getElementById('study-controls').classList.add('hidden');
         }
-        
+
         renderFlashcardList();
         hideLoading();
     } catch (error) {
@@ -1233,8 +1244,7 @@ function renderFlashcard(flashcard) {
             <div class="bg-white rounded-xl shadow-md p-4 mb-3">
                 <div class="flex gap-3 items-flex-start" style="align-items:flex-start;">
                     <!-- Image thumbnail (100px) with tap-to-fullscreen -->
-                    <div style="width:100px;height:100px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#e5e7eb;cursor:pointer;position:relative;"
-                         onclick="(function(){var m=document.getElementById('img-fullscreen-modal');var i=document.getElementById('img-fullscreen-img');${flashcard.image_url ? `i.src='${fixAssetUrl(flashcard.image_url)}';i.alt='${(flashcard.image_description || flashcard.word_or_phrase).replace(/'/g,"&apos;")}';` : ''}m.style.display='flex';})()">
+                    <div id="sf-img-thumb" style="width:100px;height:100px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#e5e7eb;cursor:pointer;position:relative;">
                         ${flashcard.image_url ? `
                             <img src="${fixAssetUrl(flashcard.image_url)}"
                                  alt="${flashcard.image_description || flashcard.word_or_phrase}"
@@ -1389,6 +1399,24 @@ function renderFlashcard(flashcard) {
         </div>
     `;
     
+    // BV-07: Image tap — touchend + click for iPhone (SF-MOBILE-FIX-001)
+    const imgThumb = container.querySelector('#sf-img-thumb');
+    if (imgThumb) {
+        ['click', 'touchend'].forEach(function(eventType) {
+            imgThumb.addEventListener(eventType, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const m = document.getElementById('img-fullscreen-modal');
+                const i = document.getElementById('img-fullscreen-img');
+                if (m && i && flashcard.image_url) {
+                    i.src = fixAssetUrl(flashcard.image_url);
+                    i.alt = flashcard.image_description || flashcard.word_or_phrase;
+                }
+                if (m) m.style.display = 'flex';
+            });
+        });
+    }
+
     // Section toggle handlers — SF-MOBILE-UI-001
     document.querySelectorAll('.sf-section-toggle').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -2999,7 +3027,6 @@ async function deleteFlashcard() {
                     <p class="text-sm">Add your first flashcard using the "Add Card" button</p>
                 </div>
             `;
-            document.getElementById('study-controls').classList.add('hidden');
             state.currentCardIndex = 0;
         } else {
             // Navigate to first card or adjust current index
@@ -3669,18 +3696,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('🔄 Switching to browse tab');
             switchTab('browse');
         });
-    }
-    
-    // Navigation buttons
-    const nextCardBtn = document.getElementById('next-card');
-    const prevCardBtn = document.getElementById('prev-card');
-    
-    if (nextCardBtn) {
-        nextCardBtn.addEventListener('click', nextCard);
-    }
-    
-    if (prevCardBtn) {
-        prevCardBtn.addEventListener('click', prevCard);
     }
     
     // Manual/AI form toggle
@@ -5540,21 +5555,20 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
         });
     }
 
-    // Make Next/Previous card buttons robust
-    document.getElementById('next-card')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        nextCard();
-    });
-    document.getElementById('prev-card')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        prevCard();
-    });
-    
+    // BV-07: Modal dismiss — touchend + click for iPhone (SF-MOBILE-FIX-001)
+    const fullscreenModal = document.getElementById('img-fullscreen-modal');
+    if (fullscreenModal) {
+        ['click', 'touchend'].forEach(function(eventType) {
+            fullscreenModal.addEventListener(eventType, function(e) {
+                e.preventDefault();
+                this.style.display = 'none';
+            });
+        });
+    }
+
     // Initialize in study mode
     switchMode('study');
-    
+
     console.log('✅ New UI initialized');
 }
 
