@@ -1,10 +1,21 @@
 # Super-Flashcards -- Project Knowledge Document
 <!-- CHECKPOINT: SF-PK-B1E7 -->
 
-Generated/Updated: 2026-03-11 — Sprint "DCC-CONTENT-001: DCC rich content pipeline"
+Generated/Updated: 2026-03-16 — Sprint "SF-MOBILE-UI-001: Mobile UI redesign"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-03-11 (DCC-CONTENT-001, v3.3.3)
+### Latest Session Update — 2026-03-16 (SF-MOBILE-UI-001, v3.3.8)
+
+- **Sprint SF-MOBILE-UI-001**: Mobile UI redesign for iPhone — overflow fix + 4-tab layout
+- **Current Version**: v3.3.8 (commit `694b1d6`)
+- **Mobile UI**: 4-tab layout (Card / Browse / Import / Progress) — Study+Read+Practice merged into Card
+- **Card tab**: Details section (definition, etymology, cognates) expanded by default. Practice section (Again/Hard/Good/Easy, mic) collapsed by default. Toggle with chevron rotation.
+- **Overflow fix**: `box-sizing:border-box` globally; card header uses `min-width:0` on text flex child — eliminates right-side clipping on iPhone 375px
+- **Browse tab**: Language badge (FR/GR/EN/DE/ES/IT/PT/JA/ZH) per row
+- **Image fullscreen**: Tap thumbnail → fullscreen modal overlay (`position:fixed`). Tap to dismiss.
+- **REQ-002**: Done ✅
+
+### Previous Session Update — 2026-03-14 (SF-MEGA-001, v3.3.7)
 
 - **Sprint DCC-CONTENT-001**: DCC panel upgraded from thin to rich content via Portfolio RAG
 - **Current Version**: v3.3.3 (commit `d8853f3`)
