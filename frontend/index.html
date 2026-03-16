@@ -1634,7 +1634,10 @@
     </script>
 
     <!-- SF-MOBILE-UI-001: Image fullscreen modal overlay -->
-    <div id="img-fullscreen-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;cursor:pointer;">
+    <!-- SF-MOBILE-FIX-001 BV-07: onclick + ontouchend for iPhone tap dismiss -->
+    <div id="img-fullscreen-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;cursor:pointer;"
+         onclick="this.style.display='none';"
+         ontouchend="event.preventDefault();this.style.display='none';">
         <img id="img-fullscreen-img" src="" alt="" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.6);">
     </div>
 </body>
