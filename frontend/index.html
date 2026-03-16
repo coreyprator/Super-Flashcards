@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.3.7';
+        window.APP_VERSION = '3.3.8';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -61,6 +61,9 @@
     </script>
     
     <style>
+        /* SF-MOBILE-UI-001: Overflow fix — box-sizing throughout */
+        *, *::before, *::after { box-sizing: border-box; }
+
         /* Custom animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -503,7 +506,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.3.7</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.3.8</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -592,14 +595,9 @@
             <div class="flex items-center justify-between p-4">
                 <!-- Mode Toggle -->
                 <div class="flex items-center bg-gray-100 rounded-lg p-1">
+                    <!-- SF-MOBILE-UI-001: 6 tabs → 4 tabs. Study+Read+Practice merged into Card -->
                     <button id="mode-study" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white">
-                        📚 <span class="mode-button-label">Study</span>
-                    </button>
-                    <button id="mode-read" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        📄 <span class="mode-button-label">Read</span>
-                    </button>
-                    <button id="mode-practice" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        🎙 <span class="mode-button-label">Practice</span>
+                        🃏 <span class="mode-button-label">Card</span>
                     </button>
                     <button id="mode-browse" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
                         📖 <span class="mode-button-label">Browse</span>
@@ -638,30 +636,6 @@
                             <p class="text-lg mb-4">Select a language to start studying</p>
                             <p class="text-sm">Use the "Add Card" button to create your first flashcard</p>
                         </div>
-                    </div>
-
-                    <!-- SR Rating Buttons (visible after card is flipped in SR mode) -->
-                    <div id="sr-rating-buttons" class="hidden mt-4">
-                        <p class="text-xs text-center text-gray-400 mb-2">How well did you know this?</p>
-                        <div class="flex gap-2 justify-center flex-wrap">
-                            <button onclick="window.submitSRRating(0)"
-                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition border border-red-200">
-                                😰 Again
-                            </button>
-                            <button onclick="window.submitSRRating(2)"
-                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 transition border border-orange-200">
-                                😓 Hard
-                            </button>
-                            <button onclick="window.submitSRRating(4)"
-                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition border border-blue-200">
-                                🙂 Good
-                            </button>
-                            <button onclick="window.submitSRRating(5)"
-                                class="px-5 py-2 rounded-lg text-sm font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition border border-green-200">
-                                😊 Easy
-                            </button>
-                        </div>
-                        <p id="sr-next-review" class="text-xs text-center text-gray-400 mt-2 hidden"></p>
                     </div>
 
                     <!-- Navigation Controls (legacy - now on cards) -->
@@ -1604,7 +1578,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.3.7"></script>
+    <script src="/app.js?v=3.3.8"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
@@ -1673,5 +1647,11 @@
             console.log('='.repeat(80) + '\n');
         });
     </script>
+
+    <!-- SF-MOBILE-UI-001: Image fullscreen modal overlay -->
+    <div id="img-fullscreen-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;cursor:pointer;"
+         onclick="document.getElementById('img-fullscreen-modal').style.display='none';">
+        <img id="img-fullscreen-img" src="" alt="" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.6);">
+    </div>
 </body>
 </html>
