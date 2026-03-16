@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.7 (v3.3.7: SF-028 — compound_parts field + word breakdown UI)
+// Version: 3.3.8 (v3.3.8: SF-MOBILE-UI-001 — 4-tab layout, collapsible sections, overflow fix)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.7';
+const APP_JS_VERSION = '3.3.8';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1210,9 +1210,10 @@ async function injectEtymythonLink(flashcard, targetElementId) {
     }
 }
 
+// SF-MOBILE-UI-001: new card layout — no flip, thumbnail + collapsible sections
 function renderFlashcard(flashcard) {
     const container = document.getElementById('flashcard-container');
-    
+
     // Parse related words if it's a JSON string
     let relatedWords = [];
     try {
@@ -1221,241 +1222,190 @@ function renderFlashcard(flashcard) {
         relatedWords = flashcard.related_words ? flashcard.related_words.split(',') : [];
     }
     
+    // Resolve language display name
+    const cardLang = state.languages?.find(l => l.id === flashcard.language_id);
+    const langName = flashcard.language_name || cardLang?.name || '';
+
     container.innerHTML = `
-        <div class="flashcard max-w-2xl mx-auto">
-            <div class="flashcard-inner relative">
-                <!-- Front of card -->
-                <div class="flashcard-front bg-white rounded-xl shadow-xl p-8 min-h-[400px] hover:shadow-2xl transition">
-                    <div class="flex justify-between items-start mb-6">
-                        <div class="text-sm text-gray-500">
-                            ${flashcard.source && flashcard.source.startsWith('ai_generated') ? '🤖 AI Generated' : '✍️ Manual'}
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <button onclick="copyShareLink('${flashcard.id}')" 
-                                    class="px-3 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-sm transition-colors" 
-                                    title="Copy share link">
-                                🔗 Share
-                            </button>
-                            <button onclick="editCard('${flashcard.id}')"
-                                    class="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm transition-colors"
-                                    title="Edit this card">
-                                ✏️ Edit
-                            </button>
-                            <button onclick="confirmDeleteById('${flashcard.id}')"
-                                    class="px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 text-sm transition-colors"
-                                    title="Delete this card">
-                                🗑️ Delete
-                            </button>
-                            <div class="text-sm text-gray-500">
-                                Reviewed ${flashcard.times_reviewed} times
-                            </div>
-                        </div>
+        <div class="max-w-2xl mx-auto" style="box-sizing:border-box;">
+
+            <!-- Card header: image thumbnail + word info -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-3">
+                <div class="flex gap-3 items-flex-start" style="align-items:flex-start;">
+                    <!-- Image thumbnail (100px) with tap-to-fullscreen -->
+                    <div style="width:100px;height:100px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#e5e7eb;cursor:pointer;position:relative;"
+                         onclick="(function(){var m=document.getElementById('img-fullscreen-modal');var i=document.getElementById('img-fullscreen-img');${flashcard.image_url ? `i.src='${fixAssetUrl(flashcard.image_url)}';i.alt='${(flashcard.image_description || flashcard.word_or_phrase).replace(/'/g,"&apos;")}';` : ''}m.style.display='flex';})()">
+                        ${flashcard.image_url ? `
+                            <img src="${fixAssetUrl(flashcard.image_url)}"
+                                 alt="${flashcard.image_description || flashcard.word_or_phrase}"
+                                 style="width:100%;height:100%;object-fit:cover;"
+                                 onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:24px;\\'>🖼️</div>'">
+                        ` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:24px;">🖼️</div>`}
+                        ${flashcard.image_url ? `<span style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.4);color:white;font-size:10px;padding:1px 5px;border-radius:4px;">tap</span>` : ''}
                     </div>
-
-                    <div class="text-center">
-                        <h2 class="text-5xl font-bold text-gray-900 mb-4">
-                            ${flashcard.word_or_phrase}
+                    <!-- Word info: min-width:0 prevents overflow -->
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
+                            <span class="text-2xl font-bold text-gray-900" style="word-break:break-word;">${flashcard.word_or_phrase}</span>
                             ${getGenderBadgeHTML(flashcard.gender)}
-                        </h2>
-
-                        ${flashcard.preposition_usage ? `
-                            <p class="text-sm text-gray-600 mb-4 italic">${flashcard.preposition_usage}</p>
-                        ` : ''}
-
-                        <!-- Audio Controls -->
-                        <div class="mb-6 flex items-center justify-center gap-3">
+                            ${langName ? `<span class="text-sm text-gray-400">${langName}</span>` : ''}
+                        </div>
+                        ${flashcard.preposition_usage ? `<p class="text-sm text-gray-500 italic mt-1" style="word-break:break-word;">${flashcard.preposition_usage}</p>` : ''}
+                        <div class="flex gap-2 mt-2 flex-wrap">
+                            <span class="text-xs px-2 py-1 rounded-full ${flashcard.source && flashcard.source.startsWith('ai_generated') ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">${flashcard.source && flashcard.source.startsWith('ai_generated') ? '🤖 AI' : '✍️ Manual'}</span>
+                            <span class="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">Reviewed ${flashcard.times_reviewed}x</span>
+                        </div>
+                        <div class="flex gap-2 mt-2 items-center flex-wrap">
                             ${getAudioButtonHTML(flashcard)}
                             <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
-                                title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
-                                🔊
-                            </button>
+                                title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}" style="font-size:16px;">🔊</button>
+                            <button onclick="copyShareLink('${flashcard.id}')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">🔗</button>
+                            <button onclick="editCard('${flashcard.id}')" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">✏️</button>
+                            <button onclick="confirmDeleteById('${flashcard.id}')" class="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100">🗑️</button>
                         </div>
-
-                        <!-- IPA Pronunciation Section -->
                         ${getIPAHTML(flashcard)}
-
-                        ${flashcard.image_url ? `
-                            <img src="${fixAssetUrl(flashcard.image_url)}" 
-                                 alt="${flashcard.image_description || flashcard.word_or_phrase}"
-                                 class="w-full max-w-md mx-auto rounded-lg mb-6 shadow-md"
-                                 onload="console.log('🖼️ Image loaded:', this.src, 'Time:', performance.now().toFixed(2) + 'ms')"
-                                 onerror="console.error('❌ Image failed to load:', this.src)">
-                        ` : ''}
-                        
-                        <!-- Reveal Details Button -->
-                        <div class="mt-8">
-                            <button onclick="flipCard()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-lg transition-all transform hover:scale-105">
-                                📋 Show Details
-                            </button>
-                        </div>
-                        
-                        <!-- Mobile Navigation -->
-                        <div class="mt-6 flex justify-center items-center gap-4">
-                            <button onclick="previousCard(); event.stopPropagation();" 
-                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50" 
-                                    ${state.currentCardIndex === 0 ? 'disabled' : ''}>
-                                ← Previous
-                            </button>
-                            <span class="text-sm text-gray-500 px-3">
-                                ${state.currentCardIndex + 1} of ${state.flashcards.length}
-                            </span>
-                            <button onclick="nextCard(); event.stopPropagation();" 
-                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                                    ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
-                                Next →
-                            </button>
-                        </div>
                     </div>
                 </div>
-                
-                <!-- Back of card -->
-                <div class="flashcard-back bg-indigo-50 rounded-xl shadow-xl p-8 min-h-[400px] cursor-pointer hover:shadow-2xl transition">
-                    <div class="space-y-6">
-                        <!-- Show the word at the top of the back -->
-                        <div class="text-center border-b border-indigo-200 pb-4 mb-6">
-                            <div class="flex justify-between items-start mb-2">
-                                <div></div>
-                                <div class="flex items-center gap-2">
-                                    <button onclick="copyShareLink('${flashcard.id}')" 
-                                            class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm transition-colors" 
-                                            title="Copy share link">
-                                        🔗 Share
-                                    </button>
-                                    <button onclick="editCard('${flashcard.id}')"
-                                            class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm transition-colors"
-                                            title="Edit this card">
-                                        ✏️ Edit
-                                    </button>
-                                    <button onclick="confirmDeleteById('${flashcard.id}')"
-                                            class="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm transition-colors"
-                                            title="Delete this card">
-                                        🗑️ Delete
-                                    </button>
-                                </div>
-                            </div>
-                            <h2 class="text-2xl font-bold text-indigo-900">
-                                ${flashcard.word_or_phrase}
-                                ${getGenderBadgeHTML(flashcard.gender)}
-                            </h2>
-                            <p class="text-sm text-indigo-600 mt-1">${flashcard.language_name || 'Word'}</p>
-                            ${flashcard.preposition_usage ? `
-                                <p class="text-sm text-indigo-500 mt-1 italic">${flashcard.preposition_usage}</p>
-                            ` : ''}
-                            <!-- Audio Controls -->
-                            <div class="mt-3 flex items-center justify-center gap-3">
-                                ${getAudioButtonHTML(flashcard)}
-                                <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
-                                    title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
-                                    🔊
-                                </button>
-                            </div>
+            </div>
 
-                            <!-- IPA Pronunciation Section -->
-                            <div class="mt-3">
-                                ${getIPAHTML(flashcard)}
-                            </div>
-                        </div>
-
+            <!-- Details section (expanded by default) -->
+            <div class="bg-white rounded-xl shadow-md mb-3 overflow-hidden">
+                <button class="sf-section-toggle w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                        data-sf-section="details-${flashcard.id}" style="background:none;border:none;cursor:pointer;">
+                    <span class="font-semibold text-gray-800">Details</span>
+                    <span class="sf-chevron text-gray-400 text-sm" data-sf-section="details-${flashcard.id}" style="transition:transform 0.2s;display:inline-block;transform:rotate(0deg);">▼</span>
+                </button>
+                <div id="sf-section-details-${flashcard.id}" style="display:block;">
+                    <div class="px-4 pb-4 space-y-4">
                         ${flashcard.definition ? `
                             <div>
-                                <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">Definition</h3>
-                                <p class="text-gray-800 leading-relaxed">${flashcard.definition}</p>
+                                <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Definition</h3>
+                                <p class="text-gray-800 leading-relaxed text-sm">${flashcard.definition}</p>
                             </div>
                         ` : ''}
-                        
                         ${flashcard.etymology ? `
                             <div>
-                                <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">Etymology</h3>
-                                <p class="text-gray-700">${flashcard.etymology}</p>
+                                <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Etymology</h3>
+                                <p class="text-gray-700 text-sm">${flashcard.etymology}</p>
                                 <div id="etymython-link-study-${flashcard.id}"></div>
                             </div>
                         ` : ''}
-
                         ${flashcard.pie_root && flashcard.pie_root !== 'N/A' ? `
-                            <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                                <h3 class="text-sm font-semibold text-amber-900 uppercase mb-1">PIE Root</h3>
-                                <p class="text-amber-800 font-mono font-semibold">${flashcard.pie_root}</p>
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                <h3 class="text-xs font-semibold text-amber-900 uppercase mb-1">PIE Root</h3>
+                                <p class="text-amber-800 font-mono font-semibold text-sm">${flashcard.pie_root}</p>
                                 ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
                             </div>
                         ` : ''}
-
                         ${flashcard.compound_parts ? (() => {
                             try {
                                 const parts = typeof flashcard.compound_parts === 'string'
-                                    ? JSON.parse(flashcard.compound_parts)
-                                    : flashcard.compound_parts;
+                                    ? JSON.parse(flashcard.compound_parts) : flashcard.compound_parts;
                                 return Array.isArray(parts) && parts.length > 0 ? `
-                                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                                        <h3 class="text-sm font-semibold text-blue-900 uppercase mb-2">Word Breakdown</h3>
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                        <h3 class="text-xs font-semibold text-blue-900 uppercase mb-1">Word Breakdown</h3>
                                         <div class="flex flex-wrap gap-2">
-                                            ${parts.map(p => `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"><strong>${p.root}</strong> — ${p.meaning}</span>`).join('')}
+                                            ${parts.map(p => `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"><strong>${p.root}</strong> — ${p.meaning}</span>`).join('')}
                                         </div>
                                     </div>` : '';
                             } catch(e) { return ''; }
                         })() : ''}
-
                         ${flashcard.english_cognates ? `
                             <div>
-                                <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">English Cognates</h3>
-                                <p class="text-gray-700">${flashcard.english_cognates}</p>
+                                <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">English Cognates</h3>
+                                <p class="text-gray-700 text-sm">${flashcard.english_cognates}</p>
                             </div>
                         ` : ''}
-                        
                         ${relatedWords.length > 0 ? `
                             <div>
-                                <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-2">Related Words</h3>
+                                <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Related Words</h3>
                                 <div class="flex flex-wrap gap-2">
-                                    ${relatedWords.map(word => `
-                                        <span class="px-3 py-1 bg-indigo-200 text-indigo-800 rounded-full text-sm">
-                                            ${word.trim()}
-                                        </span>
-                                    `).join('')}
+                                    ${relatedWords.map(w => `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs">${w.trim()}</span>`).join('')}
                                 </div>
                             </div>
                         ` : ''}
-
                         <!-- Word Family Graph (SF-027) -->
                         <div id="word-family-${flashcard.id}" class="word-family-container"></div>
-
                         <!-- DCC Dictionary Panel (SF-DCC-001) -->
                         <div id="dcc-panel-${flashcard.id}"></div>
-
-                        <!-- Back to Word Button -->
-                        <div class="text-center mt-8">
-                            <button onclick="flipCard()" class="px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-gray-50 font-medium shadow-lg border-2 border-indigo-200 transition-all transform hover:scale-105">
-                                ↩️ Back to Word
-                            </button>
-                        </div>
-                        
-                        <!-- Pronunciation Practice Section -->
-                        <div class="mt-8 pt-6 border-t border-indigo-200">
-                            <h3 class="text-sm font-semibold text-indigo-900 uppercase mb-4">Practice Pronunciation</h3>
-                            <div id="pronunciation-recorder-container"></div>
-                            <div id="voice-clone-container" class="mt-4"></div>
-                        </div>
-                        
-                        <!-- Mobile Navigation -->
-                        <div class="mt-6 flex justify-center items-center gap-4">
-                            <button onclick="previousCard(); event.stopPropagation();" 
-                                    class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50" 
-                                    ${state.currentCardIndex === 0 ? 'disabled' : ''}>
-                                ← Previous
-                            </button>
-                            <span class="text-sm text-indigo-600 px-3 font-medium">
-                                ${state.currentCardIndex + 1} of ${state.flashcards.length}
-                            </span>
-                            <button onclick="nextCard(); event.stopPropagation();" 
-                                    class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50"
-                                    ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>
-                                Next →
-                            </button>
-                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Practice section (collapsed by default) -->
+            <div class="bg-white rounded-xl shadow-md mb-3 overflow-hidden">
+                <button class="sf-section-toggle w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                        data-sf-section="practice-${flashcard.id}" style="background:none;border:none;cursor:pointer;">
+                    <span class="font-semibold text-gray-800">Practice</span>
+                    <span class="sf-chevron text-gray-400 text-sm" data-sf-section="practice-${flashcard.id}" style="transition:transform 0.2s;display:inline-block;transform:rotate(-90deg);">▼</span>
+                </button>
+                <div id="sf-section-practice-${flashcard.id}" style="display:none;">
+                    <div class="px-4 pb-4">
+                        <p class="text-sm text-gray-500 mb-3">How well do you know this word?</p>
+                        <div id="sr-rating-buttons" class="flex gap-2 flex-wrap mb-3">
+                            <button onclick="window.submitSRRating(0)"
+                                class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition border border-red-200 min-w-[60px]">
+                                😰 Again
+                            </button>
+                            <button onclick="window.submitSRRating(2)"
+                                class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 transition border border-orange-200 min-w-[60px]">
+                                😓 Hard
+                            </button>
+                            <button onclick="window.submitSRRating(4)"
+                                class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition border border-blue-200 min-w-[60px]">
+                                🙂 Good
+                            </button>
+                            <button onclick="window.submitSRRating(5)"
+                                class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition border border-green-200 min-w-[60px]">
+                                😊 Easy
+                            </button>
+                        </div>
+                        <p id="sr-next-review" class="text-xs text-center text-gray-400 mb-3 hidden"></p>
+                        <div class="border-t border-gray-100 pt-3">
+                            <div id="pronunciation-recorder-container"></div>
+                            <div id="voice-clone-container" class="mt-3"></div>
+                        </div>
+                        ${flashcard.next_review_date ? `
+                            <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+                                Next review: ${flashcard.next_review_date}
+                                ${flashcard.review_interval ? ` · Interval: ${flashcard.review_interval}d` : ''}
+                            </div>` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prev / Edit / Next -->
+            <div class="flex gap-2">
+                <button onclick="previousCard(); event.stopPropagation();"
+                        class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm disabled:opacity-40"
+                        ${state.currentCardIndex === 0 ? 'disabled' : ''}>← Prev</button>
+                <span class="flex items-center text-xs text-gray-400 px-2">${state.currentCardIndex + 1} / ${state.flashcards.length}</span>
+                <button onclick="editCard('${flashcard.id}')"
+                        class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">✏️ Edit</button>
+                <button onclick="nextCard(); event.stopPropagation();"
+                        class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm disabled:opacity-40"
+                        ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>Next →</button>
             </div>
         </div>
     `;
     
+    // Section toggle handlers — SF-MOBILE-UI-001
+    document.querySelectorAll('.sf-section-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const sectionId = this.dataset.sfSection;
+            const content = document.getElementById('sf-section-' + sectionId);
+            const chevron = document.querySelector('.sf-chevron[data-sf-section="' + sectionId + '"]');
+            if (!content) return;
+            const isOpen = content.style.display !== 'none';
+            content.style.display = isOpen ? 'none' : 'block';
+            if (chevron) chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+            // Opening Practice section = mark as reviewed
+            if (!isOpen && sectionId.startsWith('practice-') && state.flashcards[state.currentCardIndex]) {
+                markAsReviewed(state.flashcards[state.currentCardIndex].id);
+            }
+        });
+    });
+
     // Initialize pronunciation recorder if available (destroy previous instance first)
     if (typeof PronunciationRecorder !== 'undefined') {
         setTimeout(() => {
@@ -1504,6 +1454,7 @@ function renderFlashcard(flashcard) {
 
 function flipCard() {
     const card = document.querySelector('.flashcard');
+    if (!card) return; // SF-MOBILE-UI-001: new layout has no flip
     card.classList.toggle('flipped');
     state.isFlipped = !state.isFlipped;
 
@@ -2258,13 +2209,21 @@ function renderFlashcardList() {
 
     const sortedCards = sortFlashcards(cardsToDisplay, state.sortOrder);
     
+    // SF-MOBILE-UI-001: language badge helper
+    const langCodeMap = { el: 'GR', en: 'EN', fr: 'FR', de: 'DE', es: 'ES', it: 'IT', pt: 'PT', ja: 'JA', zh: 'ZH' };
+
     listContainer.innerHTML = sortedCards.map((card) => {
         const originalIndex = state.flashcards.indexOf(card);
+        const cardLangObj = state.languages?.find(l => l.id === card.language_id);
+        const langBadge = cardLangObj ? (langCodeMap[cardLangObj.code] || cardLangObj.code.toUpperCase().slice(0, 2)) : '';
         return `
         <div class="bg-white rounded-lg p-4 shadow hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div class="flex-1 cursor-pointer" onclick="selectCard(${originalIndex})">
-                    <h3 class="font-semibold text-gray-900 text-lg mb-1">${card.word_or_phrase}${getGenderBadgeHTML(card.gender)}</h3>
+                    <div class="flex items-baseline gap-2 flex-wrap">
+                        <h3 class="font-semibold text-gray-900 text-lg mb-1">${card.word_or_phrase}${getGenderBadgeHTML(card.gender)}</h3>
+                        ${langBadge ? `<span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">${langBadge}</span>` : ''}
+                    </div>
                     <p class="text-gray-600 text-sm line-clamp-2">${card.definition || 'No definition'}</p>
                 </div>
                 <div class="ml-4 flex space-x-2 items-center">
