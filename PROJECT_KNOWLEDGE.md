@@ -44,9 +44,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.3.3 | `backend/app/main.py` (as of 2026-03-11) |
-| **Latest Revision** | super-flashcards-00322-9mx | `SESSION_CLOSEOUT_2026-03-10.md` |
-| **Current Sprint** | DCC-CONTENT-001 complete — DCC rich content upgrade | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-11.md` |
+| **Version** | 3.4.0 | `backend/app/main.py` (as of 2026-03-20) |
+| **Latest Revision** | super-flashcards-00340-xq5 | `SESSION_CLOSEOUT_2026-03-20.md` |
+| **Current Sprint** | SF-MEGA-002 complete — back button, cognate links, type-ahead, read aloud, language reassignment | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-20.md` |
 
 ---
 
