@@ -71,6 +71,8 @@ class FlashcardUpdate(BaseModel):
     pie_meaning: Optional[str] = None
     gender: Optional[str] = None
     preposition_usage: Optional[str] = None
+    # SF-017: Language reassignment
+    language_id: Optional[str] = None
 
 class Flashcard(FlashcardBase):
     id: UUID
