@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.3.9 - SF-028: compound_parts field + word breakdown UI
+# Version: 3.4.0 - SF-MEGA-002: back button, cognate links, type-ahead, read aloud, language reassignment
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.3.9" + (" [QA]" if IS_QA else "")
+    version="3.4.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -581,7 +581,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.3.9",
+        "version": "3.4.0",
         "database": "connected"
     }
 

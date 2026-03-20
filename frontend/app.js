@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.3.9 (v3.3.9: SF-MOBILE-FIX-001 — touchend image tap, duplicate nav fix, dynamic language dropdown)
+// Version: 3.4.0 (v3.4.0: SF-MOBILE-FIX-001 — touchend image tap, duplicate nav fix, dynamic language dropdown)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.3.9';
+const APP_JS_VERSION = '3.4.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1330,7 +1330,10 @@ function renderFlashcard(flashcard) {
                             <div>
                                 <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Related Words</h3>
                                 <div class="flex flex-wrap gap-2">
-                                    ${relatedWords.map(w => `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs">${w.trim()}</span>`).join('')}
+                                    ${relatedWords.map(w => {
+                                        const word = w.trim();
+                                        return `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs cursor-pointer hover:bg-indigo-200" onclick="navigateToRelatedWord('${word.replace(/'/g, "\\'")}'); event.stopPropagation();">${word}</span>`;
+                                    }).join('')}
                                 </div>
                             </div>
                         ` : ''}
@@ -1537,7 +1540,18 @@ async function playCardTTS(cardId) {
     } catch (e) {
         console.error('ElevenLabs TTS error:', e);
         if (btn) { btn.disabled = false; btn.textContent = '🔊'; }
-        showToast('Audio generation failed', 3000);
+        // REQ-001: Web Speech API fallback
+        const card = state.flashcards?.find(c => c.id === cardId);
+        if (card && window.speechSynthesis) {
+            const lang = state.languages?.find(l => l.id === card.language_id);
+            const utt = new SpeechSynthesisUtterance(
+                `${card.word_or_phrase}. ${card.definition || ''}`
+            );
+            utt.lang = lang?.code || 'en';
+            window.speechSynthesis.speak(utt);
+        } else {
+            showToast('Audio unavailable', 3000);
+        }
     }
 }
 
@@ -1714,6 +1728,20 @@ function editCard(cardId) {
         showEditModal(flashcard);
     } else {
         showToast('Card not found', 3000);
+    }
+}
+
+// SF-003: Navigate to a related word card by word text
+function navigateToRelatedWord(word) {
+    const card = state.flashcards.find(c => c.word_or_phrase === word);
+    if (card) {
+        state.currentCardIndex = state.flashcards.indexOf(card);
+        renderFlashcard(card);
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('cardId', card.id);
+        window.history.pushState({}, '', `${window.location.pathname}?${urlParams}`);
+    } else {
+        showToast(`"${word}" not in current card set`, 3000);
     }
 }
 
@@ -2707,6 +2735,14 @@ function showEditModal(flashcard) {
     if (pieRootEl) pieRootEl.value = (flashcard.pie_root && flashcard.pie_root !== 'N/A') ? flashcard.pie_root : '';
     if (pieMeaningEl) pieMeaningEl.value = flashcard.pie_meaning || '';
 
+    // SF-017: Language reassignment dropdown
+    const editLangSelect = document.getElementById('edit-language-select');
+    if (editLangSelect && state.languages) {
+        editLangSelect.innerHTML = state.languages.map(l =>
+            `<option value="${l.id}"${l.id === flashcard.language_id ? ' selected' : ''}>${l.name} (${l.code})</option>`
+        ).join('');
+    }
+
     // Gender and Preposition Usage (SF-023, SF-024)
     const genderEl = document.getElementById('edit-gender');
     if (genderEl) genderEl.value = flashcard.gender || '';
@@ -2819,8 +2855,9 @@ async function saveEditedFlashcard() {
     const pieMeaning = (document.getElementById('edit-pie-meaning')?.value || '').trim() || null;
     const gender = (document.getElementById('edit-gender')?.value || '').trim() || null;
     const prepositionUsage = (document.getElementById('edit-preposition-usage')?.value || '').trim() || null;
+    const editedLanguageId = (document.getElementById('edit-language-select')?.value || '').trim() || null;
 
-    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput, pieRoot, pieMeaning, gender, prepositionUsage });
+    console.log('📝 Form values:', { word, definition, etymology, cognates, relatedInput, pieRoot, pieMeaning, gender, prepositionUsage, editedLanguageId });
     
     if (!word) {
         showToast('Word or phrase is required', 'error');
@@ -2851,7 +2888,8 @@ async function saveEditedFlashcard() {
             pie_root: pieRoot,
             pie_meaning: pieMeaning,
             gender: gender,
-            preposition_usage: prepositionUsage
+            preposition_usage: prepositionUsage,
+            language_id: editedLanguageId
         };
 
         // Include image data if new image was generated
@@ -3554,6 +3592,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
+    // REQ-003: Type-ahead on Add Card word field
+    (function setupWordTypeahead() {
+        const wordInput = document.getElementById('word-input');
+        const dropdown = document.getElementById('word-typeahead-dropdown');
+        if (!wordInput || !dropdown) return;
+
+        let _taTimer = null;
+        wordInput.addEventListener('input', () => {
+            clearTimeout(_taTimer);
+            const q = wordInput.value.trim();
+            if (q.length < 2) { dropdown.style.display = 'none'; return; }
+            _taTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/flashcards/search?q=${encodeURIComponent(q)}&limit=8`);
+                    if (!res.ok) return;
+                    const cards = await res.json();
+                    if (!cards.length) { dropdown.style.display = 'none'; return; }
+                    dropdown.innerHTML = cards.map(c => {
+                        const lang = state.languages?.find(l => l.id === c.language_id);
+                        const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
+                        return `<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;" onmousedown="event.preventDefault(); document.getElementById('word-input').value='${c.word_or_phrase.replace(/'/g, "\\'")}'; document.getElementById('word-typeahead-dropdown').style.display='none';"
+                            onmouseover="this.style.background='#f3f4f6';" onmouseout="this.style.background=''">${c.word_or_phrase}${badge}</div>`;
+                    }).join('');
+                    dropdown.style.display = 'block';
+                } catch (e) { /* silent */ }
+            }, 300);
+        });
+        wordInput.addEventListener('blur', () => {
+            setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+        });
+    })();
+
+    // SF-004: Browser back button — restore card view when URL has ?cardId=
+    window.addEventListener('popstate', () => {
+        const p = new URLSearchParams(window.location.search);
+        const cid = p.get('cardId');
+        if (cid) {
+            const card = state.flashcards.find(c => c.id === cid);
+            if (card) {
+                state.currentCardIndex = state.flashcards.indexOf(card);
+                switchMode('study');
+                renderFlashcard(card);
+            }
+        }
+        // No cardId → leave whatever tab is visible; card list is already rendered
+    });
+
     // CRITICAL MILESTONE: Calculate total time to this point
     const totalTime = performance.now() - (window.pageLoadStart || 0);
     console.log('\n' + '='.repeat(80));
