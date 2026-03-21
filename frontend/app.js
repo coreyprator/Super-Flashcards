@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.0 (v3.4.0: SF-MOBILE-FIX-001 — touchend image tap, duplicate nav fix, dynamic language dropdown)
+// Version: 3.4.1 (v3.4.1: SM02 — type-ahead fix, related words in-deck/out-of-deck UX)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.0';
+const APP_JS_VERSION = '3.4.1';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1332,7 +1332,12 @@ function renderFlashcard(flashcard) {
                                 <div class="flex flex-wrap gap-2">
                                     ${relatedWords.map(w => {
                                         const word = w.trim();
-                                        return `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs cursor-pointer hover:bg-indigo-200" onclick="navigateToRelatedWord('${word.replace(/'/g, "\\'")}'); event.stopPropagation();">${word}</span>`;
+                                        const inDeck = state.flashcards?.some(c => c.word_or_phrase === word);
+                                        if (inDeck) {
+                                            return `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs cursor-pointer hover:bg-indigo-200" onclick="navigateToRelatedWord('${word.replace(/'/g, "\\'")}'); event.stopPropagation();">${word} <span style="font-size:10px;opacity:0.6;">→</span></span>`;
+                                        } else {
+                                            return `<span class="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs" style="cursor:default;pointer-events:none;">${word}</span>`;
+                                        }
                                     }).join('')}
                                 </div>
                             </div>
@@ -1731,7 +1736,7 @@ function editCard(cardId) {
     }
 }
 
-// SF-003: Navigate to a related word card by word text
+// SF-003: Navigate to a related word card by word text (only called for in-deck words)
 function navigateToRelatedWord(word) {
     const card = state.flashcards.find(c => c.word_or_phrase === word);
     if (card) {
@@ -1740,8 +1745,6 @@ function navigateToRelatedWord(word) {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('cardId', card.id);
         window.history.pushState({}, '', `${window.location.pathname}?${urlParams}`);
-    } else {
-        showToast(`"${word}" not in current card set`, 3000);
     }
 }
 
@@ -3592,35 +3595,97 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // REQ-003: Type-ahead on Add Card word field
+    // SM02 Fix 1: Type-ahead on Add Card word field (rewrite — mobile + keyboard nav)
     (function setupWordTypeahead() {
         const wordInput = document.getElementById('word-input');
         const dropdown = document.getElementById('word-typeahead-dropdown');
         if (!wordInput || !dropdown) return;
 
         let _taTimer = null;
+        let _activeIdx = -1;
+
+        function getItems() { return dropdown.querySelectorAll('[data-ta-item]'); }
+
+        function highlightItem(idx) {
+            const items = getItems();
+            items.forEach((el, i) => {
+                el.style.background = i === idx ? '#e0e7ff' : '';
+            });
+            _activeIdx = idx;
+        }
+
+        function selectItem(word) {
+            wordInput.value = word;
+            dropdown.style.display = 'none';
+            _activeIdx = -1;
+        }
+
+        function closeDropdown() {
+            dropdown.style.display = 'none';
+            _activeIdx = -1;
+        }
+
         wordInput.addEventListener('input', () => {
             clearTimeout(_taTimer);
+            _activeIdx = -1;
             const q = wordInput.value.trim();
-            if (q.length < 2) { dropdown.style.display = 'none'; return; }
+            if (q.length < 2) { closeDropdown(); return; }
             _taTimer = setTimeout(async () => {
                 try {
                     const res = await fetch(`/api/flashcards/search?q=${encodeURIComponent(q)}&limit=8`);
-                    if (!res.ok) return;
+                    if (!res.ok) { closeDropdown(); return; }
                     const cards = await res.json();
-                    if (!cards.length) { dropdown.style.display = 'none'; return; }
-                    dropdown.innerHTML = cards.map(c => {
+                    if (!cards || !cards.length) { closeDropdown(); return; }
+                    dropdown.innerHTML = cards.map((c, i) => {
                         const lang = state.languages?.find(l => l.id === c.language_id);
                         const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
-                        return `<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;" onmousedown="event.preventDefault(); document.getElementById('word-input').value='${c.word_or_phrase.replace(/'/g, "\\'")}'; document.getElementById('word-typeahead-dropdown').style.display='none';"
-                            onmouseover="this.style.background='#f3f4f6';" onmouseout="this.style.background=''">${c.word_or_phrase}${badge}</div>`;
+                        const safeWord = (c.word_or_phrase || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                        return `<div data-ta-item data-word="${safeWord}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;">${safeWord}${badge}</div>`;
                     }).join('');
+                    // Use pointerdown so it fires before blur on both mouse and touch
+                    dropdown.querySelectorAll('[data-ta-item]').forEach(el => {
+                        el.addEventListener('pointerdown', e => {
+                            e.preventDefault();
+                            selectItem(el.dataset.word);
+                        });
+                        el.addEventListener('mouseover', () => el.style.background = '#f3f4f6');
+                        el.addEventListener('mouseout', () => { if (_activeIdx === -1 || getItems()[_activeIdx] !== el) el.style.background = ''; });
+                    });
                     dropdown.style.display = 'block';
-                } catch (e) { /* silent */ }
+                } catch (e) {
+                    console.warn('Type-ahead error:', e);
+                    closeDropdown();
+                }
             }, 300);
         });
+
+        wordInput.addEventListener('keydown', e => {
+            if (dropdown.style.display === 'none') return;
+            const items = getItems();
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                highlightItem(Math.min(_activeIdx + 1, items.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlightItem(Math.max(_activeIdx - 1, 0));
+            } else if (e.key === 'Enter' && _activeIdx >= 0) {
+                e.preventDefault();
+                if (items[_activeIdx]) selectItem(items[_activeIdx].dataset.word);
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+
         wordInput.addEventListener('blur', () => {
-            setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+            // Delay so pointerdown on item fires first
+            setTimeout(closeDropdown, 200);
+        });
+
+        // Close if user clicks outside
+        document.addEventListener('pointerdown', e => {
+            if (!dropdown.contains(e.target) && e.target !== wordInput) {
+                closeDropdown();
+            }
         });
     })();
 
