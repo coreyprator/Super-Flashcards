@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.1 (v3.4.1: SM02 — type-ahead fix, related words in-deck/out-of-deck UX)
+// Version: 3.4.2 (v3.4.2: SM03 — cache-bust script tag, SW cache name, related word link styling)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.1';
+const APP_JS_VERSION = '3.4.2';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1334,7 +1334,7 @@ function renderFlashcard(flashcard) {
                                         const word = w.trim();
                                         const inDeck = state.flashcards?.some(c => c.word_or_phrase === word);
                                         if (inDeck) {
-                                            return `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs cursor-pointer hover:bg-indigo-200" onclick="navigateToRelatedWord('${word.replace(/'/g, "\\'")}'); event.stopPropagation();">${word} <span style="font-size:10px;opacity:0.6;">→</span></span>`;
+                                            return `<span class="px-2 py-1 bg-indigo-600 text-white rounded-full text-xs cursor-pointer hover:bg-indigo-700" style="text-decoration:underline;text-underline-offset:2px;" onclick="navigateToRelatedWord('${word.replace(/'/g, "\\'")}'); event.stopPropagation();">${word} →</span>`;
                                         } else {
                                             return `<span class="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs" style="cursor:default;pointer-events:none;">${word}</span>`;
                                         }
