@@ -1,21 +1,23 @@
 # Super-Flashcards -- Project Knowledge Document
 <!-- CHECKPOINT: SF-PK-B1E7 -->
 
-Generated/Updated: 2026-03-16 — Sprint "SF-MOBILE-UI-001: Mobile UI redesign"
+Generated/Updated: 2026-03-21 — Sprint "SF-TYPEAHEAD-RELWORDS-001 (SM02)"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-03-16 (SF-MOBILE-UI-001, v3.3.8)
+### Latest Session Update — 2026-03-21 (SF-TYPEAHEAD-RELWORDS-001, v3.4.1)
 
-- **Sprint SF-MOBILE-UI-001**: Mobile UI redesign for iPhone — overflow fix + 4-tab layout
-- **Current Version**: v3.3.8 (commit `694b1d6`)
-- **Mobile UI**: 4-tab layout (Card / Browse / Import / Progress) — Study+Read+Practice merged into Card
-- **Card tab**: Details section (definition, etymology, cognates) expanded by default. Practice section (Again/Hard/Good/Easy, mic) collapsed by default. Toggle with chevron rotation.
-- **Overflow fix**: `box-sizing:border-box` globally; card header uses `min-width:0` on text flex child — eliminates right-side clipping on iPhone 375px
-- **Browse tab**: Language badge (FR/GR/EN/DE/ES/IT/PT/JA/ZH) per row
-- **Image fullscreen**: Tap thumbnail → fullscreen modal overlay (`position:fixed`). Tap to dismiss.
-- **REQ-002**: Done ✅
+- **Sprint SM02**: Type-ahead fix + related words in-deck/out-of-deck UX
+- **Current Version**: v3.4.1 (commit `f20edef`)
+- **Fix 1 — Type-ahead**: Rewrote `setupWordTypeahead` — `pointerdown` (not `mousedown`) for mobile compat, keyboard nav (↑↓ Enter Esc), close-on-outside-click, 200ms blur delay
+- **Fix 2 — Related words**: In-deck = indigo chip with → badge + clickable; out-of-deck = grey chip `pointer-events:none`. Toast removed from `navigateToRelatedWord`.
+- **Handoff**: B5D7AF2B-3D67-422B-AB35-87359CA2E8E4 | UAT 94899DCC-6EF5-4387-841E-A4F766B5F397
 
-### Previous Session Update — 2026-03-14 (SF-MEGA-001, v3.3.7)
+### Previous Session Update — 2026-03-20 (SF-MEGA-002, v3.4.0)
+
+- **Sprint SM01**: Back button (popstate), cognate hyperlinks, type-ahead, read aloud fallback, language reassignment
+- **Current Version**: v3.4.0 (commit `dd32e18`)
+
+### Earlier Session Update — 2026-03-16 (SF-MOBILE-UI-001, v3.3.8)
 
 - **Sprint DCC-CONTENT-001**: DCC panel upgraded from thin to rich content via Portfolio RAG
 - **Current Version**: v3.3.3 (commit `d8853f3`)
@@ -44,9 +46,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.4.0 | `backend/app/main.py` (as of 2026-03-20) |
-| **Latest Revision** | super-flashcards-00340-xq5 | `SESSION_CLOSEOUT_2026-03-20.md` |
-| **Current Sprint** | SF-MEGA-002 complete — back button, cognate links, type-ahead, read aloud, language reassignment | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-20.md` |
+| **Version** | 3.4.1 | `backend/app/main.py` (as of 2026-03-21) |
+| **Latest Revision** | f20edef | `SESSION_CLOSEOUT_2026-03-21.md` |
+| **Current Sprint** | SF-TYPEAHEAD-RELWORDS-001 complete — type-ahead fix, related words in-deck/out-of-deck UX | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-21.md` |
 
 ---
 
