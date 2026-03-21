@@ -13,6 +13,11 @@ gcloud-key.json
 test_import.csv
 test_import.json
 
+# Design/UAT docs not in frontend/ (not served by app)
+UAT_SuperFlashcards_Sprint9.html
+sf_mobile_redesign_v1.html
+uat/
+
 # Python
 __pycache__/
 *.py[cod]
