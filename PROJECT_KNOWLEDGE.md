@@ -4,7 +4,15 @@
 Generated/Updated: 2026-03-21 — Sprint "SF-TYPEAHEAD-RELWORDS-001 (SM02)"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-03-21 (SF-TYPEAHEAD-RELWORDS-001, v3.4.1)
+### Latest Session Update — 2026-03-21 (SF-CACHE-BUST-001, v3.4.2)
+
+- **Sprint SM03**: Cache-bust fix — app.js?v= param, SW CACHE_NAME, related word hyperlink styling
+- **Current Version**: v3.4.2 (commit `5fd32b1`)
+- **Root cause**: SM02 updated `APP_VERSION` inline script but missed the `<script src="app.js?v=3.4.0">` tag → version mismatch on page load
+- **Fix**: All three version references aligned (`APP_VERSION`, `?v=`, `APP_JS_VERSION`). `CACHE_NAME` bumped to `flashcards-v3.4.2`.
+- **Handoff**: 34AF6638-35CA-4F77-AFF7-3541184F1FB4 | UAT 5C20362B-A8C0-4E66-91DB-3C806086A08A
+
+### Previous Session Update — 2026-03-21 (SF-TYPEAHEAD-RELWORDS-001, v3.4.1)
 
 - **Sprint SM02**: Type-ahead fix + related words in-deck/out-of-deck UX
 - **Current Version**: v3.4.1 (commit `f20edef`)
@@ -46,9 +54,9 @@ Purpose: Canonical reference for all AI sessions working on this project.
 | **Database** | LanguageLearning (SQL Server on flashcards-db, 35.224.242.223) | `CLAUDE.md` |
 | **DB User** | flashcards_user | `CLAUDE.md`, `build-and-deploy.ps1` |
 | **Emoji / Color** | 🟡 Yellow | project-methodology registry |
-| **Version** | 3.4.1 | `backend/app/main.py` (as of 2026-03-21) |
-| **Latest Revision** | f20edef | `SESSION_CLOSEOUT_2026-03-21.md` |
-| **Current Sprint** | SF-TYPEAHEAD-RELWORDS-001 complete — type-ahead fix, related words in-deck/out-of-deck UX | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-21.md` |
+| **Version** | 3.4.2 | `backend/app/main.py` (as of 2026-03-21) |
+| **Latest Revision** | 5fd32b1 | `SESSION_CLOSEOUT_2026-03-21b.md` |
+| **Current Sprint** | SF-CACHE-BUST-001 complete — cache-bust script tag, SW cache name, related word link styling | `handoffs/outbox/SESSION_CLOSEOUT_2026-03-21b.md` |
 
 ---
 
