@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.4.3';
+        window.APP_VERSION = '3.4.4';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -506,7 +506,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.4.3</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.4.4</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -610,10 +610,28 @@
                     </button>
                 </div>
                 
-                <!-- Primary Action -->
-                <button id="add-card-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm">
-                    ➕ Add Card
-                </button>
+                <!-- Primary Action + Settings -->
+                <div class="flex items-center gap-2">
+                    <button id="add-card-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm">
+                        ➕ Add Card
+                    </button>
+                    <button id="settings-toggle" title="Settings" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SM05: Settings Panel (TTS provider selector) -->
+            <div id="settings-panel" class="hidden border-t border-gray-100 px-4 py-3 bg-gray-50">
+                <div class="flex items-center gap-4 flex-wrap">
+                    <span class="text-sm font-medium text-gray-700">TTS Provider:</span>
+                    <select id="tts-provider-select" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500">
+                        <option value="11labs">11Labs (High Quality)</option>
+                        <option value="speechify">Speechify</option>
+                        <option value="browser">Browser (Fallback)</option>
+                    </select>
+                    <span class="text-xs text-gray-400" id="tts-provider-hint">Saved to browser</span>
+                </div>
             </div>
 
             <!-- Main Content Area -->
@@ -1574,7 +1592,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.4.3"></script>
+    <script src="/app.js?v=3.4.4"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
