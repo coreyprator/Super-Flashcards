@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.4 (v3.4.4: SM05 — type-ahead race condition fix, TTS provider selector, unified read button)
+// Version: 3.4.5 (v3.4.5: SM06 — type-ahead correct selector fix, Add Card freeze fix, full-card TTS, Etymython word pages)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.4';
+const APP_JS_VERSION = '3.4.5';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1579,7 +1579,12 @@ async function playTTS(cardId) {
 
     const lang = state.languages?.find(l => l.id === card.language_id);
     const provider = localStorage.getItem('tts_provider') || '11labs';
-    const text = card.word_or_phrase;
+    // SM06 Fix 3: read full card content, not just the word
+    const parts = [card.word_or_phrase];
+    if (card.etymology) parts.push(`Etymology: ${card.etymology}`);
+    if (card.pie_root && card.pie_root !== 'N/A') parts.push(`Proto-Indo-European root: ${card.pie_root}`);
+    if (card.english_cognates) parts.push(`English cognates: ${card.english_cognates}`);
+    const text = parts.join('. ');
 
     _ttsIsPlaying = true;
     _ttsCurrentCardId = cardId;
@@ -3576,19 +3581,20 @@ function debugLog(message) {
 }
 
 // ========================================
-// SM05 Fix 1: Type-ahead (standalone function — called early before await loadLanguages)
-// Root cause: IIFE was after await loadLanguages() / loadFlashcards() which could take
-// 2-10s loading 1497 cards. User could navigate to Add Card and type before listener attached.
+// SM06 Fix 1: Type-ahead — attach to BOTH #ai-word-input (AI form, default) and #word-input (manual form)
+// SM05 root cause: IIFE was after await loadLanguages()/loadFlashcards() — timing fixed in SM05.
+// SM06 root cause: listener was on #word-input (manual, hidden by default). PL uses #ai-word-input.
 // ========================================
-function setupWordTypeahead() {
-    const wordInput = document.getElementById('word-input');
-    const dropdown = document.getElementById('word-typeahead-dropdown');
-    if (!wordInput || !dropdown) return;
+function _attachTypeahead(inputEl, dropdownEl) {
+    // Remove any prior listeners by cloning the node
+    const newInput = inputEl.cloneNode(true);
+    inputEl.parentNode.replaceChild(newInput, inputEl);
+    inputEl = newInput;
 
     let _taTimer = null;
     let _activeIdx = -1;
 
-    function getItems() { return dropdown.querySelectorAll('[data-ta-item]'); }
+    function getItems() { return dropdownEl.querySelectorAll('[data-ta-item]'); }
 
     function highlightItem(idx) {
         const items = getItems();
@@ -3597,20 +3603,20 @@ function setupWordTypeahead() {
     }
 
     function selectItem(word) {
-        wordInput.value = word;
-        dropdown.style.display = 'none';
+        inputEl.value = word;
+        dropdownEl.style.display = 'none';
         _activeIdx = -1;
     }
 
     function closeDropdown() {
-        dropdown.style.display = 'none';
+        dropdownEl.style.display = 'none';
         _activeIdx = -1;
     }
 
-    wordInput.addEventListener('input', () => {
+    inputEl.addEventListener('input', () => {
         clearTimeout(_taTimer);
         _activeIdx = -1;
-        const q = wordInput.value.trim();
+        const q = inputEl.value.trim();
         if (q.length < 2) { closeDropdown(); return; }
         _taTimer = setTimeout(async () => {
             try {
@@ -3618,18 +3624,18 @@ function setupWordTypeahead() {
                 if (!res.ok) { closeDropdown(); return; }
                 const cards = await res.json();
                 if (!cards || !cards.length) { closeDropdown(); return; }
-                dropdown.innerHTML = cards.map(c => {
+                dropdownEl.innerHTML = cards.map(c => {
                     const lang = state.languages?.find(l => l.id === c.language_id);
                     const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
                     const safeWord = (c.word_or_phrase || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
                     return `<div data-ta-item data-word="${safeWord}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;">${safeWord}${badge}</div>`;
                 }).join('');
-                dropdown.querySelectorAll('[data-ta-item]').forEach(el => {
+                dropdownEl.querySelectorAll('[data-ta-item]').forEach(el => {
                     el.addEventListener('pointerdown', e => { e.preventDefault(); selectItem(el.dataset.word); });
                     el.addEventListener('mouseover', () => el.style.background = '#f3f4f6');
                     el.addEventListener('mouseout', () => { if (_activeIdx === -1 || getItems()[_activeIdx] !== el) el.style.background = ''; });
                 });
-                dropdown.style.display = 'block';
+                dropdownEl.style.display = 'block';
             } catch (e) {
                 console.warn('Type-ahead error:', e);
                 closeDropdown();
@@ -3637,8 +3643,8 @@ function setupWordTypeahead() {
         }, 300);
     });
 
-    wordInput.addEventListener('keydown', e => {
-        if (dropdown.style.display === 'none') return;
+    inputEl.addEventListener('keydown', e => {
+        if (dropdownEl.style.display === 'none') return;
         const items = getItems();
         if (e.key === 'ArrowDown') { e.preventDefault(); highlightItem(Math.min(_activeIdx + 1, items.length - 1)); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); highlightItem(Math.max(_activeIdx - 1, 0)); }
@@ -3646,11 +3652,32 @@ function setupWordTypeahead() {
         else if (e.key === 'Escape') { closeDropdown(); }
     });
 
-    wordInput.addEventListener('blur', () => setTimeout(closeDropdown, 200));
+    inputEl.addEventListener('blur', () => setTimeout(closeDropdown, 200));
 
     document.addEventListener('pointerdown', e => {
-        if (!dropdown.contains(e.target) && e.target !== wordInput) closeDropdown();
+        if (!dropdownEl.contains(e.target) && e.target !== inputEl) closeDropdown();
     });
+
+    console.log(`[Typeahead] Listener attached to #${inputEl.id}`);
+    return inputEl; // return new node for callers that need it
+}
+
+function setupWordTypeahead() {
+    // AI form (default visible) — primary fix for SM06
+    const aiInput = document.getElementById('ai-word-input');
+    const aiDrop  = document.getElementById('ai-word-typeahead-dropdown');
+    if (aiInput && aiDrop) {
+        _attachTypeahead(aiInput, aiDrop);
+    } else {
+        console.warn('[Typeahead] #ai-word-input or #ai-word-typeahead-dropdown not found');
+    }
+
+    // Manual form (hidden by default) — keep working for users who switch to manual
+    const manualInput = document.getElementById('word-input');
+    const manualDrop  = document.getElementById('word-typeahead-dropdown');
+    if (manualInput && manualDrop) {
+        _attachTypeahead(manualInput, manualDrop);
+    }
 }
 
 // ========================================
@@ -3887,16 +3914,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         aiGenerateBtn.addEventListener('click', async () => {
             const word = document.getElementById('ai-word-input').value.trim();
             const includeImage = document.getElementById('include-image').checked;
-            
+
             if (!word) {
                 showToast('Please enter a word or phrase');
                 return;
             }
-            
-            await generateAIFlashcard(word, includeImage);
-            
-            // Clear input
-            document.getElementById('ai-word-input').value = '';
+
+            try {
+                await generateAIFlashcard(word, includeImage);
+                document.getElementById('ai-word-input').value = '';
+            } catch (err) {
+                // SM06 Fix 2: ensure overlay is always cleared if generateAIFlashcard throws
+                hideLoading();
+                console.error('[AddCard] AI generate error:', err);
+            }
         });
     }
     
@@ -5758,7 +5789,11 @@ function initializeNewUI() {
     
     // Primary action button - show the add card form
 document.getElementById('add-card-btn')?.addEventListener('click', () => {
-    // Use the showContent function to properly show the add card form
+    // SM06 Fix 2: Dismiss any stuck loading overlay before showing Add Card form.
+    // The overlay (fixed inset-0 z-50) can remain visible during initial loadFlashcards()
+    // which takes 2-10s on first load. Calling hideLoading() here ensures the overlay
+    // is gone so the user can interact with the Add Card form immediately.
+    hideLoading();
     showContent('content-add');
     
     // Scroll to the form
