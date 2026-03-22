@@ -1,10 +1,21 @@
 # Super-Flashcards -- Project Knowledge Document
 <!-- CHECKPOINT: SF-PK-B1E7 -->
 
-Generated/Updated: 2026-03-21 — Sprint "SF-TYPEAHEAD-RELWORDS-001 (SM02)"
+Generated/Updated: 2026-03-22 — Sprint "SM04-TYPEAHEAD-SPEECHIFY"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-03-21 (SF-CACHE-BUST-001, v3.4.2)
+### Latest Session Update — 2026-03-22 (SM04-TYPEAHEAD-SPEECHIFY, v3.4.3)
+
+- **Sprint SM04**: SW skipWaiting+clients.claim (typeahead root cause fix), readCardAloud() Web Speech API, EM-013 EFG link deployed
+- **Current Version**: v3.4.3 (commit `2bae3b0`)
+- **Root cause (REQ-003)**: Old SW (`flashcards-v1`) persisted in PL's browser. Without `skipWaiting()`, new SW waits for all tabs to close. Fix: `self.skipWaiting()` + `clients.claim()` in sw.js + CACHE_NAME `flashcards-v3.4.3`
+- **REQ-001**: `readCardAloud(cardId)` function + 🗣️ Read button in card detail and card list views
+- **EM-013**: Etymython DCC PIE root → EFG link was committed but not deployed (Artifact Registry broken since 2026-03-17). Redeployed via gcr.io fallback → `etymython-00209-jrw`
+- **SF-025**: N/A — no `PK.md` exists, only `PROJECT_KNOWLEDGE.md`
+- **Handoff**: 2DE5869E-B90B-466E-9715-9F0519593363 | UAT 7F46E96E-62CD-4C93-9B29-C83F4DC666FD
+- **CACHE LESSON**: index.html has BOTH `APP_VERSION` inline script AND `<script src="/app.js?v=X.Y.Z">` — both must be updated on version bump. SW CACHE_NAME must also be bumped. With `skipWaiting()` active, old clients get new code immediately on next navigation.
+
+### Previous Session Update — 2026-03-21 (SF-CACHE-BUST-001, v3.4.2)
 
 - **Sprint SM03**: Cache-bust fix — app.js?v= param, SW CACHE_NAME, related word hyperlink styling
 - **Current Version**: v3.4.2 (commit `5fd32b1`)
