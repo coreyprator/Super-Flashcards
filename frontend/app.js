@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.2 (v3.4.2: SM03 — cache-bust script tag, SW cache name, related word link styling)
+// Version: 3.4.3 (v3.4.3: SM04 — SW skipWaiting, read-aloud button, EM-013 EFG link)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.2';
+const APP_JS_VERSION = '3.4.3';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1269,6 +1269,8 @@ function renderFlashcard(flashcard) {
                             ${getAudioButtonHTML(flashcard)}
                             <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
                                 title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}" style="font-size:16px;">🔊</button>
+                            <button onclick="readCardAloud('${flashcard.id}'); event.stopPropagation();"
+                                title="Read aloud (Web Speech)" class="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100" style="font-size:14px;">🗣️</button>
                             <button onclick="copyShareLink('${flashcard.id}')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">🔗</button>
                             <button onclick="editCard('${flashcard.id}')" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">✏️</button>
                             <button onclick="confirmDeleteById('${flashcard.id}')" class="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100">🗑️</button>
@@ -1558,6 +1560,25 @@ async function playCardTTS(cardId) {
             showToast('Audio unavailable', 3000);
         }
     }
+}
+
+// ========================================
+// REQ-001: Web Speech API read-aloud
+// ========================================
+function readCardAloud(cardId) {
+    if (!window.speechSynthesis) {
+        showToast('Speech not supported in this browser', 3000);
+        return;
+    }
+    const card = state.flashcards?.find(c => c.id === cardId);
+    if (!card) return;
+    const lang = state.languages?.find(l => l.id === card.language_id);
+    const text = card.word_or_phrase + (card.definition ? '. ' + card.definition : '');
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = lang?.code || 'en';
+    utt.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utt);
 }
 
 // ========================================
@@ -1862,6 +1883,10 @@ function renderReadCard(flashcard) {
                                 <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
                                     title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
                                     🔊
+                                </button>
+                                <button onclick="readCardAloud('${flashcard.id}'); event.stopPropagation();"
+                                    title="Read aloud (Web Speech)" class="text-xs px-3 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100">
+                                    🗣️ Read
                                 </button>
                             </div>
                             

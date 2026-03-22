@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flashcards-v3.4.2';
+const CACHE_NAME = 'flashcards-v3.4.3';
 const urlsToCache = [
   '/',
   '/static/app.js',
@@ -19,22 +19,27 @@ self.addEventListener('install', event => {
         console.log('Service Worker: Cache failed', error);
       })
   );
+  // SM04: Force immediate activation — don't wait for old tabs to close
+  self.skipWaiting();
 });
 
 // Activate event - cleanup old caches
 self.addEventListener('activate', event => {
   console.log('Service Worker: Activating...');
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    // SM04: Claim all open clients immediately so new SW serves them right away
+    clients.claim().then(() =>
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Service Worker: Deleting old cache', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    )
   );
 });
 
