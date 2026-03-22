@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.3 (v3.4.3: SM04 — SW skipWaiting, read-aloud button, EM-013 EFG link)
+// Version: 3.4.4 (v3.4.4: SM05 — type-ahead race condition fix, TTS provider selector, unified read button)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.3';
+const APP_JS_VERSION = '3.4.4';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1267,10 +1267,7 @@ function renderFlashcard(flashcard) {
                         </div>
                         <div class="flex gap-2 mt-2 items-center flex-wrap">
                             ${getAudioButtonHTML(flashcard)}
-                            <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
-                                title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}" style="font-size:16px;">🔊</button>
-                            <button onclick="readCardAloud('${flashcard.id}'); event.stopPropagation();"
-                                title="Read aloud (Web Speech)" class="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100" style="font-size:14px;">🗣️</button>
+                            ${getTTSButtonHTML(flashcard.id)}
                             <button onclick="copyShareLink('${flashcard.id}')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">🔗</button>
                             <button onclick="editCard('${flashcard.id}')" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">✏️</button>
                             <button onclick="confirmDeleteById('${flashcard.id}')" class="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100">🗑️</button>
@@ -1528,7 +1525,124 @@ function getGenderBadgeHTML(gender) {
 }
 
 // ========================================
-// SF-MS2: ElevenLabs TTS (SF-026)
+// SM05 Fix 2: Unified TTS with provider selector
+// ========================================
+let _ttsCurrentAudio = null;
+let _ttsIsPlaying = false;
+let _ttsCurrentCardId = null;
+
+function _ttsSpeakerSVG() {
+    // Person speaking with sound waves — clean SVG icon
+    return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2"/><path d="M18 9a4 4 0 0 1 0 6"/></svg>`;
+}
+
+function _ttsStopSVG() {
+    return `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+}
+
+function _ttsProviderLabel() {
+    const p = localStorage.getItem('tts_provider') || '11labs';
+    return p === '11labs' ? '11Labs' : p === 'speechify' ? 'Speechify' : 'Browser';
+}
+
+function _updateTTSBtn(btn, playing) {
+    if (!btn) return;
+    if (playing) {
+        btn.innerHTML = _ttsStopSVG();
+        btn.title = `Stop (playing via ${_ttsProviderLabel()})`;
+        btn.classList.add('text-red-500');
+        btn.classList.remove('text-indigo-600');
+    } else {
+        btn.innerHTML = _ttsSpeakerSVG();
+        btn.title = `Read aloud (${_ttsProviderLabel()})`;
+        btn.classList.remove('text-red-500');
+        btn.classList.add('text-indigo-600');
+    }
+}
+
+function stopTTS() {
+    window.speechSynthesis?.cancel();
+    if (_ttsCurrentAudio) { _ttsCurrentAudio.pause(); _ttsCurrentAudio = null; }
+    _ttsIsPlaying = false;
+    if (_ttsCurrentCardId) {
+        document.querySelectorAll(`[data-tts-btn="${_ttsCurrentCardId}"]`).forEach(b => _updateTTSBtn(b, false));
+        _ttsCurrentCardId = null;
+    }
+}
+
+async function playTTS(cardId) {
+    // Toggle stop if already playing
+    if (_ttsIsPlaying) { stopTTS(); return; }
+
+    const card = state.flashcards?.find(c => c.id === cardId);
+    if (!card) return;
+
+    const lang = state.languages?.find(l => l.id === card.language_id);
+    const provider = localStorage.getItem('tts_provider') || '11labs';
+    const text = card.word_or_phrase;
+
+    _ttsIsPlaying = true;
+    _ttsCurrentCardId = cardId;
+    document.querySelectorAll(`[data-tts-btn="${cardId}"]`).forEach(b => _updateTTSBtn(b, true));
+
+    const onEnd = () => {
+        _ttsIsPlaying = false;
+        _ttsCurrentCardId = null;
+        document.querySelectorAll(`[data-tts-btn="${cardId}"]`).forEach(b => _updateTTSBtn(b, false));
+    };
+
+    if (provider === 'browser') {
+        if (!window.speechSynthesis) { showToast('Speech not supported', 3000); onEnd(); return; }
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = lang?.code || 'el';
+        utt.rate = 0.9;
+        utt.onend = onEnd;
+        utt.onerror = onEnd;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utt);
+    } else {
+        // 11Labs or Speechify via backend endpoint
+        try {
+            const res = await fetch('/api/tts', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text, language: lang?.code || 'el', provider})
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data.error === 'use_browser_tts') {
+                // Backend says use browser fallback
+                if (window.speechSynthesis) {
+                    const utt = new SpeechSynthesisUtterance(text);
+                    utt.lang = lang?.code || 'el';
+                    utt.rate = 0.9;
+                    utt.onend = onEnd;
+                    utt.onerror = onEnd;
+                    window.speechSynthesis.speak(utt);
+                } else { onEnd(); }
+            } else if (data.audio_url) {
+                const audio = new Audio(data.audio_url);
+                _ttsCurrentAudio = audio;
+                audio.onended = onEnd;
+                audio.onerror = onEnd;
+                await audio.play();
+            } else { onEnd(); }
+        } catch (e) {
+            console.error('TTS error:', e);
+            onEnd();
+            showToast('Audio unavailable', 3000);
+        }
+    }
+}
+
+function getTTSButtonHTML(cardId) {
+    return `<button data-tts-btn="${cardId}" onclick="playTTS('${cardId}'); event.stopPropagation();"
+        title="Read aloud (${_ttsProviderLabel()})"
+        class="flex items-center justify-center w-7 h-7 text-indigo-600 hover:bg-indigo-50 rounded transition-colors">${_ttsSpeakerSVG()}</button>`;
+}
+
+// ========================================
+// SF-MS2: ElevenLabs TTS (SF-026) — legacy kept for card audio generation
 // ========================================
 async function playCardTTS(cardId) {
     const btn = document.querySelector(`[data-card-tts="${cardId}"]`);
@@ -1880,14 +1994,7 @@ function renderReadCard(flashcard) {
                             <!-- Audio Controls -->
                             <div class="mt-3 flex items-center gap-3">
                                 ${getAudioButtonHTML(flashcard)}
-                                <button class="audio-btn play-btn" onclick="playCardTTS('${flashcard.id}'); event.stopPropagation();"
-                                    title="Listen (ElevenLabs)" data-card-tts="${flashcard.id}">
-                                    🔊
-                                </button>
-                                <button onclick="readCardAloud('${flashcard.id}'); event.stopPropagation();"
-                                    title="Read aloud (Web Speech)" class="text-xs px-3 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100">
-                                    🗣️ Read
-                                </button>
+                                ${getTTSButtonHTML(flashcard.id)}
                             </div>
                             
                             <!-- IPA Pronunciation -->
@@ -3469,6 +3576,84 @@ function debugLog(message) {
 }
 
 // ========================================
+// SM05 Fix 1: Type-ahead (standalone function — called early before await loadLanguages)
+// Root cause: IIFE was after await loadLanguages() / loadFlashcards() which could take
+// 2-10s loading 1497 cards. User could navigate to Add Card and type before listener attached.
+// ========================================
+function setupWordTypeahead() {
+    const wordInput = document.getElementById('word-input');
+    const dropdown = document.getElementById('word-typeahead-dropdown');
+    if (!wordInput || !dropdown) return;
+
+    let _taTimer = null;
+    let _activeIdx = -1;
+
+    function getItems() { return dropdown.querySelectorAll('[data-ta-item]'); }
+
+    function highlightItem(idx) {
+        const items = getItems();
+        items.forEach((el, i) => { el.style.background = i === idx ? '#e0e7ff' : ''; });
+        _activeIdx = idx;
+    }
+
+    function selectItem(word) {
+        wordInput.value = word;
+        dropdown.style.display = 'none';
+        _activeIdx = -1;
+    }
+
+    function closeDropdown() {
+        dropdown.style.display = 'none';
+        _activeIdx = -1;
+    }
+
+    wordInput.addEventListener('input', () => {
+        clearTimeout(_taTimer);
+        _activeIdx = -1;
+        const q = wordInput.value.trim();
+        if (q.length < 2) { closeDropdown(); return; }
+        _taTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/flashcards/search?q=${encodeURIComponent(q)}&limit=8`);
+                if (!res.ok) { closeDropdown(); return; }
+                const cards = await res.json();
+                if (!cards || !cards.length) { closeDropdown(); return; }
+                dropdown.innerHTML = cards.map(c => {
+                    const lang = state.languages?.find(l => l.id === c.language_id);
+                    const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
+                    const safeWord = (c.word_or_phrase || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                    return `<div data-ta-item data-word="${safeWord}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;">${safeWord}${badge}</div>`;
+                }).join('');
+                dropdown.querySelectorAll('[data-ta-item]').forEach(el => {
+                    el.addEventListener('pointerdown', e => { e.preventDefault(); selectItem(el.dataset.word); });
+                    el.addEventListener('mouseover', () => el.style.background = '#f3f4f6');
+                    el.addEventListener('mouseout', () => { if (_activeIdx === -1 || getItems()[_activeIdx] !== el) el.style.background = ''; });
+                });
+                dropdown.style.display = 'block';
+            } catch (e) {
+                console.warn('Type-ahead error:', e);
+                closeDropdown();
+            }
+        }, 300);
+    });
+
+    wordInput.addEventListener('keydown', e => {
+        if (dropdown.style.display === 'none') return;
+        const items = getItems();
+        if (e.key === 'ArrowDown') { e.preventDefault(); highlightItem(Math.min(_activeIdx + 1, items.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); highlightItem(Math.max(_activeIdx - 1, 0)); }
+        else if (e.key === 'Enter' && _activeIdx >= 0) { e.preventDefault(); if (items[_activeIdx]) selectItem(items[_activeIdx].dataset.word); }
+        else if (e.key === 'Escape') { closeDropdown(); }
+    });
+
+    wordInput.addEventListener('blur', () => setTimeout(closeDropdown, 200));
+
+    document.addEventListener('pointerdown', e => {
+        if (!dropdown.contains(e.target) && e.target !== wordInput) closeDropdown();
+    });
+}
+
+// ========================================
 // Initialize App
 // ========================================
 
@@ -3510,7 +3695,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup debug panel (menu)
     setupDebugButtons();
-    
+
+    // SM05 Fix 1: Attach type-ahead EARLY — before await loadLanguages() so the listener is
+    // ready even if the user navigates to Add Card before flashcard loading completes.
+    setupWordTypeahead();
+
     // Debug: Check if all tab elements exist
     const tabs = ['study', 'add', 'import', 'browse'];
     tabs.forEach(tab => {
@@ -3620,99 +3809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // SM02 Fix 1: Type-ahead on Add Card word field (rewrite — mobile + keyboard nav)
-    (function setupWordTypeahead() {
-        const wordInput = document.getElementById('word-input');
-        const dropdown = document.getElementById('word-typeahead-dropdown');
-        if (!wordInput || !dropdown) return;
-
-        let _taTimer = null;
-        let _activeIdx = -1;
-
-        function getItems() { return dropdown.querySelectorAll('[data-ta-item]'); }
-
-        function highlightItem(idx) {
-            const items = getItems();
-            items.forEach((el, i) => {
-                el.style.background = i === idx ? '#e0e7ff' : '';
-            });
-            _activeIdx = idx;
-        }
-
-        function selectItem(word) {
-            wordInput.value = word;
-            dropdown.style.display = 'none';
-            _activeIdx = -1;
-        }
-
-        function closeDropdown() {
-            dropdown.style.display = 'none';
-            _activeIdx = -1;
-        }
-
-        wordInput.addEventListener('input', () => {
-            clearTimeout(_taTimer);
-            _activeIdx = -1;
-            const q = wordInput.value.trim();
-            if (q.length < 2) { closeDropdown(); return; }
-            _taTimer = setTimeout(async () => {
-                try {
-                    const res = await fetch(`/api/flashcards/search?q=${encodeURIComponent(q)}&limit=8`);
-                    if (!res.ok) { closeDropdown(); return; }
-                    const cards = await res.json();
-                    if (!cards || !cards.length) { closeDropdown(); return; }
-                    dropdown.innerHTML = cards.map((c, i) => {
-                        const lang = state.languages?.find(l => l.id === c.language_id);
-                        const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
-                        const safeWord = (c.word_or_phrase || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-                        return `<div data-ta-item data-word="${safeWord}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;">${safeWord}${badge}</div>`;
-                    }).join('');
-                    // Use pointerdown so it fires before blur on both mouse and touch
-                    dropdown.querySelectorAll('[data-ta-item]').forEach(el => {
-                        el.addEventListener('pointerdown', e => {
-                            e.preventDefault();
-                            selectItem(el.dataset.word);
-                        });
-                        el.addEventListener('mouseover', () => el.style.background = '#f3f4f6');
-                        el.addEventListener('mouseout', () => { if (_activeIdx === -1 || getItems()[_activeIdx] !== el) el.style.background = ''; });
-                    });
-                    dropdown.style.display = 'block';
-                } catch (e) {
-                    console.warn('Type-ahead error:', e);
-                    closeDropdown();
-                }
-            }, 300);
-        });
-
-        wordInput.addEventListener('keydown', e => {
-            if (dropdown.style.display === 'none') return;
-            const items = getItems();
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                highlightItem(Math.min(_activeIdx + 1, items.length - 1));
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                highlightItem(Math.max(_activeIdx - 1, 0));
-            } else if (e.key === 'Enter' && _activeIdx >= 0) {
-                e.preventDefault();
-                if (items[_activeIdx]) selectItem(items[_activeIdx].dataset.word);
-            } else if (e.key === 'Escape') {
-                closeDropdown();
-            }
-        });
-
-        wordInput.addEventListener('blur', () => {
-            // Delay so pointerdown on item fires first
-            setTimeout(closeDropdown, 200);
-        });
-
-        // Close if user clicks outside
-        document.addEventListener('pointerdown', e => {
-            if (!dropdown.contains(e.target) && e.target !== wordInput) {
-                closeDropdown();
-            }
-        });
-    })();
+    // SM05: setupWordTypeahead() was called earlier (before await loadLanguages) — no second call needed.
 
     // SF-004: Browser back button — restore card view when URL has ?cardId=
     window.addEventListener('popstate', () => {
@@ -5578,6 +5675,24 @@ function backToMain() {
  * Initialize new UI event listeners
  */
 function initializeNewUI() {
+    // SM05: Settings panel toggle + TTS provider persistence
+    const settingsToggle = document.getElementById('settings-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+    const ttsSelect = document.getElementById('tts-provider-select');
+    if (settingsToggle && settingsPanel) {
+        settingsToggle.addEventListener('click', () => {
+            settingsPanel.classList.toggle('hidden');
+        });
+    }
+    if (ttsSelect) {
+        ttsSelect.value = localStorage.getItem('tts_provider') || '11labs';
+        ttsSelect.addEventListener('change', () => {
+            localStorage.setItem('tts_provider', ttsSelect.value);
+            const hint = document.getElementById('tts-provider-hint');
+            if (hint) hint.textContent = `Active: ${ttsSelect.options[ttsSelect.selectedIndex].text}`;
+        });
+    }
+
     // Hamburger menu Sync button
     document.getElementById('menu-sync')?.addEventListener('click', async () => {
         const btn = document.getElementById('menu-sync');
