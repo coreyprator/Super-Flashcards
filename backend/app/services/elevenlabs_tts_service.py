@@ -94,14 +94,17 @@ async def get_or_generate_audio(greek_text: str, card_id: str) -> str:
     return public
 
 
-async def get_or_generate_audio_for_text(text: str) -> str:
+async def get_or_generate_audio_for_text(text: str, speed: float = 1.0) -> str:
     """
     SM05: Generate ElevenLabs TTS for arbitrary text (no card_id).
-    Uses MD5 hash of text as GCS cache key.
+    SM08: Added speed parameter (0.5–2.0).
+    Uses MD5 hash of text+speed as GCS cache key.
     Returns public GCS URL.
     """
     import hashlib
-    text_hash = hashlib.md5(text.encode("utf-8")).hexdigest()[:16]
+    # Include speed in cache key so different speeds get different cached files
+    cache_input = f"{text}|speed={speed}" if speed != 1.0 else text
+    text_hash = hashlib.md5(cache_input.encode("utf-8")).hexdigest()[:16]
     blob = _gcs_blob_tts(text_hash)
 
     if blob.exists():
@@ -111,12 +114,19 @@ async def get_or_generate_audio_for_text(text: str) -> str:
     api_key = _get_api_key()
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
 
+    # SM08: Use SSML prosody for speed control when speed != 1.0
+    if speed != 1.0:
+        speed_pct = int(speed * 100)
+        tts_text = f'<speak><prosody rate="{speed_pct}%">{text}</prosody></speak>'
+    else:
+        tts_text = text
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             url,
             headers={"xi-api-key": api_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
             json={
-                "text": text,
+                "text": tts_text,
                 "model_id": MODEL_ID,
                 "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
             },
@@ -126,5 +136,5 @@ async def get_or_generate_audio_for_text(text: str) -> str:
     blob.upload_from_string(response.content, content_type="audio/mpeg")
     blob.make_public()
     public = _public_url_tts(text_hash)
-    logger.info(f"TTS generated and cached: {text_hash} -> {public}")
+    logger.info(f"TTS generated and cached: {text_hash} (speed={speed}) -> {public}")
     return public
