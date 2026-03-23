@@ -50,8 +50,10 @@ async def text_to_speech(payload: TTSRequest):
     """
     SM05: Provider-aware TTS endpoint.
     Returns audio_url for 11labs provider, or {"error": "use_browser_tts"} for browser/speechify.
+    SM07: Added explicit logging to surface silent 11Labs failures.
     """
     provider = payload.provider or "11labs"
+    logger.info(f"[TTS] Provider: {provider}, text len: {len(payload.text)}")
 
     if provider == "browser":
         return {"error": "use_browser_tts"}
@@ -59,10 +61,11 @@ async def text_to_speech(payload: TTSRequest):
     if provider == "11labs":
         try:
             audio_url = await get_or_generate_audio_for_text(payload.text)
+            logger.info(f"[TTS] 11Labs success: {audio_url}")
             return {"audio_url": audio_url, "provider": "11labs"}
         except Exception as e:
-            logger.error(f"11Labs TTS failed: {e}")
-            return {"error": "use_browser_tts"}
+            logger.error(f"[TTS] 11Labs FAILED: {e} — falling back to browser")
+            return {"error": "use_browser_tts", "error_detail": str(e)}
 
     # Speechify or unknown provider — fall back to browser
     return {"error": "use_browser_tts"}

@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.5 (v3.4.5: SM06 — type-ahead correct selector fix, Add Card freeze fix, full-card TTS, Etymython word pages)
+// Version: 3.4.6 (v3.4.6: SM07 — TTS logging, full card TTS with definition, Wiktionary spell suggestions)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.5';
+const APP_JS_VERSION = '3.4.6';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1579,8 +1579,10 @@ async function playTTS(cardId) {
 
     const lang = state.languages?.find(l => l.id === card.language_id);
     const provider = localStorage.getItem('tts_provider') || '11labs';
-    // SM06 Fix 3: read full card content, not just the word
+    // SM07 Fix 2: full card read — word, pronunciation, definition, etymology, PIE root, cognates
     const parts = [card.word_or_phrase];
+    if (card.ipa_pronunciation) parts.push(`Pronounced: ${card.ipa_pronunciation}`);
+    if (card.definition) parts.push(card.definition);
     if (card.etymology) parts.push(`Etymology: ${card.etymology}`);
     if (card.pie_root && card.pie_root !== 'N/A') parts.push(`Proto-Indo-European root: ${card.pie_root}`);
     if (card.english_cognates) parts.push(`English cognates: ${card.english_cognates}`);
@@ -3585,7 +3587,35 @@ function debugLog(message) {
 // SM05 root cause: IIFE was after await loadLanguages()/loadFlashcards() — timing fixed in SM05.
 // SM06 root cause: listener was on #word-input (manual, hidden by default). PL uses #ai-word-input.
 // ========================================
-function _attachTypeahead(inputEl, dropdownEl) {
+// SM07 Fix 3: Wiktionary spell suggestions for new words not yet in DB
+async function getSpellingSuggestions(word, langCode) {
+    if (word.length < 3) return [];
+    const langMap = { 'fr': 'fr', 'el': 'el', 'en': 'en', 'es': 'es', 'de': 'de', 'it': 'it', 'la': 'la' };
+    const lang = langMap[langCode] || 'en';
+    try {
+        const url = `https://${lang}.wiktionary.org/w/api.php?action=opensearch&search=${encodeURIComponent(word)}&limit=5&format=json&origin=*`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        return (data[1] || []).slice(0, 5);
+    } catch { return []; }
+}
+
+function _showSpellSuggestions(dropdownEl, suggestions, onSelect) {
+    dropdownEl.innerHTML =
+        `<div style="padding:4px 12px 2px;font-size:11px;color:#6b7280;font-weight:500;letter-spacing:.03em;">SPELLING SUGGESTIONS</div>` +
+        suggestions.map(s => {
+            const safe = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+            return `<div data-ta-item data-word="${safe}" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:14px;color:#3730a3;">${safe}</div>`;
+        }).join('');
+    dropdownEl.querySelectorAll('[data-ta-item]').forEach(el => {
+        el.addEventListener('pointerdown', e => { e.preventDefault(); onSelect(el.dataset.word); });
+        el.addEventListener('mouseover', () => el.style.background = '#f3f4f6');
+        el.addEventListener('mouseout', () => el.style.background = '');
+    });
+    dropdownEl.style.display = 'block';
+}
+
+function _attachTypeahead(inputEl, dropdownEl, langCodeFn) {
     // Remove any prior listeners by cloning the node
     const newInput = inputEl.cloneNode(true);
     inputEl.parentNode.replaceChild(newInput, inputEl);
@@ -3623,7 +3653,17 @@ function _attachTypeahead(inputEl, dropdownEl) {
                 const res = await fetch(`/api/flashcards/search?q=${encodeURIComponent(q)}&limit=8`);
                 if (!res.ok) { closeDropdown(); return; }
                 const cards = await res.json();
-                if (!cards || !cards.length) { closeDropdown(); return; }
+                if (!cards || !cards.length) {
+                    // SM07 Fix 3: try Wiktionary suggestions when no existing cards match
+                    if (langCodeFn && q.length >= 3) {
+                        const langCode = langCodeFn();
+                        if (langCode) {
+                            const suggestions = await getSpellingSuggestions(q, langCode);
+                            if (suggestions.length) { _showSpellSuggestions(dropdownEl, suggestions, selectItem); return; }
+                        }
+                    }
+                    closeDropdown(); return;
+                }
                 dropdownEl.innerHTML = cards.map(c => {
                     const lang = state.languages?.find(l => l.id === c.language_id);
                     const badge = lang ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:#e0e7ff;color:#3730a3;margin-left:6px;">${lang.code.toUpperCase()}</span>` : '';
@@ -3663,16 +3703,17 @@ function _attachTypeahead(inputEl, dropdownEl) {
 }
 
 function setupWordTypeahead() {
-    // AI form (default visible) — primary fix for SM06
+    // AI form (default visible) — SM07: pass language getter for Wiktionary spell suggestions
     const aiInput = document.getElementById('ai-word-input');
     const aiDrop  = document.getElementById('ai-word-typeahead-dropdown');
     if (aiInput && aiDrop) {
-        _attachTypeahead(aiInput, aiDrop);
+        const aiLangFn = () => state.languages?.find(l => l.id === state.currentLanguage)?.code || 'fr';
+        _attachTypeahead(aiInput, aiDrop, aiLangFn);
     } else {
         console.warn('[Typeahead] #ai-word-input or #ai-word-typeahead-dropdown not found');
     }
 
-    // Manual form (hidden by default) — keep working for users who switch to manual
+    // Manual form (hidden by default) — no spell suggestions (existing behavior)
     const manualInput = document.getElementById('word-input');
     const manualDrop  = document.getElementById('word-typeahead-dropdown');
     if (manualInput && manualDrop) {
