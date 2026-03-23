@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.4.6';
+        window.APP_VERSION = '3.4.7';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -506,7 +506,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.4.6</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.4.7</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -621,7 +621,7 @@
                 </div>
             </div>
 
-            <!-- SM05: Settings Panel (TTS provider selector) -->
+            <!-- SM05: Settings Panel (TTS provider selector) + SM08: Speed slider -->
             <div id="settings-panel" class="hidden border-t border-gray-100 px-4 py-3 bg-gray-50">
                 <div class="flex items-center gap-4 flex-wrap">
                     <span class="text-sm font-medium text-gray-700">TTS Provider:</span>
@@ -631,6 +631,10 @@
                         <option value="browser">Browser (Fallback)</option>
                     </select>
                     <span class="text-xs text-gray-400" id="tts-provider-hint">Saved to browser</span>
+                    <span class="text-sm font-medium text-gray-700 ml-4">Speed:</span>
+                    <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0"
+                           class="w-24 h-2 accent-indigo-600">
+                    <span class="text-sm font-mono text-gray-600" id="tts-speed-label">1.0x</span>
                 </div>
             </div>
 
@@ -1595,7 +1599,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.4.6"></script>
+    <script src="/app.js?v=3.4.7"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         

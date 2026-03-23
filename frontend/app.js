@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.6 (v3.4.6: SM07 — TTS logging, full card TTS with definition, Wiktionary spell suggestions)
+// Version: 3.4.7 (v3.4.7: SM08 — TTS language context, speed slider, play debounce, card counter fix)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.6';
+const APP_JS_VERSION = '3.4.7';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1570,7 +1570,17 @@ function stopTTS() {
     }
 }
 
+let _ttsDebounceTimer = null;
+
 async function playTTS(cardId) {
+    // SM08 Fix 3: Debounce — prevent double-trigger from keyboard bounce
+    if (_ttsDebounceTimer) return;
+    _ttsDebounceTimer = setTimeout(() => { _ttsDebounceTimer = null; }, 300);
+
+    // Blur the button so spacebar/Enter doesn't re-trigger
+    const activeBtn = document.querySelector(`[data-tts-btn="${cardId}"]`);
+    if (activeBtn) activeBtn.blur();
+
     // Toggle stop if already playing
     if (_ttsIsPlaying) { stopTTS(); return; }
 
@@ -1578,15 +1588,21 @@ async function playTTS(cardId) {
     if (!card) return;
 
     const lang = state.languages?.find(l => l.id === card.language_id);
+    const cardLang = lang?.code || 'el';
+    const contentLang = 'en'; // definitions, etymology, cognates are always in English
     const provider = localStorage.getItem('tts_provider') || '11labs';
-    // SM07 Fix 2: full card read — word, pronunciation, definition, etymology, PIE root, cognates
-    const parts = [card.word_or_phrase];
-    if (card.ipa_pronunciation) parts.push(`Pronounced: ${card.ipa_pronunciation}`);
-    if (card.definition) parts.push(card.definition);
-    if (card.etymology) parts.push(`Etymology: ${card.etymology}`);
-    if (card.pie_root && card.pie_root !== 'N/A') parts.push(`Proto-Indo-European root: ${card.pie_root}`);
-    if (card.english_cognates) parts.push(`English cognates: ${card.english_cognates}`);
-    const text = parts.join('. ');
+    const speed = parseFloat(localStorage.getItem('tts_speed') || '1.0');
+
+    // SM08 Fix 1: Build segments with correct language per field
+    const segments = [];
+    if (card.word_or_phrase) segments.push({text: card.word_or_phrase, language: cardLang});
+    if (card.ipa_pronunciation) segments.push({text: `Pronounced: ${card.ipa_pronunciation}`, language: cardLang});
+    if (card.definition) segments.push({text: card.definition, language: contentLang});
+    if (card.etymology) segments.push({text: `Etymology: ${card.etymology}`, language: contentLang});
+    if (card.pie_root && card.pie_root !== 'N/A') segments.push({text: `Proto-Indo-European root: ${card.pie_root}`, language: contentLang});
+    if (card.english_cognates) segments.push({text: `English cognates: ${card.english_cognates}`, language: contentLang});
+
+    const text = segments.map(s => s.text).join('. ');
 
     _ttsIsPlaying = true;
     _ttsCurrentCardId = cardId;
@@ -1599,34 +1615,20 @@ async function playTTS(cardId) {
     };
 
     if (provider === 'browser') {
-        if (!window.speechSynthesis) { showToast('Speech not supported', 3000); onEnd(); return; }
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.lang = lang?.code || 'el';
-        utt.rate = 0.9;
-        utt.onend = onEnd;
-        utt.onerror = onEnd;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utt);
+        _speakSegments(segments, speed, onEnd);
     } else {
         // 11Labs or Speechify via backend endpoint
         try {
             const res = await fetch('/api/tts', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text, language: lang?.code || 'el', provider})
+                body: JSON.stringify({text, language: cardLang, provider, speed, segments})
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (data.error === 'use_browser_tts') {
-                // Backend says use browser fallback
-                if (window.speechSynthesis) {
-                    const utt = new SpeechSynthesisUtterance(text);
-                    utt.lang = lang?.code || 'el';
-                    utt.rate = 0.9;
-                    utt.onend = onEnd;
-                    utt.onerror = onEnd;
-                    window.speechSynthesis.speak(utt);
-                } else { onEnd(); }
+                // Backend says use browser fallback — use returned segments for correct language
+                _speakSegments(data.segments || segments, data.speed || speed, onEnd);
             } else if (data.audio_url) {
                 const audio = new Audio(data.audio_url);
                 _ttsCurrentAudio = audio;
@@ -1640,6 +1642,22 @@ async function playTTS(cardId) {
             showToast('Audio unavailable', 3000);
         }
     }
+}
+
+function _speakSegments(segments, speed, onEnd) {
+    if (!window.speechSynthesis) { showToast('Speech not supported', 3000); onEnd(); return; }
+    window.speechSynthesis.cancel();
+    const segs = segments && segments.length > 0 ? segments : [{text: '', language: 'en'}];
+    let remaining = segs.length;
+    segs.forEach((seg, i) => {
+        if (!seg.text) { remaining--; if (remaining <= 0) onEnd(); return; }
+        const utt = new SpeechSynthesisUtterance(seg.text);
+        utt.lang = seg.language || 'en';
+        utt.rate = speed || 1.0;
+        utt.onend = () => { remaining--; if (remaining <= 0) onEnd(); };
+        utt.onerror = () => { remaining--; if (remaining <= 0) onEnd(); };
+        window.speechSynthesis.speak(utt);
+    });
 }
 
 function getTTSButtonHTML(cardId) {
@@ -1892,6 +1910,7 @@ function navigateToRelatedWord(word) {
 
 function updateCardCounter() {
     const counter = document.getElementById('card-counter');
+    if (!counter) return;
     if (state.flashcards.length > 0) {
         counter.textContent = `${state.currentCardIndex + 1} / ${state.flashcards.length}`;
     }
@@ -5762,6 +5781,19 @@ function initializeNewUI() {
             localStorage.setItem('tts_provider', ttsSelect.value);
             const hint = document.getElementById('tts-provider-hint');
             if (hint) hint.textContent = `Active: ${ttsSelect.options[ttsSelect.selectedIndex].text}`;
+        });
+    }
+
+    // SM08: TTS speed slider persistence
+    const ttsSpeedSlider = document.getElementById('tts-speed');
+    const ttsSpeedLabel = document.getElementById('tts-speed-label');
+    if (ttsSpeedSlider) {
+        const savedSpeed = localStorage.getItem('tts_speed') || '1.0';
+        ttsSpeedSlider.value = savedSpeed;
+        if (ttsSpeedLabel) ttsSpeedLabel.textContent = savedSpeed + 'x';
+        ttsSpeedSlider.addEventListener('input', () => {
+            localStorage.setItem('tts_speed', ttsSpeedSlider.value);
+            if (ttsSpeedLabel) ttsSpeedLabel.textContent = ttsSpeedSlider.value + 'x';
         });
     }
 
