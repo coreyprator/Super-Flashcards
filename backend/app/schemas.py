@@ -48,6 +48,14 @@ class FlashcardBase(BaseModel):
     dcc_frequency_rank: Optional[int] = None
     # Compound word breakdown (SF-028) — JSON string: [{"root": str, "meaning": str}]
     compound_parts: Optional[str] = None
+    # Word Video (SF-VID-001)
+    video_url: Optional[str] = None
+    # Sentence card fields (SF-SENT-001)
+    card_type: Optional[str] = "word"  # word, sentence, paragraph
+    source_book: Optional[str] = None
+    chapter_number: Optional[int] = None
+    sentence_order: Optional[int] = None
+    translation: Optional[str] = None
 
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
@@ -73,6 +81,12 @@ class FlashcardUpdate(BaseModel):
     preposition_usage: Optional[str] = None
     # SF-017: Language reassignment
     language_id: Optional[str] = None
+    # SF-SENT-001: Sentence card fields
+    card_type: Optional[str] = None
+    source_book: Optional[str] = None
+    chapter_number: Optional[int] = None
+    sentence_order: Optional[int] = None
+    translation: Optional[str] = None
 
 class Flashcard(FlashcardBase):
     id: UUID
@@ -276,3 +290,18 @@ class SyncResponse(BaseModel):
     synced_count: int
     conflicts: List[str] = []
     server_flashcards: List[Flashcard] = []
+
+
+# Shadowing schemas (SF-SENT-001)
+class ShadowingResult(BaseModel):
+    accuracy_pct: float
+    phoneme_results: List[dict]  # [{phoneme, expected, got, correct}]
+    card_id: str
+    recording_url: Optional[str] = None
+
+class ShadowingResponse(BaseModel):
+    accuracy_pct: float
+    phoneme_results: List[dict]
+    expected_ipa: str
+    transcribed_ipa: str
+    feedback: str

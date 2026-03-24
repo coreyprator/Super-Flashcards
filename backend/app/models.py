@@ -135,6 +135,17 @@ class Flashcard(Base):
     # Compound word breakdown — SF-028
     compound_parts = Column(NVARCHAR(None), nullable=True)  # JSON: [{root, meaning}]
 
+    # Word Video — SF-VID-001
+    video_url = Column(NVARCHAR(500), nullable=True)  # GCS URL from ArtForge
+    video_job_id = Column(NVARCHAR(36), nullable=True)  # ArtForge job ID while generating
+
+    # Sentence card fields — SF-SENT-001
+    card_type = Column(NVARCHAR(20), default="word")  # word, sentence, paragraph
+    source_book = Column(NVARCHAR(200), nullable=True)  # e.g. "Le Comte de Monte-Cristo"
+    chapter_number = Column(Integer, nullable=True)
+    sentence_order = Column(Integer, nullable=True)
+    translation = Column(NVARCHAR(None), nullable=True)  # English translation for sentence cards
+
     # Sync metadata (for offline support)
     is_synced = Column(Boolean, default=True)
     local_only = Column(Boolean, default=False)  # Created offline, not yet synced
@@ -280,3 +291,16 @@ class PronunciationPromptTemplate(Base):
     is_active = Column("IsActive", Boolean, default=True)
     created_at = Column("CreatedAt", DateTime, server_default=func.now())
     updated_at = Column("UpdatedAt", DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# Shadowing Sessions — SF-SENT-001: track pronunciation shadowing attempts on sentence cards
+class ShadowingSession(Base):
+    __tablename__ = "shadowing_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    card_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
+    user_id = Column(UNIQUEIDENTIFIER, ForeignKey("users.id"), nullable=True)
+    recording_url = Column(NVARCHAR(500), nullable=True)  # GCS URL of recorded audio
+    accuracy_pct = Column(sqlalchemy.Float, nullable=True)  # overall IPA match %
+    phoneme_results = Column(NVARCHAR(None), nullable=True)  # JSON: [{phoneme, expected, got, correct}]
+    created_at = Column(DateTime, server_default=func.getdate())

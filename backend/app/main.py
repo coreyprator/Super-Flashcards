@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.4.0 - SF-MEGA-002: back button, cognate links, type-ahead, read aloud, language reassignment
+# Version: 3.5.0 - SF-VID-001: 30-second word videos via ArtForge
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.4.7" + (" [QA]" if IS_QA else "")
+    version="3.5.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -263,6 +263,10 @@ app.include_router(word_family.router, prefix="/api", tags=["word-family"])
 from .routers import dcc
 app.include_router(dcc.router, prefix="/api", tags=["dcc"])
 
+# SF-VID-001: Word Video via ArtForge
+from .routers import video
+app.include_router(video.router, prefix="/api", tags=["video"])
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
@@ -354,7 +358,7 @@ async def startup_event():
     elapsed_seconds = round(startup_end - startup_start, 3)
     completion_time = datetime.now().strftime('%H:%M:%S.%f')[:-3]
 
-    # SF-028: idempotent migration — add compound_parts column if missing
+    # SF-028 + SF-VID-001: idempotent migrations
     try:
         from sqlalchemy import text as sa_text
         from app.database import engine as _engine
@@ -363,10 +367,18 @@ async def startup_event():
                 "IF COL_LENGTH('flashcards', 'compound_parts') IS NULL "
                 "ALTER TABLE flashcards ADD compound_parts NVARCHAR(MAX) NULL"
             ))
+            conn.execute(sa_text(
+                "IF COL_LENGTH('flashcards', 'video_url') IS NULL "
+                "ALTER TABLE flashcards ADD video_url NVARCHAR(500) NULL"
+            ))
+            conn.execute(sa_text(
+                "IF COL_LENGTH('flashcards', 'video_job_id') IS NULL "
+                "ALTER TABLE flashcards ADD video_job_id NVARCHAR(36) NULL"
+            ))
             conn.commit()
-        logger.info("SF-028 migration: compound_parts column ready")
+        logger.info("Startup migrations ready (compound_parts, video_url, video_job_id)")
     except Exception as _e:
-        logger.warning(f"SF-028 migration warning (non-fatal): {_e}")
+        logger.warning(f"Startup migration warning (non-fatal): {_e}")
 
     if startup_start_env:
         logger.info(f"🎉 Server startup complete at {completion_time}! (Total elapsed: {elapsed_seconds}s)")
@@ -581,7 +593,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.4.7",
+        "version": "3.5.0",
         "database": "connected"
     }
 
