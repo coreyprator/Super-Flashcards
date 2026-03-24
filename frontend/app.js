@@ -1345,6 +1345,26 @@ function renderFlashcard(flashcard) {
                         <div id="word-family-${flashcard.id}" class="word-family-container"></div>
                         <!-- DCC Dictionary Panel (SF-DCC-001) -->
                         <div id="dcc-panel-${flashcard.id}"></div>
+                        <!-- Word Video (SF-VID-001) -->
+                        <div id="video-panel-${flashcard.id}" class="mt-3">
+                            ${flashcard.video_url
+                                ? `<div>
+                                       <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Word Video</h3>
+                                       <video controls playsinline style="width:100%;border-radius:8px;max-height:240px;background:#000;">
+                                           <source src="${flashcard.video_url}" type="video/mp4">
+                                       </video>
+                                   </div>`
+                                : `<button onclick="generateCardVideo('${flashcard.id}')"
+                                           class="w-full text-sm px-3 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition border border-purple-200"
+                                           id="gen-video-btn-${flashcard.id}">
+                                       Generate Word Video
+                                   </button>
+                                   <div id="video-status-${flashcard.id}" style="display:none"
+                                        class="text-xs text-center text-gray-400 mt-2">
+                                       Generating video... (~90 seconds)
+                                   </div>`
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1718,6 +1738,76 @@ function readCardAloud(cardId) {
     utt.rate = 0.9;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utt);
+}
+
+// ========================================
+// SF-VID-001: Word Video via ArtForge
+// ========================================
+async function generateCardVideo(cardId) {
+    const btn = document.getElementById(`gen-video-btn-${cardId}`);
+    const statusEl = document.getElementById(`video-status-${cardId}`);
+    if (btn) btn.style.display = 'none';
+    if (statusEl) statusEl.style.display = 'block';
+
+    try {
+        const resp = await fetch(`/api/flashcards/${cardId}/generate-video`, { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.status === 'already_exists' && data.video_url) {
+            _showVideoPlayer(cardId, data.video_url);
+            return;
+        }
+
+        if (data.status === 'queued' || data.status === 'in_progress') {
+            _pollVideoStatus(cardId);
+        } else {
+            if (statusEl) statusEl.textContent = 'Video generation failed.';
+        }
+    } catch (e) {
+        console.error('[SFVID] generate error:', e);
+        if (statusEl) statusEl.textContent = 'Error starting video generation.';
+        if (btn) btn.style.display = '';
+        if (statusEl) statusEl.style.display = 'none';
+    }
+}
+
+function _pollVideoStatus(cardId) {
+    const statusEl = document.getElementById(`video-status-${cardId}`);
+    let attempts = 0;
+    const maxAttempts = 36; // 6 minutes
+    const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(interval);
+            if (statusEl) statusEl.textContent = 'Video generation timed out.';
+            return;
+        }
+        try {
+            const resp = await fetch(`/api/flashcards/${cardId}/video-status`);
+            const data = await resp.json();
+            if (data.status === 'complete' && data.video_url) {
+                clearInterval(interval);
+                _showVideoPlayer(cardId, data.video_url);
+                // Update local state so reload shows video
+                const card = state.flashcards?.find(c => String(c.id) === String(cardId));
+                if (card) card.video_url = data.video_url;
+            }
+        } catch (e) {
+            console.warn('[SFVID] poll error:', e);
+        }
+    }, 10000);
+}
+
+function _showVideoPlayer(cardId, videoUrl) {
+    const panel = document.getElementById(`video-panel-${cardId}`);
+    if (!panel) return;
+    panel.innerHTML = `
+        <div>
+            <h3 class="text-xs font-semibold text-indigo-900 uppercase mb-1">Word Video</h3>
+            <video controls playsinline style="width:100%;border-radius:8px;max-height:240px;background:#000;">
+                <source src="${videoUrl}" type="video/mp4">
+            </video>
+        </div>`;
 }
 
 // ========================================
