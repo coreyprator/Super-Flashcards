@@ -1,7 +1,10 @@
 """
-SF-SENT-001: Shadowing mode endpoint.
+SF-SENT-001 / SFSENT2-REQ-001: Shadowing mode endpoint.
 POST /api/flashcards/{card_id}/shadow — accepts transcribed text from Web Speech API,
-compares IPA against expected, returns phoneme-level feedback.
+compares IPA against expected FRENCH SENTENCE ONLY, returns phoneme-level feedback.
+
+SFSENT2 fix: shadow_target uses word_or_phrase (French) only — never includes
+English translation, IPA readout, or definition in the comparison.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,6 +39,7 @@ class PhonemeResult(BaseModel):
 class ShadowResponse(BaseModel):
     accuracy_pct: float
     phoneme_results: List[dict]
+    shadow_target: str          # SFSENT2: French sentence only (what user should shadow)
     expected_text: str
     expected_ipa: str
     transcribed_text: str
@@ -73,8 +77,9 @@ async def shadow_sentence(
     db: Session = Depends(get_db),
 ):
     """
-    Compare user's spoken text against the expected sentence.
-    Uses IPA diff to produce phoneme-level feedback.
+    Compare user's spoken text against the expected FRENCH sentence only.
+    SFSENT2-REQ-001: shadow_target = word_or_phrase (French) — never includes
+    English translation, IPA string, or definition in the comparison.
     """
     flashcard = db.query(models.Flashcard).filter(
         models.Flashcard.id == card_id
@@ -83,8 +88,15 @@ async def shadow_sentence(
     if not flashcard:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 
-    expected_text = flashcard.word_or_phrase
-    expected_ipa = flashcard.ipa_pronunciation or ""
+    # SFSENT2: shadow_target is ONLY the French sentence (word_or_phrase).
+    # Do NOT include: translation (English), definition, ipa_pronunciation string.
+    shadow_target = flashcard.word_or_phrase
+    expected_text = shadow_target
+
+    # Generate expected IPA from the French sentence only.
+    # Use stored IPA if available, but regenerate from French text as fallback.
+    stored_ipa = (flashcard.ipa_pronunciation or "").strip("/[]")
+    expected_ipa = stored_ipa if stored_ipa else basic_french_ipa(shadow_target)
 
     # Clean IPA strings (remove slashes, brackets)
     clean_expected = expected_ipa.strip("/[]")
@@ -136,6 +148,7 @@ async def shadow_sentence(
     return ShadowResponse(
         accuracy_pct=round(accuracy, 1),
         phoneme_results=phoneme_results,
+        shadow_target=shadow_target,
         expected_text=expected_text,
         expected_ipa=expected_ipa,
         transcribed_text=payload.transcribed_text,
