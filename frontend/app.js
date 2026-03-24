@@ -1,9 +1,9 @@
 // frontend/app.js
 // Language Learning Flashcards - Main Application Logic
-// Version: 3.4.7 (v3.4.7: SM08 — TTS language context, speed slider, play debounce, card counter fix)
+// Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.4.7';
+const APP_JS_VERSION = '3.6.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1221,8 +1221,61 @@ async function injectEtymythonLink(flashcard, targetElementId) {
     }
 }
 
+// SF-SENT-001: Sentence card renderer
+function renderSentenceCard(flashcard) {
+    const container = document.getElementById('flashcard-container');
+    const chapterLabel = flashcard.chapter_number ? `Ch. ${flashcard.chapter_number}` : '';
+    const orderLabel = flashcard.sentence_order ? `#${flashcard.sentence_order}` : '';
+
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto" style="box-sizing:border-box;">
+            <!-- Chapter badge -->
+            <div class="mb-2">
+                ${chapterLabel ? `<span class="chapter-badge">${chapterLabel} ${orderLabel}</span>` : ''}
+                ${flashcard.source_book ? `<span class="text-xs text-gray-400 ml-2">${flashcard.source_book}</span>` : ''}
+            </div>
+
+            <!-- French sentence -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-3">
+                <div class="sentence-card-text">${flashcard.word_or_phrase}</div>
+                ${flashcard.translation ? `<div class="sentence-translation">${flashcard.translation}</div>` : ''}
+                ${flashcard.ipa_pronunciation ? `<div class="text-xs text-gray-400 font-mono mb-2">${flashcard.ipa_pronunciation}</div>` : ''}
+
+                <!-- Audio + Shadow controls -->
+                <div class="flex gap-2 mt-3 items-center flex-wrap">
+                    ${getTTSButtonHTML(flashcard.id)}
+                    <button class="shadow-btn" id="shadow-btn-${flashcard.id}"
+                            onclick="startShadowing('${flashcard.id}')">
+                        🎤 Shadow
+                    </button>
+                    <button onclick="copyShareLink('${flashcard.id}')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">🔗</button>
+                </div>
+
+                <!-- Shadowing feedback panel (hidden until recording completes) -->
+                <div id="shadow-feedback-${flashcard.id}" style="display:none" class="shadow-feedback"></div>
+            </div>
+
+            <!-- Prev / Next navigation -->
+            <div class="flex gap-2">
+                <button onclick="previousCard(); event.stopPropagation();"
+                        class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm disabled:opacity-40"
+                        ${state.currentCardIndex === 0 ? 'disabled' : ''}>← Prev</button>
+                <span class="flex items-center text-xs text-gray-400 px-2">${state.currentCardIndex + 1} / ${state.flashcards.length}</span>
+                <button onclick="nextCard(); event.stopPropagation();"
+                        class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm disabled:opacity-40"
+                        ${state.currentCardIndex >= state.flashcards.length - 1 ? 'disabled' : ''}>Next →</button>
+            </div>
+        </div>
+    `;
+}
+
 // SF-MOBILE-UI-001: new card layout — no flip, thumbnail + collapsible sections
 function renderFlashcard(flashcard) {
+    // SF-SENT-001: Route sentence cards to dedicated renderer
+    if (flashcard.card_type === 'sentence') {
+        return renderSentenceCard(flashcard);
+    }
+
     const container = document.getElementById('flashcard-container');
 
     // Parse related words if it's a JSON string
@@ -1232,7 +1285,7 @@ function renderFlashcard(flashcard) {
     } catch (e) {
         relatedWords = flashcard.related_words ? flashcard.related_words.split(',') : [];
     }
-    
+
     // Resolve language display name
     const cardLang = state.languages?.find(l => l.id === flashcard.language_id);
     const langName = flashcard.language_name || cardLang?.name || '';
@@ -6283,6 +6336,177 @@ function getDuration(startMarkName, endMarkName) {
     if (!startMark || !endMark) return null;
     return endMark.startTime - startMark.startTime;
 }
+
+// ========================================
+// SF-SENT-001: Shadowing Mode
+// ========================================
+let _shadowRecorder = null;
+let _shadowStream = null;
+
+async function startShadowing(cardId) {
+    const btn = document.getElementById(`shadow-btn-${cardId}`);
+    if (!btn) return;
+
+    // If already recording, stop
+    if (_shadowRecorder && _shadowRecorder.state === 'recording') {
+        _shadowRecorder.stop();
+        if (_shadowStream) _shadowStream.getTracks().forEach(t => t.stop());
+        return;
+    }
+
+    // Use Web Speech API for transcription (browser-side)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast('Speech recognition not supported in this browser', 3000);
+        return;
+    }
+
+    const card = state.flashcards?.find(c => c.id === cardId);
+    const lang = card ? state.languages?.find(l => l.id === card.language_id) : null;
+    const langCode = lang?.code || 'fr';
+
+    // Set up speech recognition
+    const recognition = new SpeechRecognition();
+    recognition.lang = langCode === 'fr' ? 'fr-FR' : langCode;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    btn.classList.add('recording');
+    btn.innerHTML = '⏹ Stop';
+
+    recognition.onresult = async (event) => {
+        const transcribed = event.results[0][0].transcript;
+        btn.classList.remove('recording');
+        btn.innerHTML = '🎤 Shadow';
+
+        // Send to backend for IPA comparison
+        await submitShadowResult(cardId, transcribed);
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        btn.classList.remove('recording');
+        btn.innerHTML = '🎤 Shadow';
+        if (event.error === 'no-speech') {
+            showToast('No speech detected. Try again.', 3000);
+        } else if (event.error === 'not-allowed') {
+            showToast('Microphone access denied. Check browser permissions.', 5000);
+        } else {
+            showToast(`Recognition error: ${event.error}`, 3000);
+        }
+    };
+
+    recognition.onend = () => {
+        btn.classList.remove('recording');
+        btn.innerHTML = '🎤 Shadow';
+    };
+
+    try {
+        recognition.start();
+    } catch (e) {
+        console.error('Failed to start recognition:', e);
+        btn.classList.remove('recording');
+        btn.innerHTML = '🎤 Shadow';
+        showToast('Could not start recording', 3000);
+    }
+}
+
+async function submitShadowResult(cardId, transcribedText) {
+    const feedbackEl = document.getElementById(`shadow-feedback-${cardId}`);
+    if (!feedbackEl) return;
+
+    feedbackEl.style.display = 'block';
+    feedbackEl.innerHTML = '<div class="text-center text-gray-400 text-sm">Analyzing pronunciation...</div>';
+
+    try {
+        const res = await fetch(`/api/flashcards/${cardId}/shadow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcribed_text: transcribedText }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        renderShadowingFeedback(cardId, data);
+    } catch (e) {
+        console.error('Shadow submit error:', e);
+        feedbackEl.innerHTML = '<div class="text-center text-red-500 text-sm">Analysis failed. Try again.</div>';
+    }
+}
+
+function renderShadowingFeedback(cardId, data) {
+    const feedbackEl = document.getElementById(`shadow-feedback-${cardId}`);
+    if (!feedbackEl) return;
+
+    const accuracy = data.accuracy_pct || 0;
+    const colorClass = accuracy >= 80 ? 'good' : accuracy >= 50 ? 'ok' : 'needs-work';
+
+    const phonemeChips = (data.phoneme_results || []).map(p => {
+        const chipClass = p.correct ? 'correct' : 'incorrect';
+        const title = p.feedback ? ` title="${p.feedback}"` : '';
+        const display = p.correct ? p.expected : `${p.expected || '∅'}→${p.got || '∅'}`;
+        return `<span class="phoneme-chip ${chipClass}"${title}>${display}</span>`;
+    }).join('');
+
+    feedbackEl.innerHTML = `
+        <div class="shadow-accuracy ${colorClass}">${accuracy.toFixed(0)}%</div>
+        <div class="text-center text-sm text-gray-600 mb-2">${data.overall_feedback || ''}</div>
+        <div class="text-xs text-gray-400 mb-1">You said: "${data.transcribed_text || ''}"</div>
+        <div class="text-xs text-gray-400 mb-2">Your IPA: ${data.transcribed_ipa || ''}</div>
+        <div class="phoneme-grid">${phonemeChips}</div>
+        <div class="text-center mt-3">
+            <button class="shadow-btn" onclick="startShadowing('${cardId}')" style="display:inline-flex;">
+                🎤 Try Again
+            </button>
+        </div>
+    `;
+}
+
+// SF-SENT-001: Load sentence cards from a book deck
+async function loadBookDeck() {
+    try {
+        showLoading();
+        const res = await fetch('/api/flashcards/?card_type=sentence&limit=500');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const cards = await res.json();
+
+        if (!cards || cards.length === 0) {
+            hideLoading();
+            showToast('No sentence cards found. Books will appear after ingestion.', 3000);
+            return;
+        }
+
+        // Sort by chapter + sentence_order
+        cards.sort((a, b) => {
+            if (a.chapter_number !== b.chapter_number) return (a.chapter_number || 0) - (b.chapter_number || 0);
+            return (a.sentence_order || 0) - (b.sentence_order || 0);
+        });
+
+        state.flashcards = cards;
+        state.currentCardIndex = 0;
+        hideLoading();
+        renderFlashcard(cards[0]);
+
+        // Highlight books button as active
+        const booksBtn = document.getElementById('books-btn');
+        if (booksBtn) {
+            booksBtn.classList.remove('bg-purple-100', 'text-purple-700');
+            booksBtn.classList.add('bg-purple-600', 'text-white');
+        }
+
+        showToast(`Loaded ${cards.length} sentences from "${cards[0].source_book || 'Book'}"`, 3000);
+    } catch (e) {
+        console.error('Failed to load book deck:', e);
+        hideLoading();
+        showToast('Failed to load book deck', 3000);
+    }
+}
+
+// Make shadowing and book functions globally accessible
+window.startShadowing = startShadowing;
+window.loadBookDeck = loadBookDeck;
 
 // Expose timing functions globally for debugging
 window.displayTimingReport = displayTimingReport;

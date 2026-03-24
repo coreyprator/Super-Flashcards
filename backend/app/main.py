@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.5.0 - SF-VID-001: 30-second word videos via ArtForge
+# Version: 3.6.0 - SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.5.0" + (" [QA]" if IS_QA else "")
+    version="3.6.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -266,6 +266,10 @@ app.include_router(dcc.router, prefix="/api", tags=["dcc"])
 # SF-VID-001: Word Video via ArtForge
 from .routers import video
 app.include_router(video.router, prefix="/api", tags=["video"])
+
+# SF-SENT-001: Shadowing mode for sentence cards
+from .routers import shadowing
+app.include_router(shadowing.router, prefix="/api", tags=["shadowing"])
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
@@ -593,7 +597,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.5.0",
+        "version": "3.6.0",
         "database": "connected"
     }
 
