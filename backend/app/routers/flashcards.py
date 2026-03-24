@@ -20,17 +20,29 @@ def create_flashcard(
 @router.get("/", response_model=List[schemas.Flashcard])
 def read_flashcards(
     language_id: Optional[str] = None,
+    card_type: Optional[str] = None,
+    source_book: Optional[str] = None,
+    chapter_number: Optional[int] = None,
     skip: int = 0,
     limit: int = 1000,
     db: Session = Depends(get_db)
 ):
-    """Get all flashcards, optionally filtered by language"""
-    flashcards = crud.get_flashcards(
-        db, 
-        language_id=language_id,
-        skip=skip, 
-        limit=limit
-    )
+    """Get all flashcards, optionally filtered by language, card_type, source_book, chapter."""
+    query = db.query(models.Flashcard)
+    if language_id:
+        query = query.filter(models.Flashcard.language_id == language_id)
+    if card_type:
+        query = query.filter(models.Flashcard.card_type == card_type)
+    if source_book:
+        query = query.filter(models.Flashcard.source_book.ilike(f"%{source_book}%"))
+    if chapter_number is not None:
+        query = query.filter(models.Flashcard.chapter_number == chapter_number)
+    # For sentence cards, order by chapter + sentence_order
+    if card_type == "sentence":
+        query = query.order_by(models.Flashcard.chapter_number, models.Flashcard.sentence_order)
+    else:
+        query = query.order_by(models.Flashcard.created_at.desc())
+    flashcards = query.offset(skip).limit(limit).all()
     return flashcards
 
 @router.get("/search", response_model=List[schemas.Flashcard])

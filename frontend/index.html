@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.5.0';
+        window.APP_VERSION = '3.6.0';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -177,6 +177,87 @@
             100% { transform: rotate(360deg); }
         }
         
+        /* SF-SENT-001: Sentence card + shadowing styles */
+        .sentence-card-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #1f2937;
+            font-style: italic;
+            border-left: 3px solid #4f46e5;
+            padding-left: 12px;
+            margin-bottom: 8px;
+        }
+        .sentence-translation {
+            font-size: 0.9rem;
+            color: #6b7280;
+            padding-left: 12px;
+            margin-bottom: 8px;
+        }
+        .chapter-badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4338ca;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            margin-bottom: 4px;
+        }
+        .shadow-btn {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+        .shadow-btn:hover { background: #6d28d9; }
+        .shadow-btn.recording {
+            background: #dc2626;
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+        }
+        .shadow-feedback {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+        .shadow-accuracy {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .shadow-accuracy.good { color: #059669; }
+        .shadow-accuracy.ok { color: #d97706; }
+        .shadow-accuracy.needs-work { color: #dc2626; }
+        .phoneme-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+        }
+        .phoneme-chip {
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            cursor: default;
+        }
+        .phoneme-chip.correct { background: #d1fae5; color: #065f46; }
+        .phoneme-chip.incorrect { background: #fee2e2; color: #991b1b; }
+
         /* Offline indicator */
         .offline-badge {
             position: fixed;
@@ -506,7 +587,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.4.7</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.6.0</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -516,6 +597,7 @@
                     <select id="language-select" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
                         <option value="">Loading languages...</option>
                     </select>
+                    <button id="books-btn" onclick="loadBookDeck()" class="ml-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-semibold" title="Read & Shadow sentences from books">📖 Books</button>
                 </div>
                 <div class="flex items-center gap-4">
                     <!-- User Profile -->
@@ -1599,7 +1681,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.5.0"></script>
+    <script src="/app.js?v=3.6.0"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
