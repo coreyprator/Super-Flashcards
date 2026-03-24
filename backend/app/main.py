@@ -597,7 +597,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.6.0",
+        "version": "3.6.1",
         "database": "connected"
     }
 
