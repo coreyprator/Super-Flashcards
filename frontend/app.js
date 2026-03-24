@@ -1615,7 +1615,7 @@ function _ttsStopSVG() {
 
 function _ttsProviderLabel() {
     const p = localStorage.getItem('tts_provider') || '11labs';
-    return p === '11labs' ? '11Labs' : p === 'speechify' ? 'Speechify' : 'Browser';
+    return p === '11labs' ? '11Labs' : p === 'browser-premium' ? 'Browser Premium' : 'Browser';
 }
 
 function _updateTTSBtn(btn, playing) {
@@ -1689,8 +1689,10 @@ async function playTTS(cardId) {
 
     if (provider === 'browser') {
         _speakSegments(segments, speed, onEnd);
+    } else if (provider === 'browser-premium') {
+        _speakBestVoice(segments, speed, onEnd);
     } else {
-        // 11Labs or Speechify via backend endpoint
+        // 11Labs via backend endpoint
         try {
             const res = await fetch('/api/tts', {
                 method: 'POST',
@@ -1727,6 +1729,26 @@ function _speakSegments(segments, speed, onEnd) {
         const utt = new SpeechSynthesisUtterance(seg.text);
         utt.lang = seg.language || 'en';
         utt.rate = speed || 1.0;
+        utt.onend = () => { remaining--; if (remaining <= 0) onEnd(); };
+        utt.onerror = () => { remaining--; if (remaining <= 0) onEnd(); };
+        window.speechSynthesis.speak(utt);
+    });
+}
+
+function _speakBestVoice(segments, speed, onEnd) {
+    if (!window.speechSynthesis) { showToast('Speech not supported', 3000); onEnd(); return; }
+    window.speechSynthesis.cancel();
+    const voices = window.speechSynthesis.getVoices();
+    const segs = segments && segments.length > 0 ? segments : [{text: '', language: 'en'}];
+    let remaining = segs.length;
+    segs.forEach((seg) => {
+        if (!seg.text) { remaining--; if (remaining <= 0) onEnd(); return; }
+        const utt = new SpeechSynthesisUtterance(seg.text);
+        utt.lang = seg.language || 'en';
+        utt.rate = speed || 1.0;
+        const langVoices = voices.filter(v => v.lang.startsWith(seg.language || 'en'));
+        const premiumVoice = langVoices.find(v => /natural|premium|neural|online/i.test(v.name)) || langVoices[0];
+        if (premiumVoice) utt.voice = premiumVoice;
         utt.onend = () => { remaining--; if (remaining <= 0) onEnd(); };
         utt.onerror = () => { remaining--; if (remaining <= 0) onEnd(); };
         window.speechSynthesis.speak(utt);

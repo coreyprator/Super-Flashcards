@@ -102,8 +102,8 @@ async def get_or_generate_audio_for_text(text: str, speed: float = 1.0) -> str:
     Returns public GCS URL.
     """
     import hashlib
-    # Include speed in cache key so different speeds get different cached files
-    cache_input = f"{text}|speed={speed}" if speed != 1.0 else text
+    # SM09: Changed cache key prefix for speed != 1.0 to bust old SSML-based caches
+    cache_input = f"{text}|turbo|speed={speed}" if speed != 1.0 else text
     text_hash = hashlib.md5(cache_input.encode("utf-8")).hexdigest()[:16]
     blob = _gcs_blob_tts(text_hash)
 
@@ -114,22 +114,20 @@ async def get_or_generate_audio_for_text(text: str, speed: float = 1.0) -> str:
     api_key = _get_api_key()
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
 
-    # SM08: Use SSML prosody for speed control when speed != 1.0
+    # SM09: Use eleven_turbo_v2_5 with direct speed param for speed != 1.0
+    # eleven_multilingual_v2 does not reliably apply SSML prosody rate
     if speed != 1.0:
-        speed_pct = int(speed * 100)
-        tts_text = f'<speak><prosody rate="{speed_pct}%">{text}</prosody></speak>'
+        model = "eleven_turbo_v2_5"
+        voice_settings = {"stability": 0.5, "similarity_boost": 0.75, "speed": speed}
     else:
-        tts_text = text
+        model = MODEL_ID
+        voice_settings = {"stability": 0.5, "similarity_boost": 0.75}
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             url,
             headers={"xi-api-key": api_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
-            json={
-                "text": tts_text,
-                "model_id": MODEL_ID,
-                "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
-            },
+            json={"text": text, "model_id": model, "voice_settings": voice_settings},
         )
         response.raise_for_status()
 

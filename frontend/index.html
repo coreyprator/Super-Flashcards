@@ -3,7 +3,7 @@
 <head>
     <!-- VERSION CONSTANT - Source of truth for version checks -->
     <script>
-        window.APP_VERSION = '3.6.0';
+        window.APP_VERSION = '3.6.1';
     </script>
     
     <!-- TIMING CHECKPOINT T0: Page Navigation Started -->
@@ -587,7 +587,7 @@
                         <h1 class="text-4xl font-bold text-gray-900 mb-2">
                             💎 Super Flashcards
                         </h1>
-                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.6.0</span>
+                        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded font-mono" id="version-badge">v3.6.1</span>
                     </div>
                     <p class="text-gray-600">AI-powered flashcards for effective learning</p>
                 </div>
@@ -709,7 +709,7 @@
                     <span class="text-sm font-medium text-gray-700">TTS Provider:</span>
                     <select id="tts-provider-select" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500">
                         <option value="11labs">11Labs (High Quality)</option>
-                        <option value="speechify">Speechify</option>
+                        <option value="browser-premium">Browser Premium</option>
                         <option value="browser">Browser (Fallback)</option>
                     </select>
                     <span class="text-xs text-gray-400" id="tts-provider-hint">Saved to browser</span>
@@ -1681,7 +1681,7 @@
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
     <script src="/progress.js?v=3.0.0"></script>
-    <script src="/app.js?v=3.6.0"></script>
+    <script src="/app.js?v=3.6.1"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
         
@@ -1756,7 +1756,7 @@
     <div id="img-fullscreen-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;cursor:pointer;"
          onclick="this.style.display='none';"
          ontouchend="event.preventDefault();this.style.display='none';">
-        <img id="img-fullscreen-img" src="" alt="" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.6);">
+        <img id="img-fullscreen-img" alt="" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.6);">
     </div>
 </body>
 </html>
