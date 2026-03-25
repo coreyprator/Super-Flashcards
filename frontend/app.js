@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.6.2';
+const APP_JS_VERSION = '3.6.3';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1238,8 +1238,8 @@ function renderSentenceCard(flashcard) {
             <!-- French sentence -->
             <div class="bg-white rounded-xl shadow-md p-4 mb-3">
                 <div class="sentence-card-text">${flashcard.word_or_phrase}</div>
-                ${flashcard.translation ? `<div class="sentence-translation">${flashcard.translation}</div>` : ''}
-                ${flashcard.ipa_pronunciation ? `<div class="text-xs text-gray-400 font-mono mb-2">${flashcard.ipa_pronunciation}</div>` : ''}
+                ${flashcard.translation ? `<div id="shadow-translation-${flashcard.id}" class="sentence-translation">${flashcard.translation}</div>` : ''}
+                ${flashcard.ipa_pronunciation ? `<div id="shadow-ipa-${flashcard.id}" class="text-xs text-gray-400 font-mono mb-2">${flashcard.ipa_pronunciation}</div>` : ''}
 
                 <!-- Audio + Shadow controls -->
                 <div class="flex gap-2 mt-3 items-center flex-wrap">
@@ -1615,7 +1615,10 @@ function _ttsStopSVG() {
 
 function _ttsProviderLabel() {
     const p = localStorage.getItem('tts_provider') || '11labs';
-    return p === '11labs' ? '11Labs' : p === 'browser-premium' ? 'Browser Premium' : 'Browser';
+    // SFSENT3-REQ-002: Normalize legacy 'speechify' → show as 11Labs
+    if (p === '11labs' || p === 'speechify') return '11Labs';
+    if (p === 'browser-premium') return 'Browser Premium';
+    return 'Browser';
 }
 
 function _updateTTSBtn(btn, playing) {
@@ -1663,7 +1666,10 @@ async function playTTS(cardId) {
     const lang = state.languages?.find(l => l.id === card.language_id);
     const cardLang = lang?.code || 'el';
     const contentLang = 'en'; // definitions, etymology, cognates are always in English
-    const provider = localStorage.getItem('tts_provider') || '11labs';
+    // SFSENT3-REQ-002: Normalize legacy provider values (speechify → 11labs)
+    const validProviders = ['11labs', 'browser', 'browser-premium'];
+    const storedProvider = localStorage.getItem('tts_provider') || '11labs';
+    const provider = validProviders.includes(storedProvider) ? storedProvider : '11labs';
     const speed = parseFloat(localStorage.getItem('tts_speed') || '1.0');
 
     // SM08 Fix 1: Build segments with correct language per field
@@ -5754,7 +5760,7 @@ function switchMode(mode) {
             browseBtn.classList.add('active', 'bg-indigo-600', 'text-white');
             browseBtn.classList.remove('text-gray-600');
         }
-        
+
         // Show browse mode content
         if (browseModeEl) {
             browseModeEl.classList.remove('hidden');
@@ -5762,7 +5768,10 @@ function switchMode(mode) {
         } else {
             console.error('❌ Browse mode element not found!');
         }
-        
+
+        // SFSENT3-REQ-003: Populate book filter if sentence cards exist
+        _populateBookFilter();
+
         // Load cards list with proper sorting
         renderFlashcardList();
         
@@ -5941,6 +5950,9 @@ function initializeNewUI() {
         });
     }
     if (ttsSelect) {
+        // SFSENT3-REQ-002: Migrate legacy 'speechify' to '11labs'
+        const storedTts = localStorage.getItem('tts_provider') || '11labs';
+        if (storedTts === 'speechify') localStorage.setItem('tts_provider', '11labs');
         ttsSelect.value = localStorage.getItem('tts_provider') || '11labs';
         ttsSelect.addEventListener('change', () => {
             localStorage.setItem('tts_provider', ttsSelect.value);
@@ -5948,6 +5960,9 @@ function initializeNewUI() {
             if (hint) hint.textContent = `Active: ${ttsSelect.options[ttsSelect.selectedIndex].text}`;
         });
     }
+
+    // SFSENT3-REQ-003: Book filter for browse tab
+    _initBookFilter();
 
     // SM08: TTS speed slider persistence
     const ttsSpeedSlider = document.getElementById('tts-speed');
@@ -6360,6 +6375,113 @@ function getDuration(startMarkName, endMarkName) {
 }
 
 // ========================================
+// SFSENT3-REQ-003: Book filter for Browse tab
+// ========================================
+async function _populateBookFilter() {
+    const container = document.getElementById('book-filter-container');
+    const select = document.getElementById('book-filter');
+    if (!container || !select) return;
+
+    // Check if any sentence cards exist — fetch distinct source_books
+    try {
+        const res = await fetch('/api/flashcards/?card_type=sentence&limit=500');
+        if (!res.ok) return;
+        const cards = await res.json();
+        if (!cards || cards.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // Extract distinct source_book values
+        const books = [...new Set(cards.map(c => c.source_book).filter(Boolean))].sort();
+        if (books.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // Show the filter and populate options
+        container.style.display = '';
+        const currentValue = select.value;
+        select.innerHTML = '<option value="all">All books</option>';
+        books.forEach(book => {
+            const opt = document.createElement('option');
+            opt.value = book;
+            opt.textContent = book;
+            select.appendChild(opt);
+        });
+        if (currentValue && currentValue !== 'all') select.value = currentValue;
+    } catch (e) {
+        console.error('Book filter populate error:', e);
+    }
+}
+
+let _bookFilteredCards = null;
+
+function _initBookFilter() {
+    const select = document.getElementById('book-filter');
+    if (!select) return;
+    select.addEventListener('change', async () => {
+        const book = select.value;
+        if (book === 'all') {
+            _bookFilteredCards = null;
+            renderFlashcardList();
+            return;
+        }
+        try {
+            const res = await fetch(`/api/flashcards/?card_type=sentence&source_book=${encodeURIComponent(book)}&limit=500`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const cards = await res.json();
+            const listContainer = document.getElementById('cards-list');
+            if (!listContainer) return;
+            if (!cards || cards.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-500 py-8">No sentence cards found for this book.</p>';
+                return;
+            }
+            cards.sort((a, b) => {
+                if (a.chapter_number !== b.chapter_number) return (a.chapter_number || 0) - (b.chapter_number || 0);
+                return (a.sentence_order || 0) - (b.sentence_order || 0);
+            });
+            _bookFilteredCards = cards;
+            _renderBookFilteredList(cards, listContainer);
+        } catch (e) {
+            console.error('Book filter error:', e);
+        }
+    });
+}
+
+function _renderBookFilteredList(cards, listContainer) {
+    listContainer.innerHTML = cards.map((card, i) => {
+        const chLabel = card.chapter_number ? `Ch.${card.chapter_number}` : '';
+        const orderLabel = card.sentence_order ? `#${card.sentence_order}` : '';
+        const safeWord = (card.word_or_phrase || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeTrans = (card.translation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `
+        <div class="bg-white rounded-lg p-4 shadow hover:shadow-md transition cursor-pointer"
+             onclick="_selectBookCard(${i})">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="flex items-baseline gap-2 flex-wrap">
+                        <h3 class="font-semibold text-gray-900 text-base mb-1">${safeWord}</h3>
+                        ${chLabel ? `<span class="text-xs text-gray-400">${chLabel} ${orderLabel}</span>` : ''}
+                    </div>
+                    <p class="text-gray-600 text-sm line-clamp-1">${safeTrans}</p>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function _selectBookCard(index) {
+    if (!_bookFilteredCards) return;
+    state.flashcards = _bookFilteredCards;
+    state.currentCardIndex = index;
+    switchMode('study');
+    renderFlashcard(state.flashcards[index]);
+    updateCardCounter();
+}
+window._selectBookCard = _selectBookCard;
+
+// ========================================
 // SF-SENT-001: Shadowing Mode
 // ========================================
 let _shadowRecorder = null;
@@ -6382,6 +6504,12 @@ async function startShadowing(cardId) {
         showToast('Speech recognition not supported in this browser', 3000);
         return;
     }
+
+    // SFSENT3-REQ-001: Hide translation and IPA during shadow mode — French only
+    const translationEl = document.getElementById(`shadow-translation-${cardId}`);
+    const ipaEl = document.getElementById(`shadow-ipa-${cardId}`);
+    if (translationEl) translationEl.style.display = 'none';
+    if (ipaEl) ipaEl.style.display = 'none';
 
     const card = state.flashcards?.find(c => c.id === cardId);
     const lang = card ? state.languages?.find(l => l.id === card.language_id) : null;
@@ -6462,6 +6590,12 @@ function renderShadowingFeedback(cardId, data) {
     const feedbackEl = document.getElementById(`shadow-feedback-${cardId}`);
     if (!feedbackEl) return;
 
+    // SFSENT3-REQ-001: Keep translation and IPA hidden during shadow feedback
+    const translationEl = document.getElementById(`shadow-translation-${cardId}`);
+    const ipaEl = document.getElementById(`shadow-ipa-${cardId}`);
+    if (translationEl) translationEl.style.display = 'none';
+    if (ipaEl) ipaEl.style.display = 'none';
+
     const accuracy = data.accuracy_pct || 0;
     const colorClass = accuracy >= 80 ? 'good' : accuracy >= 50 ? 'ok' : 'needs-work';
 
@@ -6472,9 +6606,15 @@ function renderShadowingFeedback(cardId, data) {
         return `<span class="phoneme-chip ${chipClass}"${title}>${display}</span>`;
     }).join('');
 
+    // SFSENT3-REQ-001: Display shadow_target from API response (French only)
+    const targetDisplay = data.shadow_target
+        ? `<div class="text-xs text-gray-500 mb-1">Target: "${data.shadow_target}"</div>`
+        : '';
+
     feedbackEl.innerHTML = `
         <div class="shadow-accuracy ${colorClass}">${accuracy.toFixed(0)}%</div>
         <div class="text-center text-sm text-gray-600 mb-2">${data.overall_feedback || ''}</div>
+        ${targetDisplay}
         <div class="text-xs text-gray-400 mb-1">You said: "${data.transcribed_text || ''}"</div>
         <div class="text-xs text-gray-400 mb-2">Your IPA: ${data.transcribed_ipa || ''}</div>
         <div class="phoneme-grid">${phonemeChips}</div>
@@ -6482,8 +6622,22 @@ function renderShadowingFeedback(cardId, data) {
             <button class="shadow-btn" onclick="startShadowing('${cardId}')" style="display:inline-flex;">
                 🎤 Try Again
             </button>
+            <button class="text-xs px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 ml-2"
+                    onclick="exitShadowMode('${cardId}')">
+                Show Full Card
+            </button>
         </div>
     `;
+}
+
+// SFSENT3-REQ-001: Exit shadow mode — restore translation and IPA visibility
+function exitShadowMode(cardId) {
+    const translationEl = document.getElementById(`shadow-translation-${cardId}`);
+    const ipaEl = document.getElementById(`shadow-ipa-${cardId}`);
+    if (translationEl) translationEl.style.display = '';
+    if (ipaEl) ipaEl.style.display = '';
+    const feedbackEl = document.getElementById(`shadow-feedback-${cardId}`);
+    if (feedbackEl) feedbackEl.style.display = 'none';
 }
 
 // SF-SENT-001: Load sentence cards from a book deck
@@ -6528,6 +6682,7 @@ async function loadBookDeck() {
 
 // Make shadowing and book functions globally accessible
 window.startShadowing = startShadowing;
+window.exitShadowMode = exitShadowMode;
 window.loadBookDeck = loadBookDeck;
 
 // Expose timing functions globally for debugging
