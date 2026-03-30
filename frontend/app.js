@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.6.3';
+const APP_JS_VERSION = '3.6.4';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -814,8 +814,7 @@ async function generateAIFlashcard(word, includeImage = true) {
         return flashcard;
     } catch (error) {
         hideLoading();
-        // TODO: Improve error messages - don't expose technical details
-        showToast('AI generation failed. Check your API key.');
+        // apiRequest already surfaces the real error message via toast — no generic fallback needed
         console.error('AI generation error:', error);
         throw error;
     }
