@@ -15,6 +15,9 @@ router = APIRouter()
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# OpenAI model configuration — single source of truth
+OPENAI_CHAT_MODEL = "gpt-4o"
+
 # OpenAI client will be initialized on first use
 client = None
 
@@ -94,10 +97,10 @@ Format your response as valid JSON only, no additional text:
     try:
         if verbose:
             logger.info("Calling OpenAI API...")
-            logger.info(f"Model: gpt-4-turbo-preview, Temperature: 0.7, Max tokens: 800")
-        
+            logger.info(f"Model: {OPENAI_CHAT_MODEL}, Temperature: 0.7, Max tokens: 800")
+
         response = get_openai_client().chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model=OPENAI_CHAT_MODEL,
             messages=[
                 {"role": "system", "content": "You are a language learning expert who creates detailed, educational flashcards."},
                 {"role": "user", "content": prompt}
@@ -105,17 +108,17 @@ Format your response as valid JSON only, no additional text:
             temperature=0.7,
             max_tokens=800
         )
-        
+
         if verbose:
             logger.info(f"OpenAI API call successful. Response received.")
             logger.info(f"Usage: {response.usage if hasattr(response, 'usage') else 'N/A'}")
-        
+
         content = response.choices[0].message.content.strip()
-        
+
         if verbose:
             logger.info(f"Raw response length: {len(content)} characters")
             logger.info(f"Raw response preview: {content[:200]}...")
-        
+
         # Remove markdown code blocks if present
         if content.startswith("```json"):
             content = content[7:]
@@ -130,29 +133,36 @@ Format your response as valid JSON only, no additional text:
             if verbose:
                 logger.info("Removed ``` suffix")
         content = content.strip()
-        
+
         if verbose:
             logger.info(f"Cleaned response: {content[:200]}...")
-        
+
         # Parse JSON
         result = json.loads(content)
-        
+
         if verbose:
             logger.info(f"JSON parsed successfully. Keys: {list(result.keys())}")
             logger.info("=== AI Generation Complete ===")
-        
+
         return result
-        
+
     except json.JSONDecodeError as e:
         error_detail = f"Failed to parse AI response: {str(e)}\nContent: {content[:500]}"
         logger.error(error_detail)
         logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=error_detail)
     except Exception as e:
-        error_detail = f"AI generation failed: {type(e).__name__}: {str(e)}"
-        logger.error(error_detail)
+        from openai import NotFoundError, RateLimitError, AuthenticationError
+        logger.error(f"AI generation failed: {type(e).__name__}: {str(e)}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=error_detail)
+        if isinstance(e, NotFoundError):
+            raise HTTPException(status_code=500, detail="AI model configuration error — please contact support.")
+        elif isinstance(e, RateLimitError):
+            raise HTTPException(status_code=503, detail="AI generation temporarily unavailable, please try again.")
+        elif isinstance(e, AuthenticationError):
+            raise HTTPException(status_code=500, detail="AI service authentication error — please contact support.")
+        else:
+            raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
 
 # ============================================================
 # DALL-E TEXT-FREE IMAGE GENERATION (ChatGPT/Claude Validated)
