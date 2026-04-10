@@ -78,7 +78,7 @@ IMPORTANT: All explanations must be written in {instruction_lang_name}. Do not u
 Provide the following in JSON format:
 1. definition: A clear definition or context example in {instruction_lang_name} (2-3 sentences)
 2. etymology: The word's origin explained in {instruction_lang_name} (Latin, Greek, or other roots if applicable)
-3. english_cognates: Related English words or cognates (comma-separated, these can be in English)
+3. english_cognates: A comma-separated list of English words that are TRUE COGNATES of the source word — meaning they share the SAME Proto-Indo-European (PIE) root, not just similar meaning. INCLUDE words that descend from the same PIE ancestor via Latin, Greek, or Germanic paths. EXCLUDE synonyms that mean the same thing but come from different language families. If fewer than 3 true cognates exist, list only the verified ones. Quality over quantity.
 4. related_words: 2-3 related {language.name} words or expressions (as array)
 5. image_description: A detailed description for generating an image (for DALL-E, in English)
 
@@ -560,17 +560,43 @@ def generate_ai_flashcard(
                     logger.warning(f"🔍 VERBOSE: ⚠ Image generation failed, continuing without image")
 
         
+        # Validate cognates against PIE roots (SF04C)
+        raw_cognates = content.get("english_cognates", "")
+        cognate_pie_roots_json = None
+        if raw_cognates and content.get("etymology"):
+            try:
+                import asyncio
+                from app.services.cognate_validation_service import process_card_cognates
+                # Extract PIE root from etymology if available
+                pie_root = None
+                etymology_text = content.get("etymology", "")
+                import re
+                pie_match = re.search(r'\*[\w\u0250-\u02FF-]+', etymology_text)
+                if pie_match:
+                    pie_root = pie_match.group(0)
+                if pie_root:
+                    cleaned, audit, _ = asyncio.run(process_card_cognates(
+                        raw_cognates, pie_root, request.word_or_phrase
+                    ))
+                    raw_cognates = cleaned
+                    cognate_pie_roots_json = json.dumps(audit)
+                    if verbose:
+                        logger.info(f"[cognate] Validated cognates: {raw_cognates}")
+            except Exception as e:
+                logger.warning(f"[cognate] Validation failed, using raw cognates: {e}")
+
         # Create flashcard
         flashcard_data = schemas.FlashcardCreate(
             language_id=request.language_id,
             word_or_phrase=request.word_or_phrase,
             definition=content.get("definition", ""),
             etymology=content.get("etymology", ""),
-            english_cognates=content.get("english_cognates", ""),
+            english_cognates=raw_cognates,
             related_words=json.dumps(content.get("related_words", [])),
             image_url=image_url,
             image_description=content.get("image_description", ""),
-            source="ai_generated"
+            source="ai_generated",
+            cognate_pie_roots=cognate_pie_roots_json,
         )
         
         if verbose:

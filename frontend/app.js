@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.6.4';
+const APP_JS_VERSION = '3.7.0';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -3049,7 +3049,18 @@ function showEditModal(flashcard) {
     document.getElementById('edit-definition').value = flashcard.definition || '';
     document.getElementById('edit-etymology').value = flashcard.etymology || '';
     document.getElementById('edit-cognates').value = flashcard.english_cognates || '';
-    
+
+    // Cognate Audit (SF04C)
+    const auditSection = document.getElementById('cognate-audit-section');
+    if (auditSection) {
+        if (flashcard.cognate_pie_roots) {
+            auditSection.classList.remove('hidden');
+            renderCognateAudit(flashcard.cognate_pie_roots);
+        } else {
+            auditSection.classList.add('hidden');
+        }
+    }
+
     // Handle related words JSON
     let relatedWordsStr = '';
     try {
@@ -3158,6 +3169,54 @@ function setupEditModalEventListeners() {
         });
     } else {
         console.error('Remove edit image button not found!');
+    }
+}
+
+// SF04C — Cognate Audit rendering
+function renderCognateAudit(cognateDataRaw) {
+    const container = document.getElementById('cognate-audit-content');
+    if (!container) return;
+    let items;
+    try {
+        items = typeof cognateDataRaw === 'string' ? JSON.parse(cognateDataRaw) : cognateDataRaw;
+    } catch { container.innerHTML = '<span class="text-gray-400">Invalid audit data</span>'; return; }
+    if (!Array.isArray(items) || items.length === 0) { container.innerHTML = '<span class="text-gray-400">No audit data</span>'; return; }
+    const html = items.map(r => {
+        if (r.is_true_cognate === true) {
+            return `<div class="text-green-700" title="${(r.citation || '').replace(/"/g, '&quot;')}">&#10003; <strong>${r.word}</strong> — ${r.proposed_pie_root || '?'}</div>`;
+        } else if (r.is_true_cognate === false) {
+            return `<div class="text-red-600 line-through" title="${(r.citation || '').replace(/"/g, '&quot;')}">&#128465; <strong>${r.word}</strong> — ${r.proposed_pie_root || '?'} (removed)</div>`;
+        } else {
+            return `<div class="text-yellow-600" title="RAG inconclusive — kept">&#128993; <strong>${r.word}</strong> — uncertain (kept)</div>`;
+        }
+    }).join('');
+    container.innerHTML = html;
+}
+
+async function revalidateCognates() {
+    if (!currentEditingId) return;
+    const btn = document.getElementById('revalidate-cognates-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Validating...'; }
+    try {
+        const resp = await fetch(`/api/flashcards/${currentEditingId}/validate-cognates`, { method: 'POST' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        // Update the cognates input
+        document.getElementById('edit-cognates').value = data.cleaned_english_cognates || '';
+        // Re-render audit from the server response
+        const fullAudit = [...(data.kept || []).map(k => ({...k, kept: true})), ...(data.removed || []).map(r => ({...r, kept: false, is_true_cognate: false}))];
+        // Fetch updated card to get full audit JSON
+        const cardResp = await fetch(`/api/flashcards/${currentEditingId}`);
+        if (cardResp.ok) {
+            const card = await cardResp.json();
+            if (card.cognate_pie_roots) renderCognateAudit(card.cognate_pie_roots);
+        }
+        document.getElementById('cognate-audit-section').classList.remove('hidden');
+    } catch (e) {
+        console.error('Cognate validation failed:', e);
+        alert('Cognate validation failed: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Re-validate Cognates'; }
     }
 }
 
