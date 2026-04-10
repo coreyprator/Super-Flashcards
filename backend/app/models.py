@@ -139,6 +139,9 @@ class Flashcard(Base):
     video_url = Column(NVARCHAR(500), nullable=True)  # GCS URL from ArtForge
     video_job_id = Column(NVARCHAR(36), nullable=True)  # ArtForge job ID while generating
 
+    # Cognate PIE root audit — SF04C
+    cognate_pie_roots = Column(NVARCHAR(None), nullable=True)  # JSON audit trail
+
     # Sentence card fields — SF-SENT-001
     card_type = Column(NVARCHAR(20), default="word")  # word, sentence, paragraph
     source_book = Column(NVARCHAR(200), nullable=True)  # e.g. "Le Comte de Monte-Cristo"

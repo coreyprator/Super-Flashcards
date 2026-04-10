@@ -50,6 +50,8 @@ class FlashcardBase(BaseModel):
     compound_parts: Optional[str] = None
     # Word Video (SF-VID-001)
     video_url: Optional[str] = None
+    # Cognate PIE root audit (SF04C)
+    cognate_pie_roots: Optional[str] = None
     # Sentence card fields (SF-SENT-001)
     card_type: Optional[str] = "word"  # word, sentence, paragraph
     source_book: Optional[str] = None
@@ -81,6 +83,8 @@ class FlashcardUpdate(BaseModel):
     preposition_usage: Optional[str] = None
     # SF-017: Language reassignment
     language_id: Optional[str] = None
+    # Cognate PIE root audit (SF04C)
+    cognate_pie_roots: Optional[str] = None
     # SF-SENT-001: Sentence card fields
     card_type: Optional[str] = None
     source_book: Optional[str] = None
