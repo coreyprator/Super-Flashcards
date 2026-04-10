@@ -70,8 +70,8 @@ async def backfill_cognate_pie_roots(
     """Batch-validate english_cognates against PIE roots for cards missing cognate_pie_roots."""
     from app.services.cognate_validation_service import process_card_cognates
 
-    rows = db.execute(text("""
-        SELECT TOP :batch_size id, word_or_phrase, english_cognates, pie_root
+    rows = db.execute(text(f"""
+        SELECT TOP ({batch_size}) id, word_or_phrase, english_cognates, pie_root
         FROM flashcards
         WHERE english_cognates IS NOT NULL
           AND english_cognates != ''
@@ -80,7 +80,7 @@ async def backfill_cognate_pie_roots(
           AND pie_root != 'N/A'
           AND cognate_pie_roots IS NULL
         ORDER BY created_at ASC
-    """), {"batch_size": batch_size}).fetchall()
+    """)).fetchall()
 
     processed = 0
     removed_count = 0
