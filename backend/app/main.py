@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.7.0" + (" [QA]" if IS_QA else "")
+    version="3.8.1" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -274,6 +274,10 @@ app.include_router(shadowing.router, prefix="/api", tags=["shadowing"])
 # PF-PREREQ-001: PromptForge content audit endpoints
 from .routers import cards
 app.include_router(cards.router, prefix="/api", tags=["cards"])
+
+# SF05: EFG PIE IPA backfill
+from .routers import efg
+app.include_router(efg.router, prefix="/api/efg", tags=["efg"])
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
@@ -601,7 +605,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.7.0",
+        "version": "3.8.1",
         "database": "connected"
     }
 

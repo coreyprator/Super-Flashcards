@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.7.0';
+const APP_JS_VERSION = '3.8.1';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1353,8 +1353,16 @@ function renderFlashcard(flashcard) {
                         ` : ''}
                         ${flashcard.pie_root && flashcard.pie_root !== 'N/A' ? `
                             <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                <h3 class="text-xs font-semibold text-amber-900 uppercase mb-1">PIE Root</h3>
-                                <p class="text-amber-800 font-mono font-semibold text-sm">${flashcard.pie_root}</p>
+                                <div class="flex items-center justify-between mb-1">
+                                    <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Root</h3>
+                                    <button class="pie-audio-btn px-2 py-0.5 text-xs rounded ${flashcard.pie_audio_url ? 'bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
+                                        data-pie-root="${flashcard.pie_root || ''}"
+                                        data-pie-ipa="${flashcard.pie_ipa || ''}"
+                                        data-audio-url="${flashcard.pie_audio_url || ''}"
+                                        title="${flashcard.pie_root || ''}${flashcard.pie_ipa ? ' / /' + flashcard.pie_ipa + '/' : ''}"
+                                        ${!flashcard.pie_audio_url ? 'disabled' : ''}>PIE 🔊</button>
+                                </div>
+                                <p class="text-amber-800 font-mono font-semibold text-sm">${flashcard.pie_root}${flashcard.pie_ipa ? ` <span class="text-amber-600 font-normal">/${flashcard.pie_ipa}/</span>` : ''}</p>
                                 ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
                             </div>
                         ` : ''}
@@ -6156,12 +6164,27 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
     document.addEventListener('click', (e) => {
         const dropdown = document.getElementById('dropdown-menu');
         const menuToggle = document.getElementById('menu-toggle');
-        
+
         if (!dropdown?.contains(e.target) && !menuToggle?.contains(e.target)) {
             dropdown?.classList.add('hidden');
         }
     });
-    
+
+    // SF05: PIE audio playback — inline, no navigation
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.pie-audio-btn');
+        if (!btn) return;
+        const audioUrl = btn.dataset.audioUrl;
+        if (!audioUrl) return;
+        if (window._pieAudio) { window._pieAudio.pause(); window._pieAudio = null; }
+        btn.textContent = 'PIE ▶';
+        const audio = new Audio(audioUrl);
+        window._pieAudio = audio;
+        audio.onended = () => { btn.textContent = 'PIE 🔊'; };
+        audio.onerror = () => { btn.textContent = 'PIE ✗'; };
+        audio.play().catch(() => { btn.textContent = 'PIE ✗'; });
+    });
+
     // Real-time search functionality in browse mode
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
