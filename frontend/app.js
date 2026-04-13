@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.8.1';
+const APP_JS_VERSION = '3.8.3';
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {

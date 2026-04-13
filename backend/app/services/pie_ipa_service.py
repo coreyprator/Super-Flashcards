@@ -9,6 +9,24 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
+def strip_final_laryngeal(pie_root: str) -> str:
+    """
+    Remove trailing laryngeal notation from a PIE root before IPA conversion.
+    Word-final laryngeals colored adjacent vowels but are not pronounced in isolation.
+    Examples:
+      *ǵénh₁-  →  *ǵén-
+      *dʰéh₁-  →  *dʰé-
+      *bʰer-   →  unchanged (r is not a laryngeal)
+    """
+    root = pie_root.rstrip('-').rstrip()
+    # Subscript laryngeal notation (Unicode)
+    root = re.sub(r'h[₁₂₃]$', '', root)
+    # ASCII laryngeal notation
+    root = re.sub(r'h[123]$', '', root)
+    return root
+
+
 # Shared client — reuses the same pattern as ai_generate.py
 _client = None
 
@@ -27,38 +45,47 @@ def _get_client():
     return _client
 
 
-_SYSTEM_PROMPT = """You are a historical linguist converting PIE (Proto-Indo-European) root notation to IPA.
-Use the CONSERVATIVE convention. Return ONLY the IPA string — no asterisk, no explanation,
-no brackets, no trailing dashes, no leading slash, no trailing slash. Pure phoneme sequence only.
+_SYSTEM_PROMPT = """You are a historical linguist converting PIE (Proto-Indo-European) root notation to IPA
+for use in text-to-speech synthesis by learners. Use the ACCESSIBLE TEACHING CONVENTION
+that maximizes intelligibility. Return ONLY the IPA phoneme string — no asterisk, no
+explanation, no brackets, no trailing dashes. Pure phoneme sequence only.
 
-LARYNGEAL CONVERSION — MANDATORY — these are the most common errors:
-h₁ (also written h1) → ʔ   EXAMPLE: *h₁es- → ʔɛs
-h₂ (also written h2) → x   EXAMPLE: *h₂stḗr → xˈsteːr
-h₃ (also written h3) → xʷ  EXAMPLE: *h₃rḗǵs → xʷreːɡʲs
-RULE: The characters ₁ ₂ ₃ (subscript numbers, Unicode U+2081 U+2082 U+2083) must NEVER
-appear in your output. If you see h₁ h₂ h₃ in the input, replace the entire sequence
-with ʔ x xʷ respectively. Do not pass subscript digits through.
+LARYNGEAL MAPPING — ACCESSIBLE CONVENTION (sounds like soft English h):
+h₁ (h1) → h    EXAMPLE: *h₁es-  → hɛs     (soft h as in "hotel")
+h₂ (h2) → h    EXAMPLE: *h₂stḗr → ˈhsteːr  (soft h, NOT the ch in "Bach")
+h₃ (h3) → hʷ   EXAMPLE: *h₃rḗǵs → ˈhʷreːɡʲ (labial h)
+CRITICAL: Never use /x/ (velar fricative) for laryngeals. Never use /ʔ/ (glottal stop).
+The characters ₁ ₂ ₃ must NEVER appear in your output.
 
-STRESS MARKER RULES:
-- If the root has an acute accent on a vowel (e.g. *bʰér-, *méh₂tēr), place ˈ BEFORE
-  the accented syllable: *bʰér- → ˈbʱɛr, *méh₂tēr → ˈmeːxteːr
-- If the root has NO acute accent (e.g. *per-, *sed-), use NO stress marker at all: *per- → pɛr
-- NEVER place ˈ at the end of the string. It always precedes a vowel.
+ASPIRATED STOPS — sounds like consonant + puff of air (like English p in "pit"):
+bʰ (bh) → bʰ   EXAMPLE: *bʰer- → bʰɛr   (breathy b, NOT bex or buch)
+dʰ (dh) → dʰ   EXAMPLE: *dʰeh₁ → dʰɛh   (breathy d)
+gʰ (gh) → gʰ   EXAMPLE: *gʰes- → gʰɛs   (breathy g)
+gʷʰ     → gʷʰ
+IMPORTANT: bʰ dʰ gʰ are aspirated stops — a consonant followed by a breath of air.
+They are NOT fricatives. Do not render them as x, ch, or f sounds.
 
-CONSONANT MAPPING:
+STRESS: Place ˈ BEFORE the accented syllable only if root has an acute accent mark.
+Unaccented roots get NO stress marker. NEVER place ˈ at the end of the string.
+
+SCHWA PREVENTION: If the root ends on a consonant (common for verb roots like *sed-,
+*men-, *per-), do NOT add a vowel. The string must end on the consonant phoneme.
+Example: *sed- → sɛd (NOT sɛdə or sɛdɛ). The final phoneme is the final character.
+
+PLAIN CONSONANT MAPPING:
 p→p  t→t  k→k  b→b  d→d  g→ɡ
 kʷ→kʷ  gʷ→ɡʷ
-ḱ (k-acute)→kʲ  ǵ (g-acute)→ɡʲ
-bʰ→bʱ  dʰ→dʱ  gʰ→ɡʱ  gʷʰ→ɡʷʱ
+ḱ/ǵ (palatovelars) → kʲ / ɡʲ
 s→s  y→j  w→w  m→m  n→n  r→r  l→l
 
 VOWEL MAPPING:
-e→ɛ  o→o  a→a
-ē→eː  ō→oː  ā→aː
+e→ɛ  o→o  a→a  ē→eː  ō→oː  ā→aː
 i→i  u→u  ī→iː  ū→uː
 
-SYLLABIC RESONANTS (underring):
-m̥→m̩  n̥→n̩  r̥→r̩  l̥→l̩
+SYLLABIC RESONANTS: m̥→m̩  n̥→n̩  r̥→r̩  l̥→l̩
+
+WORD-FINAL LARYNGEALS: Strip h₁/h₂/h₃ if it is the last segment before the dash.
+Example: *ǵénh₁- → strip h₁ → ɡʲɛn  (no /h/ at end, laryngeal was coloring vowel)
 
 Strip the leading asterisk. Strip trailing dash. Apply the mapping above.
 Return ONLY the resulting IPA string. Nothing else.
@@ -77,15 +104,15 @@ def _validate_ipa(raw: str) -> str | None:
 
     # Reject subscript digits — unconverted laryngeal notation
     if any(c in raw for c in _SUBSCRIPT_DIGITS):
-        return None  # h₁/h₂/h₃ not converted
+        return None
 
     # Reject ASCII laryngeal sequences
     if re.search(r'h[123]', raw):
-        return None  # h1/h2/h3 not converted
+        return None
 
     # Reject stress marker at end of string
     if raw.endswith('\u02c8') or raw.endswith('\u02cc'):
-        return None  # Stress marker misplaced — must precede a vowel
+        return None
 
     # Reject asterisk (unconverted PIE notation leaked through)
     if '*' in raw:
@@ -93,6 +120,19 @@ def _validate_ipa(raw: str) -> str | None:
 
     # Reject brackets
     if '[' in raw or ']' in raw:
+        return None
+
+    # Reject glottal stop (should not appear in accessible convention)
+    if 'ʔ' in raw:
+        return None
+
+    # Reject standalone /x/ — indicates old h₂ convention leaked through
+    # Allow 'xʷ' (old h₃) but reject bare 'x'
+    if re.search(r'x(?!ʷ)', raw):
+        return None
+
+    # Reject trailing schwa or open vowel added to consonant-final root
+    if raw.endswith('ə') or raw.endswith('ɐ') or raw.endswith('ɜ'):
         return None
 
     return raw
@@ -108,14 +148,17 @@ async def convert_pie_to_ipa(pie_root: str) -> str | None:
     if not pie_root.startswith('*'):
         return None
 
+    # Strip word-final laryngeals before passing to GPT
+    processed_root = strip_final_laryngeal(pie_root)
+
     try:
         client = _get_client()
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT.format(pie_root=pie_root)},
-                {"role": "user", "content": f"Convert to IPA: {pie_root}"}
+                {"role": "system", "content": _SYSTEM_PROMPT.format(pie_root=processed_root)},
+                {"role": "user", "content": f"Convert to IPA: {processed_root}"}
             ],
             temperature=0,
             max_tokens=60,
