@@ -4,6 +4,7 @@ backend/.env
 
 # Google Cloud credentials - NEVER COMMIT
 *.json
+!backend/app/data/*.json
 *credentials*.json
 *service-account*.json
 google-cloud-credentials.json

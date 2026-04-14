@@ -73,7 +73,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.8.3" + (" [QA]" if IS_QA else "")
+    version="3.9.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -598,14 +598,21 @@ async def serve_oauth_simple_test():
         return FileResponse(html_file, media_type="text/html")
     return {"error": "File not found"}
 
-# Removed development/testing HTML endpoints to optimize startup
+# SF08 REQ-009: PIE IPA regression test page
+@app.get("/pie-ipa-test")
+async def pie_ipa_test_page():
+    from fastapi.responses import FileResponse
+    html_file = os.path.join(frontend_path, "pie-ipa-test.html")
+    if os.path.exists(html_file):
+        return FileResponse(html_file, media_type="text/html")
+    return {"error": "File not found"}
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.8.3",
+        "version": "3.9.0",
         "database": "connected"
     }
 
