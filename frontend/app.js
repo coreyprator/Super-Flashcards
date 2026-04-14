@@ -3,7 +3,18 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.8.3';
+const APP_JS_VERSION = '3.9.0';
+
+// BA41: Frontend instrumentation for debug tracing
+window.PortfolioDebug = window.PortfolioDebug || {
+  enabled: (new URLSearchParams(window.location.search).get('debug') === '1') ||
+            localStorage.getItem('portfolio-debug') === '1',
+  log: function(component, event, payload) {
+    if (!this.enabled) return;
+    console.log(`[DEBUG] ${component} | ${event}`, payload);
+  },
+  enable: function() { this.enabled = true; }
+};
 
 // Check version consistency on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1351,21 +1362,15 @@ function renderFlashcard(flashcard) {
                                 <div id="etymython-link-study-${flashcard.id}"></div>
                             </div>
                         ` : ''}
-                        ${flashcard.pie_root && flashcard.pie_root !== 'N/A' ? `
-                            <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                <div class="flex items-center justify-between mb-1">
-                                    <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Root</h3>
-                                    <button class="pie-audio-btn px-2 py-0.5 text-xs rounded ${flashcard.pie_audio_url ? 'bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
-                                        data-pie-root="${flashcard.pie_root || ''}"
-                                        data-pie-ipa="${flashcard.pie_ipa || ''}"
-                                        data-audio-url="${flashcard.pie_audio_url || ''}"
-                                        title="${flashcard.pie_root || ''}${flashcard.pie_ipa ? ' / /' + flashcard.pie_ipa + '/' : ''}"
-                                        ${!flashcard.pie_audio_url ? 'disabled' : ''}>PIE 🔊</button>
-                                </div>
-                                <p class="text-amber-800 font-mono font-semibold text-sm">${flashcard.pie_root}${flashcard.pie_ipa ? ` <span class="text-amber-600 font-normal">/${flashcard.pie_ipa}/</span>` : ''}</p>
-                                ${flashcard.pie_meaning ? `<p class="text-amber-700 text-sm mt-1">${flashcard.pie_meaning}</p>` : ''}
+                        <div class="pie-section bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" id="pie-section-${flashcard.id}" style="display:none">
+                            <div class="flex items-center justify-between mb-1">
+                                <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Root</h3>
+                                <button class="pie-audio-btn px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-400 cursor-not-allowed" id="pie-btn-${flashcard.id}"
+                                    data-audio-url="" title="" disabled>PIE 🔊</button>
                             </div>
-                        ` : ''}
+                            <p class="text-amber-800 font-mono font-semibold text-sm"><span id="pie-root-${flashcard.id}"></span> <span class="text-amber-600 font-normal" id="pie-ipa-${flashcard.id}"></span></p>
+                            <p class="text-amber-700 text-sm mt-1" id="pie-meaning-${flashcard.id}" style="display:none"></p>
+                        </div>
                         ${flashcard.compound_parts ? (() => {
                             try {
                                 const parts = typeof flashcard.compound_parts === 'string'
@@ -1563,8 +1568,43 @@ function renderFlashcard(flashcard) {
     // Load DCC dictionary panel (SF-DCC-001)
     loadDccPanel(flashcard.id);
 
+    // SF08 BUG-006: Render PIE section after DOM is ready
+    renderPieSection(flashcard.id, flashcard);
+
     // Add touch/swipe support for mobile navigation
     addSwipeSupport();
+}
+
+// SF08 BUG-006: Render PIE section dynamically (works on initial load + after generate)
+function renderPieSection(cardId, cardData) {
+  window.PortfolioDebug.log('PieSection', 'renderPieSection called', {cardId, pie_root: cardData.pie_root});
+  const section = document.getElementById(`pie-section-${cardId}`);
+  if (!section) {
+    window.PortfolioDebug.log('PieSection', 'section element not found', {cardId});
+    return;
+  }
+  if (cardData.pie_root && cardData.pie_root !== 'N/A') {
+    section.style.display = 'block';
+    document.getElementById(`pie-root-${cardId}`).textContent = cardData.pie_root;
+    if (cardData.pie_ipa) {
+      document.getElementById(`pie-ipa-${cardId}`).textContent = `/${cardData.pie_ipa}/`;
+    }
+    const meaningEl = document.getElementById(`pie-meaning-${cardId}`);
+    if (cardData.pie_meaning && meaningEl) {
+      meaningEl.textContent = cardData.pie_meaning;
+      meaningEl.style.display = 'block';
+    }
+    const btn = document.getElementById(`pie-btn-${cardId}`);
+    if (cardData.pie_audio_url) {
+      btn.dataset.audioUrl = cardData.pie_audio_url;
+      btn.title = `${cardData.pie_root}${cardData.pie_ipa ? ' / /' + cardData.pie_ipa + '/' : ''}`;
+      btn.removeAttribute('disabled');
+      btn.className = 'pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer';
+    }
+    window.PortfolioDebug.log('PieSection', 'pie section rendered', {
+      pie_root: cardData.pie_root, pie_ipa: cardData.pie_ipa, has_audio: !!cardData.pie_audio_url
+    });
+  }
 }
 
 function flipCard() {

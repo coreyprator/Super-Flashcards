@@ -220,6 +220,115 @@ async def validate_card_cognates(flashcard_id: str, db: Session = Depends(get_db
     }
 
 
+@router.post("/backfill-pie-ipa")
+async def backfill_pie_ipa(
+    batch_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Batch-convert PIE roots to IPA for cards missing pie_ipa."""
+    from app.services.pie_ipa_service import convert_pie_to_ipa
+
+    rows = db.execute(text(f"""
+        SELECT TOP ({batch_size}) id, pie_root
+        FROM flashcards
+        WHERE pie_root IS NOT NULL
+          AND pie_root != 'N/A'
+          AND pie_root != ''
+          AND pie_root LIKE '*%'
+          AND pie_ipa IS NULL
+        ORDER BY created_at ASC
+    """)).fetchall()
+
+    processed = 0
+    skipped = 0
+    ipa_error_count = 0
+
+    for row in rows:
+        card_id, pie_root = row[0], row[1]
+        try:
+            ipa = await convert_pie_to_ipa(pie_root)
+            if ipa:
+                db.execute(text("""
+                    UPDATE flashcards SET pie_ipa = :ipa WHERE id = :card_id
+                """), {"ipa": ipa, "card_id": card_id})
+                db.commit()
+                processed += 1
+            else:
+                skipped += 1
+        except Exception as e:
+            logger.error(f"[backfill-pie-ipa] Error on card {card_id}: {e}")
+            ipa_error_count += 1
+        await asyncio.sleep(0.3)
+
+    remaining = db.execute(text("""
+        SELECT COUNT(*) FROM flashcards
+        WHERE pie_root IS NOT NULL AND pie_root != 'N/A' AND pie_root != ''
+          AND pie_root LIKE '*%' AND pie_ipa IS NULL
+    """)).scalar()
+
+    return {
+        "processed": processed,
+        "skipped": skipped,
+        "ipa_error_count": ipa_error_count,
+        "remaining_estimate": remaining,
+        "message": f"Converted {processed} PIE roots to IPA. {remaining} remaining.",
+    }
+
+
+@router.post("/backfill-pie-audio")
+async def backfill_pie_audio(
+    batch_size: int = Query(default=25, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Batch-generate PIE audio for cards with pie_ipa but no pie_audio_url."""
+    from app.services.pie_audio_service import generate_pie_audio
+
+    rows = db.execute(text(f"""
+        SELECT TOP ({batch_size}) id, pie_root, pie_ipa
+        FROM flashcards
+        WHERE pie_ipa IS NOT NULL
+          AND pie_audio_url IS NULL
+        ORDER BY created_at ASC
+    """)).fetchall()
+
+    processed = 0
+    ssml_failed_count = 0
+    errors = 0
+
+    for row in rows:
+        card_id, pie_root, pie_ipa = row[0], row[1], row[2]
+        try:
+            audio_url, ssml_failed = await generate_pie_audio(pie_root, pie_ipa)
+            if audio_url:
+                db.execute(text("""
+                    UPDATE flashcards
+                    SET pie_audio_url = :url, pie_audio_ssml_failed = :ssml_failed
+                    WHERE id = :card_id
+                """), {"url": audio_url, "ssml_failed": ssml_failed, "card_id": card_id})
+                db.commit()
+                processed += 1
+                if ssml_failed:
+                    ssml_failed_count += 1
+            else:
+                errors += 1
+        except Exception as e:
+            logger.error(f"[backfill-pie-audio] Error on card {card_id}: {e}")
+            errors += 1
+        await asyncio.sleep(1.0)
+
+    remaining = db.execute(text("""
+        SELECT COUNT(*) FROM flashcards
+        WHERE pie_ipa IS NOT NULL AND pie_audio_url IS NULL
+    """)).scalar()
+
+    return {
+        "processed": processed,
+        "ssml_failed_count": ssml_failed_count,
+        "errors": errors,
+        "remaining_estimate": remaining,
+    }
+
+
 @router.post("/{flashcard_id}/review", response_model=schemas.Flashcard)
 def mark_reviewed(flashcard_id: str, db: Session = Depends(get_db)):
     """Mark a flashcard as reviewed (increments counter, updates timestamp)"""
@@ -227,3 +336,37 @@ def mark_reviewed(flashcard_id: str, db: Session = Depends(get_db)):
     if db_flashcard is None:
         raise HTTPException(status_code=404, detail="Flashcard not found")
     return db_flashcard
+
+
+# SF08 REQ-009: PIE IPA Regression Harness
+@router.post("/test-pie-ipa")
+async def test_pie_ipa():
+    """Run 50-root PIE IPA test suite against convert_pie_to_ipa()."""
+    import os as _os
+    from app.services.pie_ipa_service import convert_pie_to_ipa
+
+    data_path = _os.path.join(_os.path.dirname(__file__), '../data/pie_ipa_test_suite.json')
+    with open(data_path) as f:
+        suite = json.load(f)
+    results = []
+    passed = partial = failed = 0
+    for item in suite:
+        our_ipa = await convert_pie_to_ipa(item['root'])
+        wiki = item['wiktionary_ipa']
+        if our_ipa is None:
+            status = 'failed'; failed += 1
+        elif our_ipa == wiki:
+            status = 'pass'; passed += 1
+        else:
+            common = sum(1 for c in our_ipa if c in wiki)
+            ratio = common / max(len(our_ipa), len(wiki))
+            if ratio >= 0.7:
+                status = 'partial'; partial += 1
+            else:
+                status = 'failed'; failed += 1
+        results.append({'root': item['root'], 'gloss': item['gloss'],
+            'category': item['category'], 'wiktionary_ipa': wiki,
+            'our_ipa': our_ipa, 'status': status})
+    total = len(suite)
+    return {'total': total, 'passed': passed, 'partial': partial, 'failed': failed,
+            'pass_rate': round((passed + partial * 0.5) / total * 100, 1), 'results': results}

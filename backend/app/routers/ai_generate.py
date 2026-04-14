@@ -81,6 +81,19 @@ Provide the following in JSON format:
 3. english_cognates: A comma-separated list of English words that are TRUE COGNATES of the source word — meaning they share the SAME Proto-Indo-European (PIE) root, not just similar meaning. INCLUDE words that descend from the same PIE ancestor via Latin, Greek, or Germanic paths. EXCLUDE synonyms that mean the same thing but come from different language families. If fewer than 3 true cognates exist, list only the verified ones. Quality over quantity.
 4. related_words: 2-3 related {language.name} words or expressions (as array)
 5. image_description: A detailed description for generating an image (for DALL-E, in English)
+6. "pie_root": The PIE root this word ultimately descends from.
+CRITICAL: Derive pie_root from the etymology chain in your 'etymology' field — NOT independently.
+
+Correct derivation examples:
+- French "séance" → siéger → Latin sedēre "to sit" → PIE *sed- ✓  (NOT *peh₂-)
+- French "mère" → Latin māter → PIE *méh₂tēr ✓
+- French "porter" → Latin portāre → PIE *per- ✓
+- Greek "φέρω" → PIE *bʰér- ✓
+
+The pie_root must be consistent with your English cognates and etymology.
+If etymology mentions Latin sedēre → pie_root must be *sed-.
+If etymology mentions Latin ferre → pie_root must be *bʰer- or *per-.
+If PIE root is genuinely unknown (Pre-Greek substrate, Modern coinage), set to "N/A".
 
 Format your response as valid JSON only, no additional text:
 {{
@@ -88,7 +101,8 @@ Format your response as valid JSON only, no additional text:
   "etymology": "...",
   "english_cognates": "...",
   "related_words": ["...", "...", "..."],
-  "image_description": "..."
+  "image_description": "...",
+  "pie_root": "..."
 }}"""
 
     if verbose:
@@ -560,6 +574,19 @@ def generate_ai_flashcard(
                     logger.warning(f"🔍 VERBOSE: ⚠ Image generation failed, continuing without image")
 
         
+        # SF08 BUG-007: Prefer AI-derived pie_root (consistent with etymology chain)
+        # Fall back to regex extraction from etymology if AI didn't provide it
+        pie_root = content.get("pie_root")
+        if not pie_root or pie_root in ('N/A', '', 'null', 'None'):
+            pie_root = None
+        if not pie_root:
+            etymology_text = content.get("etymology", "")
+            if etymology_text:
+                import re
+                pie_match = re.search(r'\*[\w\u0250-\u02FF-]+', etymology_text)
+                if pie_match:
+                    pie_root = pie_match.group(0)
+
         # Validate cognates against PIE roots (SF04C)
         raw_cognates = content.get("english_cognates", "")
         cognate_pie_roots_json = None
@@ -567,13 +594,6 @@ def generate_ai_flashcard(
             try:
                 import asyncio
                 from app.services.cognate_validation_service import process_card_cognates
-                # Extract PIE root from etymology if available
-                pie_root = None
-                etymology_text = content.get("etymology", "")
-                import re
-                pie_match = re.search(r'\*[\w\u0250-\u02FF-]+', etymology_text)
-                if pie_match:
-                    pie_root = pie_match.group(0)
                 if pie_root:
                     cleaned, audit, _ = asyncio.run(process_card_cognates(
                         raw_cognates, pie_root, request.word_or_phrase
@@ -597,19 +617,42 @@ def generate_ai_flashcard(
             image_description=content.get("image_description", ""),
             source="ai_generated",
             cognate_pie_roots=cognate_pie_roots_json,
+            pie_root=pie_root,
         )
-        
+
         if verbose:
             logger.info(f"🔍 VERBOSE: Creating flashcard in database...")
             logger.info(f"🔍 VERBOSE: Data: word='{flashcard_data.word_or_phrase}', language_id={flashcard_data.language_id}")
-        
+
         result = crud.create_flashcard(db=db, flashcard=flashcard_data)
-        
+
+        # SF05: Generate PIE IPA + audio for cards with valid PIE roots
+        if pie_root and pie_root not in ('N/A', ''):
+            try:
+                import asyncio
+                from app.services.pie_ipa_service import convert_pie_to_ipa
+                from app.services.pie_audio_service import generate_pie_audio
+                pie_ipa = asyncio.run(convert_pie_to_ipa(pie_root))
+                if pie_ipa:
+                    result.pie_ipa = pie_ipa
+                    pie_audio_url, ssml_failed = asyncio.run(generate_pie_audio(pie_root, pie_ipa))
+                    result.pie_audio_url = pie_audio_url
+                    result.pie_audio_ssml_failed = ssml_failed
+                    db.commit()
+                    db.refresh(result)
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: PIE IPA: {pie_ipa}, Audio: {pie_audio_url}")
+                else:
+                    if verbose:
+                        logger.info(f"🔍 VERBOSE: PIE IPA conversion returned None for {pie_root}")
+            except Exception as e:
+                logger.warning(f"[PIE] IPA/audio generation failed for {pie_root}: {e}")
+
         if verbose:
             logger.info(f"🔍 VERBOSE: ✅ Flashcard created successfully!")
             logger.info(f"🔍 VERBOSE: Flashcard ID: {result.id}")
             logger.info(f"🔍 VERBOSE: === AI Generation Complete ===")
-        
+
         return result
         
     except HTTPException:
