@@ -1,4 +1,4 @@
-# backend/app/routers/efg.py — SF05: EFG PIE IPA backfill
+# backend/app/routers/efg.py — SF05/SF11: EFG PIE IPA + audio backfill
 from fastapi import APIRouter, Query
 import asyncio
 import logging
@@ -9,11 +9,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_efg_password_cache = None
+
+
+def _get_efg_password():
+    """Get EFG DB password from env var or Secret Manager."""
+    global _efg_password_cache
+    if _efg_password_cache:
+        return _efg_password_cache
+
+    password = os.getenv("EFG_DB_PASSWORD", "")
+    if password:
+        _efg_password_cache = password
+        return password
+
+    # Fallback: fetch from Secret Manager
+    try:
+        from google.cloud import secretmanager
+        client = secretmanager.SecretManagerServiceClient()
+        name = "projects/super-flashcards-475210/secrets/efg-db-password/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        password = response.payload.data.decode("UTF-8").strip()
+        _efg_password_cache = password
+        logger.info("[efg] Password fetched from Secret Manager")
+        return password
+    except Exception as e:
+        logger.error(f"[efg] Failed to fetch password from Secret Manager: {e}")
+        # Last resort fallback
+        return os.getenv("SQL_PASSWORD", "")
+
 
 def _get_efg_connection():
-    """Connect to EtymologyGraph DB using efg_user via pyodbc.
-    Uses EFG_DB_PASSWORD env var (set from Secret Manager in Cloud Run)."""
-    password = os.getenv("EFG_DB_PASSWORD", os.getenv("SQL_PASSWORD", ""))
+    """Connect to EtymologyGraph DB using efg_user via pyodbc."""
+    password = _get_efg_password()
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
         "SERVER=35.224.242.223,1433;"
@@ -81,5 +109,71 @@ async def backfill_efg_pie_ipa(
         "processed": processed,
         "skipped": skipped,
         "ipa_error_count": ipa_error_count,
+        "remaining_estimate": remaining,
+    }
+
+
+@router.post("/backfill-pie-audio")
+async def backfill_efg_pie_audio(
+    batch_size: int = Query(default=25, ge=1, le=100),
+):
+    """Generate ElevenLabs audio for EFG PIE_ROOT nodes that have pie_ipa but no pie_audio_url.
+    Uses same pie_audio_service.py pipeline as SF flashcards.
+    GCS path: pie-audio/efg/{slug}.mp3"""
+    from app.services.pie_audio_service import generate_pie_audio_from_ipa
+    import re
+
+    conn = _get_efg_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        SELECT TOP {batch_size} id, label, pie_ipa
+        FROM nodes
+        WHERE node_type = 'pie_root'
+          AND pie_ipa IS NOT NULL
+          AND (pie_audio_url IS NULL OR pie_audio_url = '')
+        ORDER BY id
+    """)
+    rows = cursor.fetchall()
+
+    processed = 0
+    errors = []
+
+    for row in rows:
+        node_id, label, pie_ipa = row[0], row[1], row[2]
+        # Create a slug from the label for GCS path
+        clean = label.lstrip('*').lower()
+        slug = re.sub(r'[^a-z0-9]', '_', clean).strip('_') or str(node_id)
+        gcs_path = f"pie-audio/efg/{slug}.mp3"
+
+        try:
+            audio_url, ssml_failed = await generate_pie_audio_from_ipa(pie_ipa, gcs_path)
+            if audio_url:
+                cursor.execute(
+                    "UPDATE nodes SET pie_audio_url = ? WHERE id = ?",
+                    (audio_url, node_id),
+                )
+                conn.commit()
+                processed += 1
+            else:
+                errors.append(f"node {node_id}: generate returned None")
+        except Exception as e:
+            logger.error(f"[efg-audio-backfill] Error on node {node_id}: {e}")
+            errors.append(f"node {node_id}: {str(e)[:80]}")
+        await asyncio.sleep(1.0)
+
+    cursor.execute("""
+        SELECT COUNT(*) FROM nodes
+        WHERE node_type = 'pie_root'
+          AND pie_ipa IS NOT NULL
+          AND (pie_audio_url IS NULL OR pie_audio_url = '')
+    """)
+    remaining = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "processed": processed,
+        "errors": errors[:10],
         "remaining_estimate": remaining,
     }
