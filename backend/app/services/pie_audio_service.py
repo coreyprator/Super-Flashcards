@@ -46,16 +46,40 @@ def _public_url(slug: str) -> str:
 # Vowel characters for consonant-final detection
 _VOWELS = set('ɛoaeiuɪʊəɐɜɑɒæœøyɨʉɯɤɵɘɞʌɔ')
 
+# Voiced stops that ElevenLabs devoices at utterance boundaries
+_VOICED_STOPS = {'b', 'd', 'ɡ', 'bʰ', 'dʰ', 'ɡʰ', 'ɡʷ', 'ɡʲ', 'bʱ', 'dʱ', 'ɡʱ'}
+
+
+def prevent_final_devoicing(pie_ipa: str) -> str:
+    """
+    Append a short schwa /ə/ after word-final voiced stops to prevent
+    ElevenLabs from devoicing them. English TTS devoices final /b d ɡ/
+    to /p t k/ at utterance boundaries.
+
+    Only appends if the IPA string ends on one of these voiced stops
+    (including aspirated voiced variants).
+    """
+    if not pie_ipa:
+        return pie_ipa
+
+    for stop_len in [3, 2, 1]:
+        if len(pie_ipa) >= stop_len and pie_ipa[-stop_len:] in _VOICED_STOPS:
+            return pie_ipa + 'ə'
+
+    return pie_ipa
+
 
 def build_ssml(pie_ipa: str, slug: str) -> str:
     """
     Wrap IPA in SSML phoneme tag.
-    Appends a period after consonant-final strings to signal sentence-end
-    and discourage ElevenLabs from adding a trailing vowel.
+    Applies devoicing prevention, then appends a period after consonant-final
+    strings to signal sentence-end and discourage ElevenLabs from adding
+    a trailing vowel.
     """
-    ends_on_consonant = pie_ipa[-1] not in _VOWELS and pie_ipa[-1] != 'ː' if pie_ipa else False
+    ipa_for_ssml = prevent_final_devoicing(pie_ipa)
+    ends_on_consonant = ipa_for_ssml[-1] not in _VOWELS and ipa_for_ssml[-1] != 'ː' if ipa_for_ssml else False
     text_content = slug + ('.' if ends_on_consonant else '')
-    return f'<speak><phoneme alphabet="ipa" ph="{pie_ipa}">{text_content}</phoneme></speak>'
+    return f'<speak><phoneme alphabet="ipa" ph="{ipa_for_ssml}">{text_content}</phoneme></speak>'
 
 
 async def generate_pie_audio(pie_root: str, pie_ipa: str) -> tuple[str | None, bool]:
@@ -144,5 +168,86 @@ async def generate_pie_audio(pie_root: str, pie_ipa: str) -> tuple[str | None, b
                 )
     except Exception as e:
         logger.error(f"[PIE-Audio] Plain IPA error for {slug}: {e}")
+
+    return None, False
+
+
+def _gcs_blob_path(gcs_path: str):
+    """Get a GCS blob by arbitrary path (for adhoc audio)."""
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    return bucket.blob(gcs_path)
+
+
+def _public_url_path(gcs_path: str) -> str:
+    return f"https://storage.googleapis.com/{GCS_BUCKET}/{gcs_path}"
+
+
+async def generate_pie_audio_from_ipa(ipa: str, gcs_path: str) -> tuple[str | None, bool]:
+    """
+    Generate ElevenLabs audio for an arbitrary IPA string (not tied to a PIE root).
+    Uses the same Josh voice pipeline. Uploads to the given GCS path.
+
+    Returns:
+        (audio_url, ssml_failed) — URL or None, and whether SSML failed.
+    """
+    blob = _gcs_blob_path(gcs_path)
+
+    if blob.exists():
+        return _public_url_path(gcs_path), False
+
+    api_key = _get_api_key()
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    }
+
+    # Build SSML with devoicing prevention
+    ipa_for_ssml = prevent_final_devoicing(ipa)
+    slug = "ipa"
+    ends_on_consonant = ipa_for_ssml[-1] not in _VOWELS and ipa_for_ssml[-1] != 'ː' if ipa_for_ssml else False
+    text_content = slug + ('.' if ends_on_consonant else '')
+    ssml_text = f'<speak><phoneme alphabet="ipa" ph="{ipa_for_ssml}">{text_content}</phoneme></speak>'
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                json={
+                    "text": ssml_text,
+                    "model_id": MODEL_ID,
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                },
+            )
+            if response.status_code == 200 and len(response.content) >= 1024:
+                blob.upload_from_string(response.content, content_type="audio/mpeg")
+                blob.make_public()
+                logger.info(f"[PIE-Audio] Adhoc SSML success: {gcs_path} ({len(response.content)} bytes)")
+                return _public_url_path(gcs_path), False
+    except Exception as e:
+        logger.warning(f"[PIE-Audio] Adhoc SSML error for {gcs_path}: {e}")
+
+    # Fallback: plain IPA text
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                json={
+                    "text": ipa,
+                    "model_id": MODEL_ID,
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                },
+            )
+            if response.status_code == 200 and len(response.content) >= 1024:
+                blob.upload_from_string(response.content, content_type="audio/mpeg")
+                blob.make_public()
+                logger.info(f"[PIE-Audio] Adhoc plain success: {gcs_path} ({len(response.content)} bytes)")
+                return _public_url_path(gcs_path), True
+    except Exception as e:
+        logger.error(f"[PIE-Audio] Adhoc plain error for {gcs_path}: {e}")
 
     return None, False

@@ -370,3 +370,52 @@ async def test_pie_ipa():
     total = len(suite)
     return {'total': total, 'passed': passed, 'partial': partial, 'failed': failed,
             'pass_rate': round((passed + partial * 0.5) / total * 100, 1), 'results': results}
+
+
+# SF10 REQ-010: On-demand IPA audio generation
+@router.post("/generate-ipa-audio")
+async def generate_ipa_audio_on_demand(ipa: str, label: Optional[str] = None):
+    """
+    Generate ElevenLabs audio for an arbitrary IPA string.
+    Caches to GCS at pie-audio/adhoc/{hash}.mp3.
+    """
+    import hashlib
+    from app.services.pie_audio_service import generate_pie_audio_from_ipa
+
+    if not ipa or not ipa.strip():
+        return {"error": "IPA string is required"}
+
+    cache_key = hashlib.md5(ipa.encode()).hexdigest()[:12]
+    gcs_path = f"pie-audio/adhoc/{cache_key}.mp3"
+
+    url, ssml_failed = await generate_pie_audio_from_ipa(ipa.strip(), gcs_path)
+    if url:
+        return {"url": url, "cached": not ssml_failed, "ipa": ipa}
+    return {"error": "Audio generation failed", "ipa": ipa}
+
+
+# SF10 REQ-010: IPA phoneme-level comparison
+@router.post("/compare-ipa")
+async def compare_ipa_strings(expected: str, actual: str):
+    """Compare two IPA strings and return phoneme-level diff."""
+    from app.services.ipa_diff_service import tokenize_ipa
+    from difflib import SequenceMatcher
+
+    expected_tokens = tokenize_ipa(expected)
+    actual_tokens = tokenize_ipa(actual)
+
+    matcher = SequenceMatcher(None, expected_tokens, actual_tokens)
+    diffs = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        diffs.append({
+            "tag": tag,
+            "expected": expected_tokens[i1:i2],
+            "actual": actual_tokens[j1:j2]
+        })
+
+    return {
+        "expected": expected,
+        "actual": actual,
+        "match_pct": round(matcher.ratio() * 100),
+        "diffs": diffs
+    }

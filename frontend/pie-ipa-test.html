@@ -18,9 +18,13 @@
         #run-btn { display: block; margin: 0 auto 20px; padding: 12px 32px; font-size: 16px; background: #f5c542; color: #1a1a2e; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         #run-btn:hover { background: #ffd54f; }
         #run-btn:disabled { background: #555; color: #999; cursor: not-allowed; }
+        .filter-bar { text-align: center; margin-bottom: 16px; display: none; }
+        .filter-btn { padding: 6px 16px; margin: 0 4px; border: 1px solid #555; background: transparent; color: #e0e0e0; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .filter-btn.active { background: #f5c542; color: #1a1a2e; border-color: #f5c542; font-weight: bold; }
+        .filter-btn:hover { border-color: #f5c542; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { background: #16213e; padding: 10px 8px; text-align: left; position: sticky; top: 0; }
-        td { padding: 8px; border-bottom: 1px solid #2a2a4a; }
+        td { padding: 8px; border-bottom: 1px solid #2a2a4a; vertical-align: middle; }
         tr.pass { background: rgba(76, 175, 80, 0.1); }
         tr.partial { background: rgba(255, 152, 0, 0.15); }
         tr.failed { background: rgba(244, 67, 54, 0.1); }
@@ -31,6 +35,19 @@
         .mono { font-family: 'Consolas', 'Monaco', monospace; }
         .loading { text-align: center; padding: 40px; font-size: 18px; color: #aaa; }
         .category { color: #888; font-size: 12px; }
+        .audio-btn { background: none; border: 1px solid #555; color: #e0e0e0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .audio-btn:hover { border-color: #f5c542; color: #f5c542; }
+        .audio-btn.loading-audio { opacity: 0.5; cursor: wait; }
+        .audio-btn.playing { border-color: #4caf50; color: #4caf50; }
+        .diff-cell { font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; }
+        .diff-equal { color: #4caf50; }
+        .diff-replace { color: #ff9800; text-decoration: underline; }
+        .diff-insert { color: #f44336; }
+        .diff-delete { color: #f44336; text-decoration: line-through; }
+        .match-badge { padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        .match-high { background: #4caf50; color: #fff; }
+        .match-mid { background: #ff9800; color: #fff; }
+        .match-low { background: #f44336; color: #fff; }
     </style>
 </head>
 <body>
@@ -45,6 +62,11 @@
         </div>
     </div>
     <button id="run-btn" onclick="runTests()">Run Tests (50 roots)</button>
+    <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="filterRows('all', this)">All</button>
+        <button class="filter-btn" data-filter="failed" onclick="filterRows('failed', this)">Failed</button>
+        <button class="filter-btn" data-filter="partial" onclick="filterRows('partial', this)">Partial</button>
+    </div>
     <div id="loading" class="loading" style="display:none">Running 50 PIE roots through IPA converter...</div>
     <table id="results-table" style="display:none">
         <thead>
@@ -53,24 +75,125 @@
                 <th>Root</th>
                 <th>Gloss</th>
                 <th>Category</th>
-                <th>Wiktionary IPA</th>
+                <th>Wikt. IPA</th>
+                <th></th>
                 <th>Our IPA</th>
+                <th></th>
+                <th>Diff</th>
+                <th>Match%</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody id="results-body"></tbody>
     </table>
     <script>
+        window.PortfolioDebug = window.PortfolioDebug || {
+            enabled: new URLSearchParams(window.location.search).get('debug') === '1',
+            log: function(c, e, p) { if (this.enabled) console.log('[DEBUG] ' + c + ' | ' + e, p); }
+        };
+
+        const audioCache = {};
+        let currentAudio = null;
+
+        function filterRows(filter, btn) {
+            window.PortfolioDebug.log('PieScorerFilter', 'filter-clicked', {filter: filter});
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('#results-body tr').forEach(tr => {
+                if (filter === 'all') { tr.style.display = ''; return; }
+                tr.style.display = tr.classList.contains(filter) ? '' : 'none';
+            });
+        }
+
+        async function playIpaAudio(ipa, btn, debugLabel, root) {
+            if (btn.classList.contains('loading-audio')) return;
+
+            window.PortfolioDebug.log('PieScorerAudio', debugLabel + '-btn clicked', {root: root, ipa: ipa});
+
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            document.querySelectorAll('.audio-btn.playing').forEach(b => b.classList.remove('playing'));
+
+            if (audioCache[ipa]) {
+                window.PortfolioDebug.log('PieScorerAudio', 'cache hit', {ipa: ipa, url: audioCache[ipa]});
+                const audio = new Audio(audioCache[ipa]);
+                currentAudio = audio;
+                btn.classList.add('playing');
+                audio.onended = () => { btn.classList.remove('playing'); currentAudio = null; };
+                audio.play();
+                window.PortfolioDebug.log('PieScorerAudio', 'playback started', {root: root});
+                return;
+            }
+
+            btn.classList.add('loading-audio');
+            btn.textContent = '⏳';
+            try {
+                const resp = await fetch('/api/flashcards/generate-ipa-audio?ipa=' + encodeURIComponent(ipa), { method: 'POST' });
+                const data = await resp.json();
+                window.PortfolioDebug.log('PieScorerAudio', 'generate-ipa-audio response', {url: data.url, cached: data.cached, error: data.error});
+                if (data.url) {
+                    audioCache[ipa] = data.url;
+                    const audio = new Audio(data.url);
+                    currentAudio = audio;
+                    btn.classList.add('playing');
+                    audio.onended = () => { btn.classList.remove('playing'); currentAudio = null; };
+                    audio.play();
+                    window.PortfolioDebug.log('PieScorerAudio', 'playback started', {root: root});
+                } else {
+                    window.PortfolioDebug.log('PieScorerAudio', 'generation failed', {error: data.error});
+                }
+            } catch (e) {
+                window.PortfolioDebug.log('PieScorerAudio', 'fetch error', {error: e.message});
+            }
+            btn.classList.remove('loading-audio');
+            btn.textContent = '▶';
+        }
+
+        async function loadDiff(expected, actual, diffCell, matchCell) {
+            if (!expected || !actual || actual === '(null)') {
+                diffCell.textContent = '—';
+                matchCell.textContent = '—';
+                return;
+            }
+            try {
+                const resp = await fetch('/api/flashcards/compare-ipa?expected=' + encodeURIComponent(expected) + '&actual=' + encodeURIComponent(actual), { method: 'POST' });
+                const data = await resp.json();
+                window.PortfolioDebug.log('PieScorerDiff', 'compare-ipa response', {match_pct: data.match_pct, diffs: data.diffs});
+
+                let html = '';
+                data.diffs.forEach(d => {
+                    if (d.tag === 'equal') {
+                        html += '<span class="diff-equal">' + d.expected.join('') + '</span>';
+                    } else if (d.tag === 'replace') {
+                        html += '<span class="diff-replace" title="' + d.expected.join('') + '→' + d.actual.join('') + '">' + d.actual.join('') + '</span>';
+                    } else if (d.tag === 'insert') {
+                        html += '<span class="diff-insert" title="extra: ' + d.actual.join('') + '">+' + d.actual.join('') + '</span>';
+                    } else if (d.tag === 'delete') {
+                        html += '<span class="diff-delete" title="missing: ' + d.expected.join('') + '">-' + d.expected.join('') + '</span>';
+                    }
+                });
+                diffCell.innerHTML = html;
+
+                const pct = data.match_pct;
+                const cls = pct >= 90 ? 'match-high' : pct >= 70 ? 'match-mid' : 'match-low';
+                matchCell.innerHTML = '<span class="match-badge ' + cls + '">' + pct + '%</span>';
+            } catch (e) {
+                diffCell.textContent = 'err';
+                matchCell.textContent = '—';
+            }
+        }
+
         async function runTests() {
             const btn = document.getElementById('run-btn');
             const loading = document.getElementById('loading');
             const table = document.getElementById('results-table');
             const summary = document.getElementById('summary');
+            const filterBar = document.getElementById('filter-bar');
             btn.disabled = true;
             btn.textContent = 'Running...';
             loading.style.display = 'block';
             table.style.display = 'none';
             summary.style.display = 'none';
+            filterBar.style.display = 'none';
             try {
                 const resp = await fetch('/api/flashcards/test-pie-ipa', { method: 'POST' });
                 const data = await resp.json();
@@ -86,19 +209,47 @@
                 data.results.forEach((r, i) => {
                     const tr = document.createElement('tr');
                     tr.className = r.status;
-                    tr.innerHTML = `
-                        <td>${i + 1}</td>
-                        <td class="mono">${r.root}</td>
-                        <td>${r.gloss}</td>
-                        <td class="category">${r.category}</td>
-                        <td class="mono">${r.wiktionary_ipa}</td>
-                        <td class="mono">${r.our_ipa || '(null)'}</td>
-                        <td><span class="status-badge status-${r.status}">${r.status.toUpperCase()}</span></td>
-                    `;
+
+                    const wikIpa = r.wiktionary_ipa;
+                    const ourIpa = r.our_ipa || '';
+
+                    tr.innerHTML =
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td class="mono">' + r.root + '</td>' +
+                        '<td>' + r.gloss + '</td>' +
+                        '<td class="category">' + r.category + '</td>' +
+                        '<td class="mono">' + wikIpa + '</td>' +
+                        '<td><button class="audio-btn pie-wiki-audio-btn" title="Play Wiktionary IPA">▶</button></td>' +
+                        '<td class="mono">' + (ourIpa || '(null)') + '</td>' +
+                        '<td><button class="audio-btn pie-our-audio-btn" title="Play Our IPA"' + (ourIpa ? '' : ' disabled style="opacity:0.3"') + '>▶</button></td>' +
+                        '<td class="diff-cell"></td>' +
+                        '<td></td>' +
+                        '<td><span class="status-badge status-' + r.status + '">' + r.status.toUpperCase() + '</span></td>';
+
                     tbody.appendChild(tr);
+
+                    // Wire audio buttons
+                    const wikiBtn = tr.querySelector('.pie-wiki-audio-btn');
+                    const ourBtn = tr.querySelector('.pie-our-audio-btn');
+                    wikiBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        playIpaAudio(wikIpa, wikiBtn, 'wiki', r.root);
+                    });
+                    if (ourIpa) {
+                        ourBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            playIpaAudio(ourIpa, ourBtn, 'our', r.root);
+                        });
+                    }
+
+                    // Load diff asynchronously
+                    const diffCell = tr.querySelectorAll('td')[8];
+                    const matchCell = tr.querySelectorAll('td')[9];
+                    loadDiff(wikIpa, ourIpa, diffCell, matchCell);
                 });
                 summary.style.display = 'block';
                 table.style.display = 'table';
+                filterBar.style.display = 'block';
             } catch (e) {
                 loading.textContent = 'Error: ' + e.message;
             }
