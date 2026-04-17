@@ -123,6 +123,11 @@ class Flashcard(Base):
     pie_root = Column(NVARCHAR(100), nullable=True)    # Proto-Indo-European root e.g. *bher-
     pie_meaning = Column(NVARCHAR(255), nullable=True)  # PIE root meaning e.g. "to carry"
 
+    # PIE Pronunciation — SF05
+    pie_ipa = Column(NVARCHAR(200), nullable=True)      # IPA transcription of PIE root
+    pie_audio_url = Column(NVARCHAR(500), nullable=True) # GCS URL for PIE pronunciation audio
+    pie_audio_ssml_failed = Column(Boolean, nullable=True, default=False)  # True if SSML failed, plain IPA used
+
     # Grammatical Gender — SF-MS2 (SF-023)
     gender = Column(NVARCHAR(20), nullable=True)  # masculine, feminine, neuter, or NULL
 

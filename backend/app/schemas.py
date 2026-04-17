@@ -40,6 +40,10 @@ class FlashcardBase(BaseModel):
     # PIE Root
     pie_root: Optional[str] = None
     pie_meaning: Optional[str] = None
+    # PIE Pronunciation (SF05)
+    pie_ipa: Optional[str] = None
+    pie_audio_url: Optional[str] = None
+    pie_audio_ssml_failed: Optional[bool] = None
     # Grammatical Gender (SF-023)
     gender: Optional[str] = None
     # Preposition Usage (SF-024)
@@ -79,6 +83,9 @@ class FlashcardUpdate(BaseModel):
     difficulty: Optional[str] = None
     pie_root: Optional[str] = None
     pie_meaning: Optional[str] = None
+    pie_ipa: Optional[str] = None
+    pie_audio_url: Optional[str] = None
+    pie_audio_ssml_failed: Optional[bool] = None
     gender: Optional[str] = None
     preposition_usage: Optional[str] = None
     # SF-017: Language reassignment
