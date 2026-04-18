@@ -46,18 +46,24 @@ def _public_url(slug: str) -> str:
 # Vowel characters for consonant-final detection
 _VOWELS = set('ɛoaeiuɪʊəɐɜɑɒæœøyɨʉɯɤɵɘɞʌɔ')
 
-# Voiced stops that ElevenLabs devoices at utterance boundaries
-_VOICED_STOPS = {'b', 'd', 'ɡ', 'bʰ', 'dʰ', 'ɡʰ', 'ɡʷ', 'ɡʲ', 'bʱ', 'dʱ', 'ɡʱ'}
+# Voiced stops that ElevenLabs devoices at utterance boundaries,
+# plus word-final laryngeals (h, hʷ) that render harshly in ElevenLabs
+# without a following vowel (SF12 BUG-013 secondary fix).
+_VOICED_STOPS = {
+    'b', 'd', 'ɡ', 'bʰ', 'dʰ', 'ɡʰ', 'ɡʷ', 'ɡʲ', 'bʱ', 'dʱ', 'ɡʱ',
+    'h', 'hʷ',
+}
 
 
 def prevent_final_devoicing(pie_ipa: str) -> str:
     """
-    Append a short schwa /ə/ after word-final voiced stops to prevent
-    ElevenLabs from devoicing them. English TTS devoices final /b d ɡ/
-    to /p t k/ at utterance boundaries.
+    Append a short schwa /ə/ after word-final voiced stops / laryngeals
+    to prevent ElevenLabs from devoicing them or rendering them harshly.
+    English TTS devoices final /b d ɡ/ to /p t k/ at utterance boundaries,
+    and renders final /h/ with an unwanted aspirated burst.
 
-    Only appends if the IPA string ends on one of these voiced stops
-    (including aspirated voiced variants).
+    Only appends if the IPA string ends on one of these segments
+    (including aspirated voiced variants and laryngeals).
     """
     if not pie_ipa:
         return pie_ipa
