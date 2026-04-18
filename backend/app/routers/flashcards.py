@@ -1,5 +1,5 @@
 # backend/app/routers/flashcards.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from typing import List, Optional
@@ -390,26 +390,50 @@ async def generate_ipa_from_pie_root(payload: dict):
         return {"ipa": None, "error": str(e)[:120]}
 
 
-# SF10 REQ-010: On-demand IPA audio generation
+# SF10 REQ-010 / SF12 BUG-014: On-demand IPA audio generation.
+# Accepts BOTH query params (ipa=, label=) and a JSON body
+# ({"ipa": "...", "gcs_path": "..."}) for backwards compat with the
+# Etymython cognate backfill (which posts JSON with explicit gcs_path).
 @router.post("/generate-ipa-audio")
-async def generate_ipa_audio_on_demand(ipa: str, label: Optional[str] = None):
-    """
-    Generate ElevenLabs audio for an arbitrary IPA string.
-    Caches to GCS at pie-audio/adhoc/{hash}.mp3.
-    """
+async def generate_ipa_audio_on_demand(
+    request: Request,
+    ipa: Optional[str] = None,
+    label: Optional[str] = None,
+):
     import hashlib
     from app.services.pie_audio_service import generate_pie_audio_from_ipa
 
-    if not ipa or not ipa.strip():
-        return {"error": "IPA string is required"}
+    body_ipa = None
+    body_gcs_path = None
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            body_ipa = body.get("ipa")
+            body_gcs_path = body.get("gcs_path")
+    except Exception:
+        body = None
 
-    cache_key = hashlib.md5(ipa.encode()).hexdigest()[:12]
-    gcs_path = f"pie-audio/adhoc/{cache_key}.mp3"
+    effective_ipa = (body_ipa or ipa or "").strip()
+    if not effective_ipa:
+        return {"error": "IPA string is required", "url": None, "audio_url": None}
 
-    url, ssml_failed = await generate_pie_audio_from_ipa(ipa.strip(), gcs_path)
+    if body_gcs_path:
+        gcs_path = body_gcs_path
+    else:
+        cache_key = hashlib.md5(effective_ipa.encode()).hexdigest()[:12]
+        gcs_path = f"pie-audio/adhoc/{cache_key}.mp3"
+
+    url, ssml_failed = await generate_pie_audio_from_ipa(effective_ipa, gcs_path)
     if url:
-        return {"url": url, "cached": not ssml_failed, "ipa": ipa}
-    return {"error": "Audio generation failed", "ipa": ipa}
+        return {
+            "url": url,
+            "audio_url": url,
+            "cached": not ssml_failed,
+            "ssml_failed": ssml_failed,
+            "ipa": effective_ipa,
+            "gcs_path": gcs_path,
+        }
+    return {"error": "Audio generation failed", "ipa": effective_ipa, "url": None, "audio_url": None}
 
 
 # SF10 REQ-010: IPA phoneme-level comparison
