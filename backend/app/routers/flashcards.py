@@ -372,6 +372,24 @@ async def test_pie_ipa():
             'pass_rate': round((passed + partial * 0.5) / total * 100, 1), 'results': results}
 
 
+# SF12 BUG-014: PIE root -> IPA conversion endpoint (used by Etymython cognate backfill)
+@router.post("/generate-ipa")
+async def generate_ipa_from_pie_root(payload: dict):
+    """Convert a PIE root (e.g. *weyd-) to IPA transcription via convert_pie_to_ipa()."""
+    from app.services.pie_ipa_service import convert_pie_to_ipa
+
+    pie_root = (payload or {}).get("pie_root", "").strip()
+    if not pie_root:
+        return {"ipa": None, "error": "pie_root required"}
+
+    try:
+        ipa = await convert_pie_to_ipa(pie_root)
+        return {"ipa": ipa, "pie_root": pie_root}
+    except Exception as e:
+        logger.error(f"[generate-ipa] Error converting {pie_root}: {e}")
+        return {"ipa": None, "error": str(e)[:120]}
+
+
 # SF10 REQ-010: On-demand IPA audio generation
 @router.post("/generate-ipa-audio")
 async def generate_ipa_audio_on_demand(ipa: str, label: Optional[str] = None):
