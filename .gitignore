@@ -150,3 +150,11 @@ frontend/tts-test-samples.html
 
 # Virtual environment executables
 .venv/Scripts/*.exe
+
+# OAuth client JSON downloads (never commit)
+client_secret*.json
+*apps.googleusercontent.com.json
+
+# Service account keys
+cc-deploy-key.json
+*-service-account-*.json
