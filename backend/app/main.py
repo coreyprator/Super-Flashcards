@@ -1,12 +1,12 @@
 # backend/app/main.py
-# Version: 3.6.0 - SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode
+# Version: 3.11.0 - ETY01 Phase 1: Basic Auth removal (REQ-014)
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+# Basic Auth removed in Phase 1 (REQ-014)
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -41,12 +41,7 @@ else:
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.INFO)
 
-# Basic Auth configuration - DISABLED now that JWT OAuth is active
-# Set BASIC_AUTH_ENABLED=true in environment to re-enable for testing
-BASIC_AUTH_ENABLED = os.getenv("BASIC_AUTH_ENABLED", "false").lower() == "true"
-BASIC_AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME", "beta")
-BASIC_AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD", "flashcards2025")
-security = HTTPBasic()
+# Basic Auth configuration removed in Phase 1 (REQ-014)
 
 # Performance monitoring - log slow requests
 SLOW_REQUEST_THRESHOLD_MS = float(os.getenv("SLOW_REQUEST_THRESHOLD_MS", "1000"))  # Default: warn if > 1 second
@@ -73,7 +68,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.10.2" + (" [QA]" if IS_QA else "")
+    version="3.11.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -146,59 +141,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Basic Auth Middleware (Phase 1 protection)
-@app.middleware("http")
-async def basic_auth_middleware(request: Request, call_next):
-    """
-    Basic authentication middleware for temporary protection.
-    Excludes health check and static files.
-    """
-    # Skip auth for health check, static assets, and authentication endpoints
-    if request.url.path in ["/", "/health", "/api/sync", "/manifest.json", "/favicon.ico", "/login"] or \
-       request.url.path.startswith("/static/") or \
-       request.url.path.startswith("/images/") or \
-       request.url.path.startswith("/audio/") or \
-       request.url.path.startswith("/api/auth/"):
-        return await call_next(request)
-    
-    # Check if basic auth is enabled
-    if not BASIC_AUTH_ENABLED:
-        return await call_next(request)
-    
-    # Get credentials from Authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Basic "):
-        return HTMLResponse(
-            content="<h1>401 Unauthorized</h1><p>Please provide valid credentials.</p>",
-            status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="Super-Flashcards Beta"'}
-        )
-    
-    # Decode and verify credentials
-    import base64
-    try:
-        encoded_credentials = auth_header.split(" ")[1]
-        decoded = base64.b64decode(encoded_credentials).decode("utf-8")
-        username, password = decoded.split(":", 1)
-        
-        # Constant-time comparison to prevent timing attacks
-        correct_username = secrets.compare_digest(username, BASIC_AUTH_USERNAME)
-        correct_password = secrets.compare_digest(password, BASIC_AUTH_PASSWORD)
-        
-        if not (correct_username and correct_password):
-            return HTMLResponse(
-                content="<h1>401 Unauthorized</h1><p>Invalid credentials.</p>",
-                status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Super-Flashcards Beta"'}
-            )
-    except Exception:
-        return HTMLResponse(
-            content="<h1>401 Unauthorized</h1><p>Invalid authorization format.</p>",
-            status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="Super-Flashcards Beta"'}
-        )
-    
-    return await call_next(request)
+# Basic Auth Middleware removed in Phase 1 (REQ-014)
 
 # ========================================
 # Request Timing Middleware
