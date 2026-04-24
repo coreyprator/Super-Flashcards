@@ -77,7 +77,7 @@ jobs:
 
       - name: Ingest source code into MetaPM SQL
         run: |
-          pip install pyodbc
+          pip install pyodbc google-cloud-secret-manager
           curl -fsSL https://raw.githubusercontent.com/coreyprator/metapm/main/scripts/ingest_code.py -o ingest_code.py
           python ingest_code.py --app sf --repo-root . --sha $(git rev-parse --short HEAD) || exit 1
         env:
