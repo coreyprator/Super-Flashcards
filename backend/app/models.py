@@ -312,3 +312,19 @@ class ShadowingSession(Base):
     accuracy_pct = Column(sqlalchemy.Float, nullable=True)  # overall IPA match %
     phoneme_results = Column(NVARCHAR(None), nullable=True)  # JSON: [{phoneme, expected, got, correct}]
     created_at = Column(DateTime, server_default=func.getdate())
+
+
+# ETY01 Phase 5 (REQ-015, REQ-016): Multi-PIE Root Support — junction table for many-to-many
+class FlashcardPieRoot(Base):
+    __tablename__ = "flashcard_pie_roots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
+    pie_root = Column(NVARCHAR(100), nullable=False)
+    pie_meaning = Column(NVARCHAR(255), nullable=True)
+    pie_ipa = Column(NVARCHAR(200), nullable=True)
+    etymology_layer = Column(NVARCHAR(50), nullable=True)  # "direct", "intermediate", "distant"
+    confidence = Column(sqlalchemy.Float, nullable=True)  # 0.0-1.0
+    source = Column(NVARCHAR(100), nullable=True)  # "AI", "manual", "wiktionary", "etymonline"
+    created_at = Column(DateTime, server_default=func.getdate())
+    updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
