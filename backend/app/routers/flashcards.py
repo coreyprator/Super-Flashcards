@@ -461,3 +461,38 @@ async def compare_ipa_strings(expected: str, actual: str):
         "match_pct": round(matcher.ratio() * 100),
         "diffs": diffs
     }
+
+
+@router.get("/pie-explorer/{pie_root}")
+async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
+    """
+    ETY01 Phase 4 (REQ-013): PIE Explorer Panel endpoint.
+    Returns all flashcards with the given PIE root, plus enriched EFG data.
+    """
+    # Query flashcards with this PIE root
+    cards = db.query(models.Flashcard).filter(
+        models.Flashcard.pie_root == pie_root
+    ).all()
+
+    # Build response with Full Root, Branches, History data
+    branches = []
+    for card in cards:
+        branches.append({
+            "id": str(card.id),
+            "word": card.word_or_phrase,
+            "language": card.language_id,
+            "definition": card.definition,
+            "etymology": card.etymology,
+            "pie_meaning": card.pie_meaning,
+            "pie_ipa": card.pie_ipa,
+            "pie_audio_url": card.pie_audio_url
+        })
+
+    return {
+        "pie_root": pie_root,
+        "card_count": len(cards),
+        "pie_meaning": cards[0].pie_meaning if cards else None,
+        "pie_ipa": cards[0].pie_ipa if cards else None,
+        "pie_audio_url": cards[0].pie_audio_url if cards else None,
+        "branches": branches
+    }

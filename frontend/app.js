@@ -1585,7 +1585,13 @@ function renderPieSection(cardId, cardData) {
   }
   if (cardData.pie_root && cardData.pie_root !== 'N/A') {
     section.style.display = 'block';
-    document.getElementById(`pie-root-${cardId}`).textContent = cardData.pie_root;
+    const rootEl = document.getElementById(`pie-root-${cardId}`);
+    rootEl.textContent = cardData.pie_root;
+    // ETY01 Phase 4 (REQ-013): Make PIE root clickable to open explorer
+    rootEl.style.cursor = 'pointer';
+    rootEl.style.textDecoration = 'underline';
+    rootEl.title = 'Click to explore this PIE root';
+    rootEl.onclick = () => window.openPieExplorer(cardData.pie_root);
     if (cardData.pie_ipa) {
       document.getElementById(`pie-ipa-${cardId}`).textContent = `/${cardData.pie_ipa}/`;
     }
@@ -6822,3 +6828,91 @@ window.addEventListener('load', () => {
 });
 
 console.log('⏱️ Performance timing utilities loaded!');
+
+// ========================================
+// ETY01 Phase 4 (REQ-013): PIE Explorer Panel
+// ========================================
+
+window.switchPieTab = function(tab) {
+    // Update tab buttons
+    const tabs = ['root', 'branches', 'history'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`pie-tab-${t}`);
+        const content = document.getElementById(`pie-content-${t}`);
+        if (t === tab) {
+            btn.classList.remove('border-transparent', 'text-gray-500');
+            btn.classList.add('border-blue-500', 'text-blue-600');
+            content.classList.remove('hidden');
+        } else {
+            btn.classList.remove('border-blue-500', 'text-blue-600');
+            btn.classList.add('border-transparent', 'text-gray-500');
+            content.classList.add('hidden');
+        }
+    });
+};
+
+window.openPieExplorer = async function(pieRoot) {
+    if (!pieRoot) {
+        showToast('No PIE root available for this card', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/flashcards/pie-explorer/${encodeURIComponent(pieRoot)}`);
+        if (!response.ok) throw new Error('Failed to fetch PIE data');
+
+        const data = await response.json();
+
+        // Populate Full Root tab
+        document.getElementById('pie-root-text').textContent = data.pie_root;
+        document.getElementById('pie-meaning-text').textContent = data.pie_meaning || 'N/A';
+        document.getElementById('pie-ipa-text').textContent = data.pie_ipa || 'N/A';
+        document.getElementById('pie-card-count').textContent = `${data.card_count} card(s)`;
+
+        // Setup audio button
+        const audioBtn = document.getElementById('pie-audio-btn');
+        if (data.pie_audio_url) {
+            audioBtn.classList.remove('hidden');
+            audioBtn.onclick = () => {
+                const audio = new Audio(data.pie_audio_url);
+                audio.play();
+            };
+        } else {
+            audioBtn.classList.add('hidden');
+        }
+
+        // Populate Branches tab
+        const branchesList = document.getElementById('pie-branches-list');
+        branchesList.innerHTML = '';
+        data.branches.forEach(branch => {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer';
+            div.onclick = () => {
+                document.getElementById('pie-explorer-modal').classList.add('hidden');
+                // Navigate to the card
+                const cards = state.cards || [];
+                const card = cards.find(c => c.id === branch.id);
+                if (card) {
+                    state.currentCardIndex = cards.indexOf(card);
+                    renderCard(card);
+                }
+            };
+            div.innerHTML = `
+                <div class="font-semibold text-gray-900">${branch.word}</div>
+                <div class="text-sm text-gray-600">${branch.definition || ''}</div>
+                <div class="text-xs text-gray-400 mt-1">${branch.language}</div>
+            `;
+            branchesList.appendChild(div);
+        });
+
+        // Show modal
+        document.getElementById('pie-explorer-modal').classList.remove('hidden');
+        switchPieTab('root');
+    } catch (error) {
+        console.error('PIE Explorer error:', error);
+        showToast('Failed to load PIE root data', 'error');
+    }
+};
+
+console.log('🌍 PIE Explorer Panel loaded!');
+

@@ -1779,5 +1779,69 @@
          ontouchend="event.preventDefault();this.style.display='none';">
         <img id="img-fullscreen-img" alt="" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 4px 32px rgba(0,0,0,0.6);">
     </div>
+
+    <!-- ETY01 Phase 4 (REQ-013): PIE Explorer Panel Modal -->
+    <div id="pie-explorer-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">PIE Root Explorer</h2>
+                    <button onclick="document.getElementById('pie-explorer-modal').classList.add('hidden')"
+                            class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="width" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 mb-4">
+                    <button id="pie-tab-root" class="px-4 py-2 border-b-2 border-blue-500 font-medium text-blue-600"
+                            onclick="switchPieTab('root')">Full Root</button>
+                    <button id="pie-tab-branches" class="px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700"
+                            onclick="switchPieTab('branches')">Branches</button>
+                    <button id="pie-tab-history" class="px-4 py-2 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700"
+                            onclick="switchPieTab('history')">History</button>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="pie-content-root" class="pie-tab-content">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-4">
+                            <span id="pie-root-text" class="text-3xl font-bold text-indigo-600"></span>
+                            <button id="pie-audio-btn" class="hidden text-blue-600 hover:text-blue-800">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z"></path>
+                                    <path d="M12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-gray-700">Meaning:</span>
+                            <span id="pie-meaning-text" class="ml-2 text-gray-900"></span>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-gray-700">IPA:</span>
+                            <code id="pie-ipa-text" class="ml-2 bg-gray-100 px-2 py-1 rounded"></code>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-gray-700">Found in:</span>
+                            <span id="pie-card-count" class="ml-2 text-gray-600"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pie-content-branches" class="pie-tab-content hidden">
+                    <div id="pie-branches-list" class="space-y-2">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div id="pie-content-history" class="pie-tab-content hidden">
+                    <p class="text-gray-600">Etymology history visualization coming soon...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
