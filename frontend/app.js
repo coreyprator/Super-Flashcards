@@ -1575,41 +1575,109 @@ function renderFlashcard(flashcard) {
     addSwipeSupport();
 }
 
-// SF08 BUG-006: Render PIE section dynamically (works on initial load + after generate)
-function renderPieSection(cardId, cardData) {
+// SF08 BUG-006 / Phase 4C (BUG-018): Render PIE section dynamically, reads from junction table
+async function renderPieSection(cardId, cardData) {
   window.PortfolioDebug.log('PieSection', 'renderPieSection called', {cardId, pie_root: cardData.pie_root});
   const section = document.getElementById(`pie-section-${cardId}`);
   if (!section) {
     window.PortfolioDebug.log('PieSection', 'section element not found', {cardId});
     return;
   }
-  if (cardData.pie_root && cardData.pie_root !== 'N/A') {
+
+  // Initial render from cardData (instant, no network needed)
+  function _renderSingleRoot(pieRoot, pieIpa, pieAudioUrl, pieMeaning) {
     section.style.display = 'block';
     const rootEl = document.getElementById(`pie-root-${cardId}`);
-    rootEl.textContent = cardData.pie_root;
-    // ETY01 Phase 4 (REQ-013): Make PIE root clickable to open explorer
-    rootEl.style.cursor = 'pointer';
-    rootEl.style.textDecoration = 'underline';
-    rootEl.title = 'Click to explore this PIE root';
-    rootEl.onclick = () => window.openPieExplorer(cardData.pie_root);
-    if (cardData.pie_ipa) {
-      document.getElementById(`pie-ipa-${cardId}`).textContent = `/${cardData.pie_ipa}/`;
+    if (rootEl) {
+      rootEl.textContent = pieRoot;
+      rootEl.style.cursor = 'pointer';
+      rootEl.style.textDecoration = 'underline';
+      rootEl.title = 'Click to explore this PIE root';
+      rootEl.onclick = () => window.openPieExplorer(pieRoot);
+    }
+    if (pieIpa) {
+      const ipaEl = document.getElementById(`pie-ipa-${cardId}`);
+      if (ipaEl) ipaEl.textContent = `/${pieIpa}/`;
     }
     const meaningEl = document.getElementById(`pie-meaning-${cardId}`);
-    if (cardData.pie_meaning && meaningEl) {
-      meaningEl.textContent = cardData.pie_meaning;
+    if (pieMeaning && meaningEl) {
+      meaningEl.textContent = pieMeaning;
       meaningEl.style.display = 'block';
     }
     const btn = document.getElementById(`pie-btn-${cardId}`);
-    if (cardData.pie_audio_url) {
-      btn.dataset.audioUrl = cardData.pie_audio_url;
-      btn.title = `${cardData.pie_root}${cardData.pie_ipa ? ' / /' + cardData.pie_ipa + '/' : ''}`;
-      btn.removeAttribute('disabled');
-      btn.className = 'pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer';
+    if (btn) {
+      if (pieAudioUrl) {
+        btn.dataset.audioUrl = pieAudioUrl;
+        btn.title = `${pieRoot}${pieIpa ? ' / /' + pieIpa + '/' : ''}`;
+        btn.removeAttribute('disabled');
+        btn.className = 'pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer';
+      } else {
+        // BUG-017: enable on-demand generation when pie_root is set but no audio yet
+        btn.removeAttribute('disabled');
+        btn.title = `Generate PIE pronunciation for ${pieRoot}`;
+        btn.className = 'pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-700 hover:bg-amber-200 cursor-pointer';
+        btn.dataset.pieRoot = pieRoot;
+        btn.dataset.cardId = cardId;
+        btn.dataset.onDemand = 'true';
+      }
     }
-    window.PortfolioDebug.log('PieSection', 'pie section rendered', {
+  }
+
+  if (cardData.pie_root && cardData.pie_root !== 'N/A') {
+    _renderSingleRoot(cardData.pie_root, cardData.pie_ipa, cardData.pie_audio_url, cardData.pie_meaning);
+    window.PortfolioDebug.log('PieSection', 'pie section rendered (initial)', {
       pie_root: cardData.pie_root, pie_ipa: cardData.pie_ipa, has_audio: !!cardData.pie_audio_url
     });
+  }
+
+  // Phase 4C: fetch from junction table (supports future multi-root cards)
+  try {
+    const res = await fetch(`/api/pie/roots/${cardId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const roots = data.pie_roots;
+    if (!roots || roots.length === 0) return;
+
+    if (roots.length === 1) {
+      // Single root from junction table — re-render with canonical data
+      const r = roots[0];
+      _renderSingleRoot(r.pie_root, r.pie_ipa, r.pie_audio_url, r.pie_meaning);
+      window.PortfolioDebug.log('PieSection', 'pie section updated from junction table', {
+        pie_root: r.pie_root, has_audio: !!r.pie_audio_url
+      });
+    } else {
+      // Multiple roots — replace inner HTML with multi-root layout
+      section.style.display = 'block';
+      const rowsHtml = roots.map((r, i) => {
+        const audioBtn = r.pie_audio_url
+          ? `<button class="pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer"
+               data-audio-url="${r.pie_audio_url}"
+               title="${r.pie_root}${r.pie_ipa ? ' / /' + r.pie_ipa + '/' : ''}"
+               ${i === 0 ? `id="pie-btn-${cardId}"` : ''}>PIE 🔊</button>`
+          : `<button class="pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-700 hover:bg-amber-200 cursor-pointer"
+               data-on-demand="true" data-pie-root="${r.pie_root}" data-card-id="${cardId}"
+               ${i === 0 ? `id="pie-btn-${cardId}"` : ''}
+               title="Generate PIE pronunciation for ${r.pie_root}">PIE 🔊</button>`;
+        return `<div class="flex items-start justify-between gap-2 ${i > 0 ? 'mt-1 pt-1 border-t border-amber-200' : ''}">
+          <div>
+            <span class="text-amber-800 font-mono font-semibold text-sm cursor-pointer underline"
+              title="Click to explore this PIE root"
+              onclick="window.openPieExplorer('${r.pie_root.replace(/'/g, "\\'")}')"
+              ${i === 0 ? `id="pie-root-${cardId}"` : ''}>${r.pie_root}</span>
+            ${r.pie_ipa ? `<span class="text-amber-600 font-normal text-sm ml-1" ${i === 0 ? `id="pie-ipa-${cardId}"` : ''}>/${r.pie_ipa}/</span>` : ''}
+            ${r.pie_meaning ? `<span class="text-amber-700 text-xs ml-1">${r.pie_meaning}</span>` : ''}
+          </div>
+          ${audioBtn}
+        </div>`;
+      }).join('');
+      section.innerHTML = `
+        <h3 class="text-xs font-semibold text-amber-900 uppercase mb-2">PIE Roots</h3>
+        <div class="pie-roots-list">${rowsHtml}</div>`;
+      window.PortfolioDebug.log('PieSection', 'pie section multi-root rendered', {count: roots.length});
+    }
+  } catch(e) {
+    // Junction table fetch failed — initial render from cardData already shown
+    window.PortfolioDebug.log('PieSection', 'junction table fetch failed', {cardId, error: e.message});
   }
 }
 
@@ -3131,6 +3199,29 @@ function showEditModal(flashcard) {
     if (pieRootEl) pieRootEl.value = (flashcard.pie_root && flashcard.pie_root !== 'N/A') ? flashcard.pie_root : '';
     if (pieMeaningEl) pieMeaningEl.value = flashcard.pie_meaning || '';
 
+    // BUG-020: Show/hide generate PIE audio button based on pie_root
+    const pieAudioRow = document.getElementById('edit-pie-audio-row');
+    if (pieAudioRow) {
+        if (flashcard.pie_root && flashcard.pie_root !== 'N/A') {
+            pieAudioRow.classList.remove('hidden');
+        } else {
+            pieAudioRow.classList.add('hidden');
+        }
+        const statusEl = document.getElementById('edit-pie-audio-status');
+        if (statusEl) {
+            statusEl.textContent = flashcard.pie_audio_url ? `✓ Audio cached` : '';
+        }
+    }
+
+    // BUG-020: Update generate button visibility when pie_root field changes
+    if (pieRootEl) {
+        pieRootEl.addEventListener('input', () => {
+            if (pieAudioRow) {
+                pieAudioRow.classList.toggle('hidden', !pieRootEl.value.trim());
+            }
+        });
+    }
+
     // SF-017: Language reassignment dropdown
     const editLangSelect = document.getElementById('edit-language-select');
     if (editLangSelect && state.languages) {
@@ -4491,6 +4582,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Note: remove-image-btn doesn't exist - image removal is handled per-form
     // removeImageFromFlashcard is called from edit modal buttons
     console.log('ℹ️ Image removal buttons are handled per-form (manual/edit)');
+
+    // BUG-020: Generate PIE audio button in edit modal
+    const editPieGenerateBtn = document.getElementById('edit-pie-generate-btn');
+    if (editPieGenerateBtn) {
+        editPieGenerateBtn.addEventListener('click', async () => {
+            const pieRoot = (document.getElementById('edit-pie-root')?.value || '').trim();
+            const statusEl = document.getElementById('edit-pie-audio-status');
+            if (!pieRoot) {
+                if (statusEl) statusEl.textContent = 'Enter a PIE root first.';
+                return;
+            }
+            editPieGenerateBtn.disabled = true;
+            editPieGenerateBtn.textContent = '⏳ Generating…';
+            if (statusEl) statusEl.textContent = '';
+            try {
+                const res = await fetch('/api/pie/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({pie_root: pieRoot})
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (statusEl) statusEl.textContent = `✓ IPA: /${data.pie_ipa || ''}/ | Audio cached`;
+                editPieGenerateBtn.textContent = '✓ Generated';
+                window.PortfolioDebug && window.PortfolioDebug.log('PIEModal', 'edit_modal_generate_complete', {pie_root: data.pie_root, pie_ipa: data.pie_ipa});
+            } catch(err) {
+                console.error('[PIEModal] generate failed:', err);
+                if (statusEl) statusEl.textContent = '✗ Generation failed';
+                editPieGenerateBtn.textContent = '🔊 Generate PIE Audio';
+            } finally {
+                editPieGenerateBtn.disabled = false;
+            }
+        });
+    }
     
     // Close modal when clicking outside
     const editModal = document.getElementById('edit-modal');
@@ -6217,9 +6342,48 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
     });
 
     // SF05: PIE audio playback — inline, no navigation
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         const btn = e.target.closest('.pie-audio-btn');
         if (!btn) return;
+        // BUG-017: on-demand generation when no audio URL yet
+        if (btn.dataset.onDemand === 'true' && !btn.dataset.audioUrl) {
+            const pieRoot = btn.dataset.pieRoot;
+            if (!pieRoot) return;
+            btn.textContent = 'PIE ⏳';
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/api/pie/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({pie_root: pieRoot})
+                });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                window.PortfolioDebug.log('PIEAudio', 'on_demand_complete', {pie_root: data.pie_root, pie_audio_url: data.pie_audio_url});
+                btn.dataset.audioUrl = data.pie_audio_url;
+                btn.dataset.onDemand = 'false';
+                btn.disabled = false;
+                btn.className = 'pie-audio-btn px-2 py-0.5 text-xs rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer';
+                btn.title = `${data.pie_root}${data.pie_ipa ? ' /' + data.pie_ipa + '/' : ''}`;
+                // Update IPA display
+                const cardId = btn.dataset.cardId;
+                if (cardId && data.pie_ipa) {
+                    const ipaEl = document.getElementById(`pie-ipa-${cardId}`);
+                    if (ipaEl) ipaEl.textContent = `/${data.pie_ipa}/`;
+                }
+                // Auto-play
+                const audio = new Audio(data.pie_audio_url);
+                btn.textContent = 'PIE ▶';
+                audio.onended = () => { btn.textContent = 'PIE 🔊'; };
+                audio.onerror = () => { btn.textContent = 'PIE ✗'; };
+                audio.play().catch(() => { btn.textContent = 'PIE 🔊'; });
+            } catch(err) {
+                btn.textContent = 'PIE ✗';
+                btn.disabled = false;
+                console.error('[PIEAudio] on-demand failed:', err);
+            }
+            return;
+        }
         const audioUrl = btn.dataset.audioUrl;
         if (!audioUrl) return;
         if (window._pieAudio) { window._pieAudio.pause(); window._pieAudio = null; }
