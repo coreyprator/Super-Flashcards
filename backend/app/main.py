@@ -559,6 +559,92 @@ async def health_check():
         "database": "connected"
     }
 
+
+# BUG-017 / BUG-020: On-demand PIE audio generation
+from pydantic import BaseModel as _PieBaseModel
+
+
+class PieGenerateRequest(_PieBaseModel):
+    pie_root: str
+
+
+@app.post("/api/pie/generate", tags=["pie"])
+async def pie_generate(req: PieGenerateRequest, db: Session = Depends(get_db)):
+    """Generate or return cached PIE audio for a root. BUG-017 / BUG-020."""
+    pie_root = req.pie_root.strip()
+    if not pie_root:
+        raise HTTPException(status_code=400, detail="pie_root is required")
+
+    # Check DB for cached pie_audio_url
+    from sqlalchemy import text as _text
+    row = db.execute(
+        _text("SELECT TOP 1 pie_ipa, pie_audio_url FROM flashcards WHERE pie_root = :root AND pie_audio_url IS NOT NULL"),
+        {"root": pie_root}
+    ).fetchone()
+    if row and row.pie_audio_url:
+        logger.info(f"[PIE-Generate] cache hit for {pie_root}")
+        return {"pie_root": pie_root, "pie_ipa": row.pie_ipa, "pie_audio_url": row.pie_audio_url}
+
+    # Get/generate IPA
+    ipa_row = db.execute(
+        _text("SELECT TOP 1 pie_ipa FROM flashcards WHERE pie_root = :root AND pie_ipa IS NOT NULL"),
+        {"root": pie_root}
+    ).fetchone()
+    pie_ipa = ipa_row.pie_ipa if ipa_row else None
+
+    if not pie_ipa:
+        from app.services.pie_ipa_service import convert_pie_to_ipa
+        pie_ipa = await convert_pie_to_ipa(pie_root)
+        if not pie_ipa:
+            raise HTTPException(status_code=502, detail="IPA conversion failed")
+
+    # Generate audio
+    from app.services.pie_audio_service import generate_pie_audio
+    audio_url, _ = await generate_pie_audio(pie_root, pie_ipa)
+    if not audio_url:
+        raise HTTPException(status_code=502, detail="Audio generation failed")
+
+    # Cache: update all matching flashcards
+    db.execute(
+        _text("UPDATE flashcards SET pie_ipa = :ipa, pie_audio_url = :url WHERE pie_root = :root"),
+        {"ipa": pie_ipa, "url": audio_url, "root": pie_root}
+    )
+    db.commit()
+
+    logger.info(f"[PIE-Generate] generated {pie_root} → {audio_url}")
+    return {"pie_root": pie_root, "pie_ipa": pie_ipa, "pie_audio_url": audio_url}
+
+
+# Phase 4C (BUG-018): Junction table endpoint for multi-root support
+@app.get("/api/pie/roots/{card_id}", tags=["pie"])
+async def get_pie_roots(card_id: str, db: Session = Depends(get_db)):
+    """Return PIE root rows from flashcard_pie_roots junction table for a card."""
+    from sqlalchemy import text as _text
+    rows = db.execute(
+        _text("""
+            SELECT pie_root, pie_ipa, pie_audio_url, pie_meaning, role, display_order
+            FROM flashcard_pie_roots
+            WHERE flashcard_id = :card_id
+            ORDER BY display_order
+        """),
+        {"card_id": card_id}
+    ).fetchall()
+    return {
+        "card_id": card_id,
+        "pie_roots": [
+            {
+                "pie_root": r.pie_root,
+                "pie_ipa": r.pie_ipa,
+                "pie_audio_url": r.pie_audio_url,
+                "pie_meaning": r.pie_meaning,
+                "role": r.role,
+                "display_order": r.display_order,
+            }
+            for r in rows
+        ]
+    }
+
+
 @app.get("/health/db")
 async def health_check_database(db: Session = Depends(get_db)):
     """Health check endpoint that ACTUALLY tests database connection"""
