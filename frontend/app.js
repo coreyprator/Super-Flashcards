@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.10.2';
+const APP_JS_VERSION = '3.11.0';
 
 // BA41: Frontend instrumentation for debug tracing
 window.PortfolioDebug = window.PortfolioDebug || {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flashcards-v3.10.2';
+const CACHE_NAME = 'flashcards-v3.11.0';
 const urlsToCache = [
   '/',
   '/static/app.js',
