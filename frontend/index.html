@@ -471,43 +471,6 @@
         const authScriptLoaded = performance.now();
         console.log(`⏱️  AUTH SCRIPT LOADED: ${(authScriptLoaded - window.pageLoadStart).toFixed(0)}ms`);
         window.timingCheckpoint('T3b-auth-js-loaded', 'auth.js loaded and parsed');
-        
-        // Check authentication before loading the app
-        (async function() {
-            // Track app initialization timing
-            performance.mark('app-auth-check-start');
-            console.log('⏱️  APP: Starting authentication check...');
-            window.timingCheckpoint('T3c-auth-check-start', 'Starting authentication check');
-            
-            // Initialize auth
-            if (!window.auth) {
-                console.error('Auth module not loaded');
-                window.timingCheckpoint('T3-ERROR-auth-not-loaded', 'ERROR: Auth module not loaded');
-                window.location.href = '/login';
-                return;
-            }
-            
-            // Verify user is authenticated
-            const verifyStart = performance.now();
-            const isValid = await window.auth.verifyToken();
-            const verifyTime = performance.now() - verifyStart;
-            
-            performance.mark('app-auth-check-end');
-            performance.measure('app-auth-check', 'app-auth-check-start', 'app-auth-check-end');
-            const authCheckTime = performance.getEntriesByName('app-auth-check')[0]?.duration || 0;
-            
-            if (!isValid) {
-                console.log(`⏱️  APP: Auth check complete (${authCheckTime.toFixed(0)}ms) - Not authenticated`);
-                console.log('Not authenticated, redirecting to login...');
-                window.timingCheckpoint('T3d-auth-failed', `Auth verification failed (${verifyTime.toFixed(2)}ms), redirecting to login`);
-                window.location.href = '/login';
-                return;
-            }
-            
-            console.log(`⏱️  APP: Auth check complete (${authCheckTime.toFixed(0)}ms) - Authenticated ✅`);
-            console.log('✅ User authenticated:', window.auth.getUser());
-            window.timingCheckpoint('T3e-auth-success', `User authenticated successfully (${verifyTime.toFixed(2)}ms)`);
-        })();
     </script>
 
     <!-- First-Time User Loading Overlay -->
@@ -687,9 +650,6 @@
                     <button id="mode-import" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
                         📁 <span class="mode-button-label">Import</span>
                     </button>
-                    <button id="mode-progress" class="mode-button px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900">
-                        📊 <span class="mode-button-label">Progress</span>
-                    </button>
                 </div>
                 
                 <!-- Primary Action + Settings -->
@@ -829,10 +789,6 @@
                     </div>
                 </div>
 
-                <!-- Progress Mode (SF-007) -->
-                <div id="progress-mode" class="mode-content hidden">
-                    <!-- Rendered by progress.js -->
-                </div>
             </div>
 
             <!-- Add Card Content -->
@@ -1546,7 +1502,7 @@
                     <!-- BUG-020: Generate PIE Audio button -->
                     <div id="edit-pie-audio-row" class="hidden">
                         <button type="button" id="edit-pie-generate-btn"
-                            class="px-3 py-1.5 text-sm rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer font-medium">
+                            class="pie-generate-btn px-3 py-1.5 text-sm rounded bg-amber-200 text-amber-900 hover:bg-amber-300 cursor-pointer font-medium">
                             🔊 Generate PIE Audio
                         </button>
                         <span id="edit-pie-audio-status" class="ml-3 text-xs text-gray-500"></span>
@@ -1710,7 +1666,6 @@
     <script src="/pronunciation-recorder.js?v=2.10.3"></script>
     <script src="/voice-clone.js?v=2.9.1"></script>
     <script src="/pronunciation-deep-analysis.js?v=8.5b"></script>
-    <script src="/progress.js?v=3.0.0"></script>
     <script src="/app.js?v=3.11.0"></script>
     <script>
         window.timingCheckpoint('T5n-app-js-loaded', 'app.js loaded - DOMContentLoaded will fire next');
