@@ -5896,7 +5896,6 @@ function switchMode(mode) {
     const practiceBtn = document.getElementById('mode-practice');
     const browseBtn = document.getElementById('mode-browse');
     const importBtn = document.getElementById('mode-import');
-    const progressBtn = document.getElementById('mode-progress');
 
     console.log('🔍 Mode containers found:', {
         studyMode: !!document.getElementById('study-mode'),
@@ -5908,7 +5907,7 @@ function switchMode(mode) {
     });
 
     // Reset all buttons
-    [studyBtn, readBtn, practiceBtn, browseBtn, importBtn, progressBtn].forEach(btn => {
+    [studyBtn, readBtn, practiceBtn, browseBtn, importBtn].forEach(btn => {
         if (btn) {
             btn.classList.remove('active', 'bg-indigo-600', 'text-white');
             btn.classList.add('text-gray-600');
@@ -5921,14 +5920,12 @@ function switchMode(mode) {
     const practiceModeEl = document.getElementById('practice-mode');
     const browseModeEl = document.getElementById('browse-mode');
     const importModeEl = document.getElementById('content-import');
-    const progressModeEl = document.getElementById('progress-mode');
 
     if (studyModeEl) studyModeEl.classList.add('hidden');
     if (readModeEl) readModeEl.classList.add('hidden');
     if (practiceModeEl) practiceModeEl.classList.add('hidden');
     if (browseModeEl) browseModeEl.classList.add('hidden');
     if (importModeEl) importModeEl.classList.add('hidden');
-    if (progressModeEl) progressModeEl.classList.add('hidden');
     
     console.log(`🎯 Switching to: ${mode}`);
     
@@ -6027,24 +6024,8 @@ function switchMode(mode) {
         } else {
             console.error('❌ Import mode element not found!');
         }
-    } else if (mode === 'progress') {
-        console.log('📊 Activating Progress mode');
-
-        if (progressBtn) {
-            progressBtn.classList.add('active', 'bg-indigo-600', 'text-white');
-            progressBtn.classList.remove('text-gray-600');
-        }
-
-        if (progressModeEl) {
-            progressModeEl.classList.remove('hidden');
-        }
-
-        // Initialize progress dashboard (progress.js)
-        if (typeof window.initProgressDashboard === 'function') {
-            window.initProgressDashboard();
-        }
     }
-    
+
     state.currentMode = mode;
     console.log(`✅ Mode switched to: ${mode}`);
 }
@@ -6271,12 +6252,6 @@ function initializeNewUI() {
         switchMode('import');
     });
 
-    const progressBtn2 = document.getElementById('mode-progress');
-    progressBtn2?.addEventListener('click', () => {
-        console.log('📊 Progress button clicked');
-        switchMode('progress');
-    });
-    
     // Primary action button - show the add card form
 document.getElementById('add-card-btn')?.addEventListener('click', () => {
     // SM06 Fix 2: Dismiss any stuck loading overlay before showing Add Card form.
