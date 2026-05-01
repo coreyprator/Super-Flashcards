@@ -27,33 +27,11 @@ class Auth {
         // Handle OAuth callback - extract token from URL parameters
         this.handleOAuthCallback();
 
-        // iOS fix: if no access token recovered from localStorage, attempt
-        // cookie-based refresh. iOS Safari ITP can purge localStorage after
-        // 7 days of inactivity, but HTTP-only cookies (30 day, SameSite=None)
-        // survive. This recovers the session without forcing re-login.
-        if (!this.accessToken && !this._isOAuthCallback()) {
-            console.log('🔄 No stored token — attempting cookie-based session recovery');
-            this._initialRefreshPromise = this.refreshToken().then(ok => {
-                if (ok) {
-                    console.log('✅ Session recovered from refresh cookie (iOS recovery path)');
-                } else {
-                    console.log('ℹ️ No valid refresh cookie — user must log in');
-                }
-                return ok;
-            });
-        }
-
-        // Re-verify/refresh when app returns to foreground (Phase 4)
-        // Also attempt refresh when accessToken is null — iOS may have
-        // purged localStorage while app was in background but cookie survives
+        // SF is a public app — no automatic cookie-based session recovery.
+        // Visibility-change refresh only when an explicit token is present.
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                if (this.accessToken) {
-                    this._checkAndRefresh();
-                } else if (!this._isOAuthCallback()) {
-                    console.log('🔄 App resumed with no token — attempting cookie recovery');
-                    this.refreshToken();
-                }
+            if (document.visibilityState === 'visible' && this.accessToken) {
+                this._checkAndRefresh();
             }
         });
     }
@@ -201,7 +179,6 @@ class Auth {
                 this._showAuthToast('Session expired - please log in again', 'error');
                 // Refresh token is also expired/invalid — user must re-login
                 this.clearAuth();
-                window.location.href = '/login';
                 return false;
             }
         } catch (error) {
@@ -395,37 +372,12 @@ class Auth {
     }
 
     async requireAuth() {
-        // If constructor's cookie refresh is in-flight, wait for it first
-        if (this._initialRefreshPromise) {
-            await this._initialRefreshPromise;
-            this._initialRefreshPromise = null;
-        }
-
-        // Then check if we have a token
-        if (!this.accessToken) {
-            // Try refresh from cookie before giving up
-            const refreshed = await this.refreshToken();
-            if (!refreshed) {
-                window.location.href = '/login';
-                return false;
-            }
-        }
-
-        const isValid = await this.verifyToken();
-        if (!isValid) {
-            window.location.href = '/login';
-            return false;
-        }
+        // SF is a public app — auth is never required.
         return true;
     }
 
     redirectIfNotAuthenticated() {
-        if (!this.isAuthenticated()) {
-            // Try silent refresh before redirecting
-            this.refreshToken().then(ok => {
-                if (!ok) window.location.href = '/login';
-            });
-        }
+        // SF is a public app — never redirect.
     }
 
     renderUserProfile(containerId) {
