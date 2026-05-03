@@ -176,8 +176,6 @@ class Auth {
                 return true;
             } else {
                 console.warn('⚠️ Refresh failed, status:', response.status);
-                this._showAuthToast('Session expired - please log in again', 'error');
-                // Refresh token is also expired/invalid — user must re-login
                 this.clearAuth();
                 return false;
             }
