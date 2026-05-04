@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.11.0 - ETY01 Phase 1: Basic Auth removal (REQ-014)
+# Version: 3.13.0 - ETY01G: PIE Compound Audit + Fix Sprint (ETY01G-PIE-COMPOUND-AUDIT-001)
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,7 +68,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.11.0" + (" [QA]" if IS_QA else "")
+    version="3.13.0" + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -330,8 +330,35 @@ async def startup_event():
                 "IF COL_LENGTH('flashcards', 'video_job_id') IS NULL "
                 "ALTER TABLE flashcards ADD video_job_id NVARCHAR(36) NULL"
             ))
+            # BUG-025: Fix google_id UNIQUE constraint — SQL Server doesn't allow multiple NULLs
+            # in a UNIQUE CONSTRAINT. Replace with filtered unique index (NULL-safe).
+            conn.execute(sa_text("""
+                IF EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'UQ__users__google_id_filtered'
+                    AND object_id = OBJECT_ID('users')
+                ) SELECT 1  -- already migrated
+                ELSE BEGIN
+                    -- Drop the ORM-generated unique constraint on google_id if it exists
+                    DECLARE @con NVARCHAR(200);
+                    SELECT @con = name FROM sys.key_constraints
+                    WHERE parent_object_id = OBJECT_ID('users')
+                    AND type = 'UQ'
+                    AND COL_NAME(parent_object_id, (
+                        SELECT column_id FROM sys.index_columns
+                        WHERE object_id = OBJECT_ID('users')
+                        AND index_id = (SELECT index_id FROM sys.indexes WHERE name = sys.key_constraints.name AND object_id = OBJECT_ID('users'))
+                        AND key_ordinal = 1
+                    )) = 'google_id';
+                    IF @con IS NOT NULL
+                        EXEC('ALTER TABLE users DROP CONSTRAINT [' + @con + ']');
+                    -- Create filtered unique index (allows multiple NULLs)
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ__users__google_id_filtered' AND object_id = OBJECT_ID('users'))
+                        CREATE UNIQUE INDEX UQ__users__google_id_filtered ON users(google_id) WHERE google_id IS NOT NULL;
+                END
+            """))
             conn.commit()
-        logger.info("Startup migrations ready (compound_parts, video_url, video_job_id)")
+        logger.info("Startup migrations ready (compound_parts, video_url, video_job_id, google_id_filtered)")
     except Exception as _e:
         logger.warning(f"Startup migration warning (non-fatal): {_e}")
 
@@ -555,7 +582,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.11.0",
+        "version": "3.13.0",
         "database": "connected"
     }
 
