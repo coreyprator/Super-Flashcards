@@ -1365,8 +1365,17 @@ function renderFlashcard(flashcard) {
                         <div class="pie-section bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" id="pie-section-${flashcard.id}" style="display:none">
                             <div class="flex items-center justify-between mb-1">
                                 <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Root</h3>
-                                <button class="pie-audio-btn px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-400 cursor-not-allowed" id="pie-btn-${flashcard.id}"
-                                    data-audio-url="" title="" disabled>PIE 🔊</button>
+                                <div class="flex items-center gap-1">
+                                    <button class="pie-audio-btn px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-400 cursor-not-allowed" id="pie-btn-${flashcard.id}"
+                                        data-audio-url="" title="" disabled>PIE 🔊</button>
+                                    <button class="pie-verify-btn px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
+                                        data-card-id="${flashcard.id}"
+                                        data-pie-root="${flashcard.pie_root || ''}"
+                                        data-word="${(flashcard.word_or_phrase || '').replace(/"/g, '&quot;')}"
+                                        data-current-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
+                                        data-definition="${(flashcard.definition || '').replace(/"/g, '&quot;')}"
+                                        title="Verify this PIE root with AI">🔍 Verify PIE</button>
+                                </div>
                             </div>
                             <p class="text-amber-800 font-mono font-semibold text-sm"><span id="pie-root-${flashcard.id}"></span> <span class="text-amber-600 font-normal" id="pie-ipa-${flashcard.id}"></span></p>
                             <p class="text-amber-700 text-sm mt-1" id="pie-meaning-${flashcard.id}" style="display:none"></p>
@@ -1679,6 +1688,43 @@ async function renderPieSection(cardId, cardData) {
     // Junction table fetch failed — initial render from cardData already shown
     window.PortfolioDebug.log('PieSection', 'junction table fetch failed', {cardId, error: e.message});
   }
+}
+
+// ETY01H Phase 4B: show PIE verify result panel
+function showVerifyPanel(cardId, data) {
+    // ETY01H-RW: store full response for Ask follow-up
+    window.__lastVerifyData = { cardId: cardId, response: data };
+    var existing = document.getElementById('pie-verify-panel');
+    if (existing) existing.remove();
+    var color = data.verdict === 'correct' ? 'green' : data.verdict === 'wrong' ? 'red' : 'amber';
+    var panel = document.createElement('div');
+    panel.id = 'pie-verify-panel';
+    panel.dataset.cardId = cardId;
+    panel.className = 'mt-2 p-3 rounded-lg border bg-' + color + '-50 border-' + color + '-200';
+    panel.innerHTML =
+        '<div class="flex items-center gap-2 mb-2">' +
+            '<span class="font-semibold text-' + color + '-800">' +
+                (data.verdict === 'correct' ? '✓ Correct' : data.verdict === 'wrong' ? '✗ Wrong root' : '? Uncertain') +
+            '</span>' +
+            '<span class="text-xs text-' + color + '-600">' + data.confidence + '% confidence</span>' +
+        '</div>' +
+        '<p class="text-sm text-' + color + '-800 mb-2">' + data.explanation + '</p>' +
+        (data.correct_root ? '<p class="text-sm font-mono font-bold">Suggested: ' + data.correct_root + (data.correct_ipa ? ' /' + data.correct_ipa + '/' : '') + '</p>' : '') +
+        (data.sources && data.sources.length ? '<p class="text-xs text-gray-500 mt-1">Sources: ' + data.sources.join(', ') + '</p>' : '') +
+        '<div class="flex gap-2 mt-3">' +
+            '<button class="pie-verify-accept px-3 py-1 text-xs rounded bg-' + color + '-600 text-white"' +
+                ' data-card-id="' + cardId + '"' +
+                ' data-correct-root="' + (data.correct_root || data.current_root || '') + '"' +
+                ' data-correct-ipa="' + (data.correct_ipa || data.current_ipa || '') + '">' +
+                (data.verdict === 'correct' ? 'Confirm ✓' : 'Accept correction') +
+            '</button>' +
+            '<button class="pie-verify-ask px-3 py-1 text-xs rounded bg-gray-100 text-gray-700">Ask a question</button>' +
+            '<button class="pie-verify-dismiss px-3 py-1 text-xs rounded bg-gray-200 text-gray-700">Dismiss</button>' +
+        '</div>';
+    var section = document.getElementById('pie-section-' + cardId);
+    if (section) section.appendChild(panel);
+    var verifyBtn = document.querySelector('.pie-verify-btn[data-card-id="' + cardId + '"]');
+    if (verifyBtn) { verifyBtn.textContent = '🔍 Verify PIE'; verifyBtn.disabled = false; }
 }
 
 function flipCard() {
@@ -6368,6 +6414,129 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
         audio.onended = () => { btn.textContent = 'PIE 🔊'; };
         audio.onerror = () => { btn.textContent = 'PIE ✗'; };
         audio.play().catch(() => { btn.textContent = 'PIE ✗'; });
+    });
+
+    // ETY01H Phase 4B: PIE verify button handler
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.pie-verify-btn');
+        if (!btn) return;
+        btn.textContent = '🔍 Verifying...';
+        btn.disabled = true;
+        try {
+            const resp = await fetch('/api/pie/verify', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    entity_type: 'sf_card',
+                    entity_id: btn.dataset.cardId,
+                    word: btn.dataset.word,
+                    current_root: btn.dataset.pieRoot,
+                    current_meaning: btn.dataset.currentMeaning,
+                    definition: btn.dataset.definition
+                })
+            });
+            const data = await resp.json();
+            showVerifyPanel(btn.dataset.cardId, data);
+        } catch(err) {
+            btn.textContent = '🔍 Verify PIE';
+            btn.disabled = false;
+        }
+    });
+
+    // ETY01H-RW Phase 2: accept correction handler (PUT, not PATCH; error guard)
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.pie-verify-accept')) {
+            const acceptBtn = e.target.closest('.pie-verify-accept');
+            const cardId = acceptBtn.dataset.cardId;
+            const correctRoot = acceptBtn.dataset.correctRoot;
+            const correctIpa = acceptBtn.dataset.correctIpa;
+            acceptBtn.textContent = 'Saving...';
+            acceptBtn.disabled = true;
+            const resp = await fetch('/api/flashcards/' + cardId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pie_root: correctRoot, pie_ipa: correctIpa, pie_audio_url: null})
+            });
+            if (!resp.ok) {
+                console.error('PIE verify accept failed:', resp.status, await resp.text());
+                acceptBtn.textContent = 'Save failed (' + resp.status + ')';
+                acceptBtn.disabled = false;
+                return;
+            }
+            const rootEl = document.getElementById('pie-root-' + cardId);
+            if (rootEl) rootEl.textContent = correctRoot;
+            const ipaEl = document.getElementById('pie-ipa-' + cardId);
+            if (ipaEl) ipaEl.textContent = correctIpa ? '/' + correctIpa + '/' : '';
+            const audioBtn = document.getElementById('pie-btn-' + cardId);
+            if (audioBtn) { audioBtn.dataset.audioUrl = ''; audioBtn.dataset.pieRoot = correctRoot; }
+            document.getElementById('pie-verify-panel') && document.getElementById('pie-verify-panel').remove();
+        }
+        if (e.target.closest('.pie-verify-dismiss')) {
+            const panel = document.getElementById('pie-verify-panel');
+            if (panel) panel.remove();
+        }
+    });
+
+    // ETY01H-RW Phase 3: Ask — toggle input area
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.pie-verify-ask')) return;
+        const existing = document.getElementById('pie-verify-ask-input');
+        if (existing) { existing.remove(); return; }
+        const panel = document.getElementById('pie-verify-panel');
+        if (!panel) return;
+        const askArea = document.createElement('div');
+        askArea.id = 'pie-verify-ask-input';
+        askArea.className = 'mt-3 flex gap-2';
+        askArea.innerHTML =
+            '<input type="text" id="pie-verify-ask-text" ' +
+                'class="flex-1 px-2 py-1 text-xs border rounded" ' +
+                'placeholder="Ask a follow-up...">' +
+            '<button id="pie-verify-ask-send" ' +
+                'class="px-3 py-1 text-xs rounded bg-gray-700 text-white">Send</button>';
+        panel.appendChild(askArea);
+        document.getElementById('pie-verify-ask-text').focus();
+    });
+
+    // ETY01H-RW Phase 3: Ask — send follow-up
+    document.addEventListener('click', async function(e) {
+        if (!e.target.closest('#pie-verify-ask-send')) return;
+        const input = document.getElementById('pie-verify-ask-text');
+        const question = input && input.value ? input.value.trim() : '';
+        if (!question) return;
+        const lastVerify = window.__lastVerifyData;
+        if (!lastVerify) return;
+        const sendBtn = document.getElementById('pie-verify-ask-send');
+        sendBtn.textContent = 'Asking...';
+        sendBtn.disabled = true;
+        try {
+            const resp = await fetch('/api/pie/verify', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    entity_type: 'sf_card',
+                    entity_id: lastVerify.cardId,
+                    word: lastVerify.response.word || '',
+                    current_root: lastVerify.response.correct_root || lastVerify.response.current_root || '',
+                    followup_question: question
+                })
+            });
+            if (!resp.ok) throw new Error('Verify failed: ' + resp.status);
+            const data = await resp.json();
+            window.__lastVerifyData = { cardId: lastVerify.cardId, response: data };
+            showVerifyPanel(lastVerify.cardId, data);
+        } catch(err) {
+            sendBtn.textContent = 'Error — retry';
+            sendBtn.disabled = false;
+        }
+    });
+
+    // ETY01H-RW Phase 3: Ask — Enter key submits
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' &&
+            document.activeElement === document.getElementById('pie-verify-ask-text')) {
+            const sendBtn = document.getElementById('pie-verify-ask-send');
+            if (sendBtn) sendBtn.click();
+        }
     });
 
     // Real-time search functionality in browse mode

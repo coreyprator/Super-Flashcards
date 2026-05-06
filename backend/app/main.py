@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.13.0 - ETY01G: PIE Compound Audit + Fix Sprint (ETY01G-PIE-COMPOUND-AUDIT-001)
+# Version: 3.14.1 - ETY01H-RW: PIE Verify Rework
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -582,7 +582,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.13.0",
+        "version": "3.14.1",
         "database": "connected"
     }
 
@@ -640,6 +640,79 @@ async def pie_generate(req: PieGenerateRequest, db: Session = Depends(get_db)):
 
     logger.info(f"[PIE-Generate] generated {pie_root} → {audio_url}")
     return {"pie_root": pie_root, "pie_ipa": pie_ipa, "pie_audio_url": audio_url}
+
+
+# ETY01H Phase 4A: PIE verify endpoint
+import json as _json
+from typing import List as _List, Optional as _Optional
+import anthropic as _anthropic
+from pydantic import BaseModel as _PieVerifyBase
+
+_anthropic_client = _anthropic.AsyncAnthropic()  # uses ANTHROPIC_API_KEY env var
+
+
+class PieVerifyRequest(_PieVerifyBase):
+    entity_type: str
+    entity_id: str
+    word: str
+    current_root: str
+    current_meaning: _Optional[str] = None
+    definition: _Optional[str] = None
+    followup_question: _Optional[str] = None   # ETY01H-RW: Ask follow-up
+
+
+class PieVerifyResponse(_PieVerifyBase):
+    verdict: str
+    confidence: int
+    explanation: str
+    correct_root: _Optional[str] = None
+    correct_ipa: _Optional[str] = None
+    correct_meaning: _Optional[str] = None
+    sources: _List[str]
+    related_cognates: _List[str]
+
+
+@app.post("/api/pie/verify", response_model=PieVerifyResponse, tags=["pie"])
+async def pie_verify(req: PieVerifyRequest):
+    """Verify a PIE root assignment using Claude. ETY01H Phase 4A."""
+    followup = (
+        f"\n\nFollow-up question: {req.followup_question}\nAddress this in your explanation field while keeping the JSON format."
+    ) if req.followup_question else ""
+    prompt = f"""You are a Proto-Indo-European linguistics expert. Verify this etymology entry.
+
+Word: {req.word}
+Assigned PIE root: {req.current_root}
+Meaning assigned: {req.current_meaning or 'not specified'}
+Definition: {req.definition or 'not specified'}
+
+Is this PIE root assignment correct for this word?
+{followup}
+Return ONLY valid JSON with no markdown:
+{{
+  "verdict": "correct" or "wrong" or "uncertain",
+  "confidence": 0-100,
+  "explanation": "one or two plain English sentences",
+  "correct_root": "*root-" or null if verdict is correct,
+  "correct_ipa": "ipa transcription" or null,
+  "correct_meaning": "PIE meaning" or null,
+  "sources": ["Watkins AHDIER", "Beekes", "Wiktionary"],
+  "related_cognates": ["word1", "word2", "word3"]
+}}"""
+
+    response = await _anthropic_client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+
+    data = _json.loads(raw.strip())
+    return PieVerifyResponse(**data)
 
 
 # Phase 4C (BUG-018): Junction table endpoint for multi-root support
