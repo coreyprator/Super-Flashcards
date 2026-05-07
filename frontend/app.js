@@ -1370,6 +1370,7 @@ function renderFlashcard(flashcard) {
                                         data-audio-url="" title="" disabled>PIE 🔊</button>
                                     <button class="pie-verify-btn px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
                                         data-card-id="${flashcard.id}"
+                                        data-efg-node-id="${flashcard.efg_node_id || ''}"
                                         data-pie-root="${flashcard.pie_root || ''}"
                                         data-word="${(flashcard.word_or_phrase || '').replace(/"/g, '&quot;')}"
                                         data-current-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
@@ -1689,6 +1690,7 @@ async function renderPieSection(cardId, cardData) {
           <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Roots</h3>
           <button class="pie-verify-btn px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
             data-card-id="${cardId}"
+            data-efg-node-id="${cardData.efg_node_id || ''}"
             data-pie-root="${roots[0].pie_root}"
             data-word="${cardData.word_or_phrase ? cardData.word_or_phrase.replace(/"/g, '&quot;') : ''}"
             data-current-meaning="${roots[0].pie_meaning ? roots[0].pie_meaning.replace(/"/g, '&quot;') : ''}"
@@ -1705,7 +1707,7 @@ async function renderPieSection(cardId, cardData) {
 }
 
 // ETY01H Phase 4B: show PIE verify result panel
-function showVerifyPanel(cardId, data) {
+function showVerifyPanel(cardId, data, efgNodeId) {
     // ETY01H-RW: store full response for Ask follow-up
     window.__lastVerifyData = { cardId: cardId, response: data };
     var existing = document.getElementById('pie-verify-panel');
@@ -1729,7 +1731,8 @@ function showVerifyPanel(cardId, data) {
             '<button class="pie-verify-accept px-3 py-1 text-xs rounded bg-' + color + '-600 text-white"' +
                 ' data-card-id="' + cardId + '"' +
                 ' data-correct-root="' + (data.correct_root || data.current_root || '') + '"' +
-                ' data-correct-ipa="' + (data.correct_ipa || data.current_ipa || '') + '">' +
+                ' data-correct-ipa="' + (data.correct_ipa || data.current_ipa || '') + '"' +
+                ' data-efg-node-id="' + (efgNodeId || '') + '">' +
                 (data.verdict === 'correct' ? 'Confirm ✓' : 'Accept correction') +
             '</button>' +
             '<button class="pie-verify-ask px-3 py-1 text-xs rounded bg-gray-100 text-gray-700">Ask a question</button>' +
@@ -6450,20 +6453,25 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                 })
             });
             const data = await resp.json();
-            showVerifyPanel(btn.dataset.cardId, data);
+            showVerifyPanel(btn.dataset.cardId, data, btn.dataset.efgNodeId);
         } catch(err) {
             btn.textContent = '🔍 Verify PIE';
             btn.disabled = false;
         }
     });
 
-    // ETY01H-RW Phase 2: accept correction handler (PUT, not PATCH; error guard)
+    // ETY01H-RW Phase 2: accept correction handler (BUG-028: guard empty root, EFG PATCH, auto audio)
     document.addEventListener('click', async function(e) {
         if (e.target.closest('.pie-verify-accept')) {
             const acceptBtn = e.target.closest('.pie-verify-accept');
             const cardId = acceptBtn.dataset.cardId;
             const correctRoot = acceptBtn.dataset.correctRoot;
             const correctIpa = acceptBtn.dataset.correctIpa;
+            // Fix 1: If verdict was 'correct', correctRoot is empty — just close the panel, no PUT needed
+            if (!correctRoot || correctRoot.trim() === '') {
+                document.getElementById('pie-verify-panel') && document.getElementById('pie-verify-panel').remove();
+                return;
+            }
             acceptBtn.textContent = 'Saving...';
             acceptBtn.disabled = true;
             const resp = await fetch('/api/flashcards/' + cardId, {
@@ -6483,6 +6491,28 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
             if (ipaEl) ipaEl.textContent = correctIpa ? '/' + correctIpa + '/' : '';
             const audioBtn = document.getElementById('pie-btn-' + cardId);
             if (audioBtn) { audioBtn.dataset.audioUrl = ''; audioBtn.dataset.pieRoot = correctRoot; }
+            // Fix 3: Propagate correction to EFG service (non-fatal)
+            const efgNodeId = acceptBtn.dataset.efgNodeId;
+            if (efgNodeId && correctRoot) {
+                fetch('https://efg.rentyourcio.com/api/nodes/' + efgNodeId + '/pie', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({label: correctRoot, pie_ipa: correctIpa || null})
+                }).catch(function(e) { console.warn('[BUG-028] EFG PATCH failed:', e); });
+            }
+            // Fix 4: Auto-generate new PIE audio after correction (non-fatal)
+            fetch('/api/pie/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pie_root: correctRoot})
+            }).then(function(r) { return r.json(); }).then(function(genData) {
+                if (audioBtn && genData.pie_audio_url) {
+                    audioBtn.dataset.audioUrl = genData.pie_audio_url;
+                    audioBtn.removeAttribute('disabled');
+                    audioBtn.classList.remove('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+                    audioBtn.classList.add('bg-amber-100', 'text-amber-800', 'cursor-pointer');
+                }
+            }).catch(function(e) { console.warn('[BUG-028] Audio auto-gen failed:', e); });
             document.getElementById('pie-verify-panel') && document.getElementById('pie-verify-panel').remove();
         }
         if (e.target.closest('.pie-verify-dismiss')) {
