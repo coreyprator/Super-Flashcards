@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.14.2 - BUG-028: PIE verify Accept now writes to EFG node when efg_node_id is set
+# Version: 3.14.3 - BUG-029: Dynamic app.js cache-bust version injection; no more stale JS
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +24,9 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
+
+# App version — single source of truth; injected into index.html for cache-busting (BUG-029)
+APP_VERSION = "3.14.3"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -68,7 +71,7 @@ logger.info("✅ Database connection configured")
 app = FastAPI(
     title="Super Flashcards API",
     description="Language learning flashcard application with AI-powered content generation",
-    version="3.13.0" + (" [QA]" if IS_QA else "")
+    version=APP_VERSION + (" [QA]" if IS_QA else "")
 )
 
 # Standard C: Global exception handler — catches unhandled exceptions, returns structured JSON
@@ -369,11 +372,14 @@ async def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
-    """Serve the main HTML page"""
+    """Serve the main HTML page with dynamic cache-bust version injection (BUG-029)"""
     html_file = os.path.join(frontend_path, "index.html")
     if os.path.exists(html_file):
         with open(html_file, "r", encoding="utf-8") as f:
-            return f.read()
+            html = f.read()
+        import re
+        html = re.sub(r'app\.js\?v=[\d.]+', f'app.js?v={APP_VERSION}', html)
+        return html
     return "<h1>Language Learning App</h1><p>Frontend not found. Please add frontend/index.html</p>"
 
 @app.get("/login", response_class=HTMLResponse)
@@ -582,7 +588,7 @@ async def health_check():
     """Health check endpoint - does NOT test database connection"""
     return {
         "status": "healthy",
-        "version": "3.14.1",
+        "version": APP_VERSION,
         "database": "connected"
     }
 
