@@ -192,6 +192,32 @@ def update_flashcard(
             # Non-fatal: local flashcard update succeeded; EFG will be stale until next correction
             logger.warning(f"[BUG-028] EFG node update failed for {db_flashcard.efg_node_id}: {efg_err}")
 
+    # BUG-031: Sync pie_root/pie_ipa correction into flashcard_pie_roots junction table
+    # (display_order=0 is the primary/canonical root row — the one shown on card load)
+    if 'pie_root' in update_data and update_data['pie_root']:
+        try:
+            from sqlalchemy import text as _text
+            db.execute(
+                _text("""
+                    UPDATE flashcard_pie_roots
+                    SET pie_root = :pie_root,
+                        pie_ipa  = :pie_ipa,
+                        pie_audio_url = NULL
+                    WHERE flashcard_id = :card_id
+                      AND display_order = 0
+                """),
+                {
+                    "pie_root": update_data['pie_root'],
+                    "pie_ipa":  update_data.get('pie_ipa') or None,
+                    "card_id":  str(flashcard_id),
+                }
+            )
+            db.commit()
+            logger.info(f"[BUG-031] flashcard_pie_roots row 0 updated for card {flashcard_id}")
+        except Exception as jt_err:
+            # Non-fatal: base flashcards.pie_root already updated
+            logger.warning(f"[BUG-031] junction table update failed for card {flashcard_id}: {jt_err}")
+
     return db_flashcard
 
 @router.delete("/{flashcard_id}")
