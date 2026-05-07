@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.14.3 - BUG-029: Dynamic app.js cache-bust version injection; no more stale JS
+# Version: 3.14.4 - BUG-030: Fix PIE duplication, verify btn missing, nextCard null crash
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.14.3"
+APP_VERSION = "3.14.4"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -760,7 +760,9 @@ async def get_pie_roots(card_id: str, db: Session = Depends(get_db)):
         except Exception as e:
             logger.warning(f"[pie/roots] EFG lookup failed for card {card_id}: {e}")
 
-    # Also include junction-table rows (additional etymological roots)
+    # Also include junction-table rows (additional etymological roots).
+    # BUG-030: deduplicate against EFG rows already added — same pie_root value = same root.
+    efg_roots_seen = {r["pie_root"] for r in pie_roots}
     rows = db.execute(
         _text("""
             SELECT pie_root, pie_ipa, pie_audio_url, pie_meaning, role, display_order
@@ -771,6 +773,9 @@ async def get_pie_roots(card_id: str, db: Session = Depends(get_db)):
         {"card_id": card_id}
     ).fetchall()
     for r in rows:
+        if r.pie_root in efg_roots_seen:
+            continue  # BUG-030: skip duplicate root already provided by EFG join
+        efg_roots_seen.add(r.pie_root)
         pie_roots.append({
             "pie_root": r.pie_root,
             "pie_ipa": r.pie_ipa,
