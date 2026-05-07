@@ -1630,6 +1630,11 @@ async function renderPieSection(cardId, cardData) {
         btn.dataset.onDemand = 'true';
       }
     }
+    // BUG-030: update verify button data-pie-root when EFG provides root (local column may be null)
+    const verifyBtn = section.querySelector('.pie-verify-btn');
+    if (verifyBtn && !verifyBtn.dataset.pieRoot) {
+      verifyBtn.dataset.pieRoot = pieRoot;
+    }
   }
 
   if (cardData.pie_root && cardData.pie_root !== 'N/A') {
@@ -1680,7 +1685,16 @@ async function renderPieSection(cardId, cardData) {
         </div>`;
       }).join('');
       section.innerHTML = `
-        <h3 class="text-xs font-semibold text-amber-900 uppercase mb-2">PIE Roots</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold text-amber-900 uppercase">PIE Roots</h3>
+          <button class="pie-verify-btn px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
+            data-card-id="${cardId}"
+            data-pie-root="${roots[0].pie_root}"
+            data-word="${cardData.word_or_phrase ? cardData.word_or_phrase.replace(/"/g, '&quot;') : ''}"
+            data-current-meaning="${roots[0].pie_meaning ? roots[0].pie_meaning.replace(/"/g, '&quot;') : ''}"
+            data-definition="${cardData.definition ? cardData.definition.replace(/"/g, '&quot;') : ''}"
+            title="Verify this PIE root with AI">🔍 Verify PIE</button>
+        </div>
         <div class="pie-roots-list">${rowsHtml}</div>`;
       window.PortfolioDebug.log('PieSection', 'pie section multi-root rendered', {count: roots.length});
     }
@@ -2260,9 +2274,9 @@ function nextCard() {
         renderFlashcard(state.flashcards[state.currentCardIndex]);
         updateCardCounter();
         
-        // Reset flip state
+        // Reset flip state (renderFlashcard already creates fresh DOM, guard for safety)
         const card = document.querySelector('.flashcard');
-        card.classList.remove('flipped');
+        if (card) card.classList.remove('flipped');
         state.isFlipped = false;
         
         // Prefetch next 3 cards (simple prefetch as Claude suggested)
@@ -2278,9 +2292,9 @@ function prevCard() {
         renderFlashcard(state.flashcards[state.currentCardIndex]);
         updateCardCounter();
         
-        // Reset flip state
+        // Reset flip state (renderFlashcard already creates fresh DOM, guard for safety)
         const card = document.querySelector('.flashcard');
-        card.classList.remove('flipped');
+        if (card) card.classList.remove('flipped');
         state.isFlipped = false;
         
         // Prefetch surrounding cards
