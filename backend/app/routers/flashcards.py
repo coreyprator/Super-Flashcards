@@ -173,6 +173,22 @@ def update_flashcard(
     db_flashcard = crud.update_flashcard(db, flashcard_id=flashcard_id, flashcard=flashcard)
     if db_flashcard is None:
         raise HTTPException(status_code=404, detail="Flashcard not found")
+
+    # BUG-028: When efg_node_id is set and pie_root was updated,
+    # propagate the correction to EtymologyGraph.dbo.nodes so it persists on reload.
+    update_data = flashcard.dict(exclude_unset=True)
+    if db_flashcard.efg_node_id and 'pie_root' in update_data and update_data['pie_root']:
+        try:
+            db.execute(
+                text("UPDATE EtymologyGraph.dbo.nodes SET label = :label WHERE id = :node_id"),
+                {"label": update_data['pie_root'], "node_id": db_flashcard.efg_node_id}
+            )
+            db.commit()
+            logger.info(f"[BUG-028] EFG node {db_flashcard.efg_node_id} label updated to '{update_data['pie_root']}'")
+        except Exception as efg_err:
+            # Non-fatal: local flashcard update succeeded; EFG will be stale until next correction
+            logger.warning(f"[BUG-028] EFG node update failed for {db_flashcard.efg_node_id}: {efg_err}")
+
     return db_flashcard
 
 @router.delete("/{flashcard_id}")
