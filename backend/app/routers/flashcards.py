@@ -179,11 +179,14 @@ def update_flashcard(
     update_data = flashcard.dict(exclude_unset=True)
     if db_flashcard.efg_node_id and 'pie_root' in update_data and update_data['pie_root']:
         try:
-            db.execute(
-                text("UPDATE EtymologyGraph.dbo.nodes SET label = :label WHERE id = :node_id"),
-                {"label": update_data['pie_root'], "node_id": db_flashcard.efg_node_id}
+            from app.routers.efg import _get_efg_connection
+            conn_efg = _get_efg_connection()
+            conn_efg.execute(
+                "UPDATE nodes SET label = ? WHERE id = ?",
+                (update_data['pie_root'], db_flashcard.efg_node_id)
             )
-            db.commit()
+            conn_efg.commit()
+            conn_efg.close()
             logger.info(f"[BUG-028] EFG node {db_flashcard.efg_node_id} label updated to '{update_data['pie_root']}'")
         except Exception as efg_err:
             # Non-fatal: local flashcard update succeeded; EFG will be stale until next correction
