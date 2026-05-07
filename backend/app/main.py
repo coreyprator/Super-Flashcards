@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.14.1 - ETY01H-RW: PIE Verify Rework
+# Version: 3.14.2 - BUG-028: PIE verify Accept now writes to EFG node when efg_node_id is set
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -718,8 +718,43 @@ Return ONLY valid JSON with no markdown:
 # Phase 4C (BUG-018): Junction table endpoint for multi-root support
 @app.get("/api/pie/roots/{card_id}", tags=["pie"])
 async def get_pie_roots(card_id: str, db: Session = Depends(get_db)):
-    """Return PIE root rows from flashcard_pie_roots junction table for a card."""
+    """Return PIE root rows for a card. When efg_node_id is set, enriches with EFG data."""
     from sqlalchemy import text as _text
+    from .routers.efg import _get_efg_connection
+
+    # Check if card has an EFG node linked
+    fc = db.execute(
+        _text("SELECT efg_node_id FROM flashcards WHERE id = :card_id"),
+        {"card_id": card_id}
+    ).fetchone()
+
+    pie_roots = []
+
+    # Phase 5: serve PIE from EFG join when efg_node_id is set
+    if fc and fc.efg_node_id:
+        try:
+            conn_efg = _get_efg_connection()
+            cur = conn_efg.cursor()
+            cur.execute(
+                "SELECT label, pie_ipa, pie_audio_url FROM nodes WHERE id = ?",
+                (fc.efg_node_id,)
+            )
+            node = cur.fetchone()
+            conn_efg.close()
+            if node:
+                pie_roots.append({
+                    "pie_root": node[0],
+                    "pie_ipa": node[1],
+                    "pie_audio_url": node[2],
+                    "pie_meaning": None,
+                    "role": "primary",
+                    "display_order": 0,
+                    "source": "efg",
+                })
+        except Exception as e:
+            logger.warning(f"[pie/roots] EFG lookup failed for card {card_id}: {e}")
+
+    # Also include junction-table rows (additional etymological roots)
     rows = db.execute(
         _text("""
             SELECT pie_root, pie_ipa, pie_audio_url, pie_meaning, role, display_order
@@ -729,19 +764,19 @@ async def get_pie_roots(card_id: str, db: Session = Depends(get_db)):
         """),
         {"card_id": card_id}
     ).fetchall()
+    for r in rows:
+        pie_roots.append({
+            "pie_root": r.pie_root,
+            "pie_ipa": r.pie_ipa,
+            "pie_audio_url": r.pie_audio_url,
+            "pie_meaning": r.pie_meaning,
+            "role": r.role,
+            "display_order": r.display_order,
+        })
+
     return {
         "card_id": card_id,
-        "pie_roots": [
-            {
-                "pie_root": r.pie_root,
-                "pie_ipa": r.pie_ipa,
-                "pie_audio_url": r.pie_audio_url,
-                "pie_meaning": r.pie_meaning,
-                "role": r.role,
-                "display_order": r.display_order,
-            }
-            for r in rows
-        ]
+        "pie_roots": pie_roots,
     }
 
 
