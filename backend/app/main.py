@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.15.0 - BUG-028: Fix PIE verify Accept - guard empty root, junction table sync, EFG PATCH, auto audio
+# Version: 3.15.1 - BUG-028: Patch in-memory state + IndexedDB after PIE verify Accept
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.15.0"
+APP_VERSION = "3.15.1"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
