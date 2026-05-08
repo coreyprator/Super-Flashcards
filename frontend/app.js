@@ -6513,6 +6513,27 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                     audioBtn.classList.add('bg-amber-100', 'text-amber-800', 'cursor-pointer');
                 }
             }).catch(function(e) { console.warn('[BUG-028] Audio auto-gen failed:', e); });
+            // BUG-028: Patch in-memory state so verify btn sends correct root on re-verify
+            const stateIdx = state.flashcards.findIndex(function(c) { return c.id === cardId; });
+            if (stateIdx !== -1) {
+                state.flashcards[stateIdx].pie_root = correctRoot;
+                state.flashcards[stateIdx].pie_ipa = correctIpa;
+                state.flashcards[stateIdx].pie_audio_url = null;
+            }
+            // BUG-028: Patch IndexedDB so hard refresh serves correct root (no manual clear needed)
+            if (offlineDB) {
+                try {
+                    const cached = await offlineDB.getFlashcard(cardId);
+                    if (cached) {
+                        cached.pie_root = correctRoot;
+                        cached.pie_ipa = correctIpa;
+                        cached.pie_audio_url = null;
+                        await offlineDB.saveFlashcard(cached);
+                    }
+                } catch(e) {
+                    console.warn('[BUG-028] IndexedDB patch failed:', e);
+                }
+            }
             document.getElementById('pie-verify-panel') && document.getElementById('pie-verify-panel').remove();
         }
         if (e.target.closest('.pie-verify-dismiss')) {
