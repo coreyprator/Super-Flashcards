@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.11.0';
+const APP_JS_VERSION = '3.17.0';
 
 // BA41: Frontend instrumentation for debug tracing
 window.PortfolioDebug = window.PortfolioDebug || {
@@ -1717,6 +1717,22 @@ function showVerifyPanel(cardId, data, efgNodeId) {
     panel.id = 'pie-verify-panel';
     panel.dataset.cardId = cardId;
     panel.className = 'mt-2 p-3 rounded-lg border bg-' + color + '-50 border-' + color + '-200';
+
+    // REQ-021: compound roots display
+    var suggestionHtml = '';
+    if (data.is_compound && data.compound_roots && data.compound_roots.length > 1) {
+        suggestionHtml = '<div class="text-sm font-mono font-bold mb-1">Compound root:</div>' +
+            data.compound_roots.map(function(r) {
+                return '<div class="compound-root-row text-sm ml-2">' +
+                    '<strong>' + (r.pie_root || '') + '</strong>' +
+                    (r.pie_ipa ? ' <em>/' + r.pie_ipa + '/</em>' : '') +
+                    (r.pie_meaning ? ' — ' + r.pie_meaning : '') +
+                    '</div>';
+            }).join('');
+    } else if (data.correct_root) {
+        suggestionHtml = '<p class="text-sm font-mono font-bold">Suggested: ' + data.correct_root + (data.correct_ipa ? ' /' + data.correct_ipa + '/' : '') + '</p>';
+    }
+
     panel.innerHTML =
         '<div class="flex items-center gap-2 mb-2">' +
             '<span class="font-semibold text-' + color + '-800">' +
@@ -1725,14 +1741,17 @@ function showVerifyPanel(cardId, data, efgNodeId) {
             '<span class="text-xs text-' + color + '-600">' + data.confidence + '% confidence</span>' +
         '</div>' +
         '<p class="text-sm text-' + color + '-800 mb-2">' + data.explanation + '</p>' +
-        (data.correct_root ? '<p class="text-sm font-mono font-bold">Suggested: ' + data.correct_root + (data.correct_ipa ? ' /' + data.correct_ipa + '/' : '') + '</p>' : '') +
+        suggestionHtml +
         (data.sources && data.sources.length ? '<p class="text-xs text-gray-500 mt-1">Sources: ' + data.sources.join(', ') + '</p>' : '') +
         '<div class="flex gap-2 mt-3">' +
             '<button class="pie-verify-accept px-3 py-1 text-xs rounded bg-' + color + '-600 text-white"' +
                 ' data-card-id="' + cardId + '"' +
                 ' data-correct-root="' + (data.correct_root || data.current_root || '') + '"' +
                 ' data-correct-ipa="' + (data.correct_ipa || data.current_ipa || '') + '"' +
-                ' data-efg-node-id="' + (efgNodeId || '') + '">' +
+                ' data-correct-meaning="' + ((data.correct_meaning || data.current_meaning || '')).replace(/"/g, '&quot;') + '"' +
+                ' data-efg-node-id="' + (efgNodeId || '') + '"' +
+                ' data-is-compound="' + (data.is_compound ? 'true' : 'false') + '"' +
+                ' data-compound-roots="' + JSON.stringify(data.compound_roots || []).replace(/"/g, '&quot;') + '">' +
                 (data.verdict === 'correct' ? 'Confirm ✓' : 'Accept correction') +
             '</button>' +
             '<button class="pie-verify-ask px-3 py-1 text-xs rounded bg-gray-100 text-gray-700">Ask a question</button>' +
@@ -6467,6 +6486,12 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
             const cardId = acceptBtn.dataset.cardId;
             const correctRoot = acceptBtn.dataset.correctRoot;
             const correctIpa = acceptBtn.dataset.correctIpa;
+            const correctMeaning = acceptBtn.dataset.correctMeaning || '';
+            // REQ-021: Read compound data from button
+            const isCompound = acceptBtn.dataset.isCompound === 'true';
+            const compoundRoots = isCompound
+                ? JSON.parse(acceptBtn.dataset.compoundRoots || '[]')
+                : null;
             // Fix 1: If verdict was 'correct', correctRoot is empty — just close the panel, no PUT needed
             if (!correctRoot || correctRoot.trim() === '') {
                 document.getElementById('pie-verify-panel') && document.getElementById('pie-verify-panel').remove();
@@ -6474,10 +6499,16 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
             }
             acceptBtn.textContent = 'Saving...';
             acceptBtn.disabled = true;
+            // REQ-021: Include compound fields in PUT body
+            const putBody = {pie_root: correctRoot, pie_ipa: correctIpa, pie_audio_url: null, pie_meaning: correctMeaning || null};
+            if (isCompound && compoundRoots && compoundRoots.length > 1) {
+                putBody.is_compound = true;
+                putBody.compound_roots = compoundRoots;
+            }
             const resp = await fetch('/api/flashcards/' + cardId, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({pie_root: correctRoot, pie_ipa: correctIpa, pie_audio_url: null})
+                body: JSON.stringify(putBody)
             });
             if (!resp.ok) {
                 console.error('PIE verify accept failed:', resp.status, await resp.text());
@@ -6485,21 +6516,21 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                 acceptBtn.disabled = false;
                 return;
             }
+            const updatedCard = await resp.json().catch(function() { return {}; });
+            const newEfgNodeId = (updatedCard && updatedCard.efg_node_id) ? updatedCard.efg_node_id : null;
             const rootEl = document.getElementById('pie-root-' + cardId);
             if (rootEl) rootEl.textContent = correctRoot;
             const ipaEl = document.getElementById('pie-ipa-' + cardId);
             if (ipaEl) ipaEl.textContent = correctIpa ? '/' + correctIpa + '/' : '';
+            const meaningEl = document.getElementById('pie-meaning-' + cardId);
+            if (meaningEl && correctMeaning) {
+                meaningEl.textContent = correctMeaning;
+                meaningEl.style.display = 'block';
+            }
             const audioBtn = document.getElementById('pie-btn-' + cardId);
             if (audioBtn) { audioBtn.dataset.audioUrl = ''; audioBtn.dataset.pieRoot = correctRoot; }
-            // Fix 3: Propagate correction to EFG service (non-fatal)
-            const efgNodeId = acceptBtn.dataset.efgNodeId;
-            if (efgNodeId && correctRoot) {
-                fetch('https://efg.rentyourcio.com/api/nodes/' + efgNodeId + '/pie', {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({label: correctRoot, pie_ipa: correctIpa || null})
-                }).catch(function(e) { console.warn('[BUG-028] EFG PATCH failed:', e); });
-            }
+            // BUG-035: efg_node_id re-link is now handled server-side in the PUT handler.
+            // Do NOT PATCH the old EFG node — the backend looks up/creates the correct node.
             // Fix 4: Auto-generate new PIE audio after correction (non-fatal)
             fetch('/api/pie/generate', {
                 method: 'POST',
@@ -6519,6 +6550,10 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                 state.flashcards[stateIdx].pie_root = correctRoot;
                 state.flashcards[stateIdx].pie_ipa = correctIpa;
                 state.flashcards[stateIdx].pie_audio_url = null;
+                if (correctMeaning) state.flashcards[stateIdx].pie_meaning = correctMeaning;  // BUG-034
+                if (newEfgNodeId) state.flashcards[stateIdx].efg_node_id = newEfgNodeId;  // BUG-035
+                // REQ-021: patch compound notation into state
+                if (isCompound) state.flashcards[stateIdx].pie_root = correctRoot;
             }
             // BUG-028: Patch IndexedDB so hard refresh serves correct root (no manual clear needed)
             if (offlineDB) {
@@ -6528,6 +6563,8 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                         cached.pie_root = correctRoot;
                         cached.pie_ipa = correctIpa;
                         cached.pie_audio_url = null;
+                        if (correctMeaning) cached.pie_meaning = correctMeaning;  // BUG-034
+                        if (newEfgNodeId) cached.efg_node_id = newEfgNodeId;  // BUG-035
                         await offlineDB.saveFlashcard(cached);
                     }
                 } catch(e) {

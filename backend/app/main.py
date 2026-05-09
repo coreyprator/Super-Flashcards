@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.15.2 - BUG-034: pie_meaning included in PIE verify Accept PUT + junction table UPDATE
+# Version: 3.16.0 - REQ-021: compound PIE root accept flow — verify API returns compound_roots, PUT writes multi-row junction
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.15.2"
+APP_VERSION = "3.17.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -674,6 +674,8 @@ class PieVerifyResponse(_PieVerifyBase):
     correct_root: _Optional[str] = None
     correct_ipa: _Optional[str] = None
     correct_meaning: _Optional[str] = None
+    is_compound: bool = False                           # REQ-021
+    compound_roots: _Optional[_List[dict]] = None      # REQ-021: [{pie_root, pie_ipa, pie_meaning}]
     sources: _List[str]
     related_cognates: _List[str]
 
@@ -693,6 +695,8 @@ Definition: {req.definition or 'not specified'}
 
 Is this PIE root assignment correct for this word?
 {followup}
+If the word derives from a compound PIE root (two or more component roots combined), return is_compound=true and a compound_roots array with one entry per component root, each having pie_root, pie_ipa, and pie_meaning fields. The correct_root field should contain the full compound notation (e.g. "*trei- + *-kom-t-"). If the word has only a single PIE root, set is_compound=false and compound_roots=null.
+
 Return ONLY valid JSON with no markdown:
 {{
   "verdict": "correct" or "wrong" or "uncertain",
@@ -701,6 +705,8 @@ Return ONLY valid JSON with no markdown:
   "correct_root": "*root-" or null if verdict is correct,
   "correct_ipa": "ipa transcription" or null,
   "correct_meaning": "PIE meaning" or null,
+  "is_compound": true or false,
+  "compound_roots": [{{"pie_root": "*x-", "pie_ipa": "/x/", "pie_meaning": "meaning"}}] or null,
   "sources": ["Watkins AHDIER", "Beekes", "Wiktionary"],
   "related_cognates": ["word1", "word2", "word3"]
 }}"""
