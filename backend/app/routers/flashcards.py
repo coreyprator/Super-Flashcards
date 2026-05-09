@@ -174,49 +174,120 @@ def update_flashcard(
     if db_flashcard is None:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 
-    # BUG-028: When efg_node_id is set and pie_root was updated,
-    # propagate the correction to EtymologyGraph.dbo.nodes so it persists on reload.
+    # BUG-035: Re-link efg_node_id to the correct EFG node when pie_root changes.
+    # Do NOT mutate the previously-linked node.
     update_data = flashcard.dict(exclude_unset=True)
-    if db_flashcard.efg_node_id and 'pie_root' in update_data and update_data['pie_root']:
+    if 'pie_root' in update_data and update_data['pie_root']:
         try:
+            import unicodedata as _unicodedata
+            import re as _re
             from app.routers.efg import _get_efg_connection
+
+            def _make_efg_slug(label, cursor):
+                """Derive a stable pie_ slug from a PIE root label."""
+                s = label.replace('*', '').replace('\u02b7', 'w').replace('\u02b0', 'h')
+                s = _unicodedata.normalize('NFKD', s)
+                s = ''.join(c for c in s if _unicodedata.category(c) not in ('Mn', 'Mc'))
+                for old, new in [('\u2081','1'),('\u2082','2'),('\u2083','3'),('\u2084','4')]:
+                    s = s.replace(old, new)
+                s = _re.sub(r'[^a-z0-9\-]', '_', s.lower())
+                s = s.replace('-', '_')
+                s = _re.sub(r'_+', '_', s).strip('_')
+                slug = 'pie_' + s
+                if not cursor.execute("SELECT 1 FROM nodes WHERE id = ?", (slug,)).fetchone():
+                    return slug
+                for i in range(2, 20):
+                    candidate = f"{slug}_{i}"
+                    if not cursor.execute("SELECT 1 FROM nodes WHERE id = ?", (candidate,)).fetchone():
+                        return candidate
+                return slug + '_x'
+
             conn_efg = _get_efg_connection()
-            conn_efg.execute(
-                "UPDATE nodes SET label = ? WHERE id = ?",
-                (update_data['pie_root'], db_flashcard.efg_node_id)
-            )
+            cursor = conn_efg.cursor()
+            new_root = update_data['pie_root']
+            row = cursor.execute("SELECT id FROM nodes WHERE label = ?", (new_root,)).fetchone()
+            if row:
+                new_efg_node_id = row[0]
+                logger.info(f"[BUG-035] Found existing EFG node {new_efg_node_id} for root '{new_root}'")
+            else:
+                new_efg_node_id = _make_efg_slug(new_root, cursor)
+                gloss = update_data.get('pie_meaning') or ''
+                cursor.execute(
+                    "INSERT INTO nodes (id, label, gloss, pie_root, language, node_type, source) VALUES (?, ?, ?, ?, 'PIE', 'pie_root', 'sf15-accept')",
+                    (new_efg_node_id, new_root, gloss, new_root)
+                )
+                logger.info(f"[BUG-035] Created new EFG node {new_efg_node_id} for root '{new_root}'")
             conn_efg.commit()
             conn_efg.close()
-            logger.info(f"[BUG-028] EFG node {db_flashcard.efg_node_id} label updated to '{update_data['pie_root']}'")
+            from sqlalchemy import text as _text
+            db.execute(_text(
+                "UPDATE flashcards SET efg_node_id = :nid, efg_node_id_updated_at = GETDATE() WHERE id = :cid"
+            ), {"nid": new_efg_node_id, "cid": str(flashcard_id)})
+            db.commit()
+            db.refresh(db_flashcard)
+            logger.info(f"[BUG-035] efg_node_id re-linked to {new_efg_node_id} for card {flashcard_id}")
         except Exception as efg_err:
-            # Non-fatal: local flashcard update succeeded; EFG will be stale until next correction
-            logger.warning(f"[BUG-028] EFG node update failed for {db_flashcard.efg_node_id}: {efg_err}")
+            logger.warning(f"[BUG-035] efg_node_id re-link failed for card {flashcard_id}: {efg_err}")
 
     # BUG-031: Sync pie_root/pie_ipa correction into flashcard_pie_roots junction table
     # (display_order=0 is the primary/canonical root row — the one shown on card load)
-    if 'pie_root' in update_data and update_data['pie_root']:
+    # BUG-034: Also sync pie_meaning so gloss is not stale after accept
+    # REQ-021: For compound roots, DELETE + multi-INSERT junction rows
+    if update_data.get('is_compound') and update_data.get('compound_roots'):
         try:
             from sqlalchemy import text as _text
-            db.execute(
-                _text("""
+            compound_roots = update_data['compound_roots']
+            db.execute(_text(
+                "DELETE FROM flashcard_pie_roots WHERE flashcard_id = :card_id"
+            ), {"card_id": str(flashcard_id)})
+            for i, root in enumerate(compound_roots):
+                if hasattr(root, 'pie_root'):
+                    r_root, r_ipa, r_meaning = root.pie_root, root.pie_ipa, root.pie_meaning
+                else:
+                    r_root = root.get('pie_root')
+                    r_ipa = root.get('pie_ipa')
+                    r_meaning = root.get('pie_meaning')
+                db.execute(_text("""
+                    INSERT INTO flashcard_pie_roots
+                        (flashcard_id, pie_root, pie_ipa, pie_meaning, pie_audio_url, display_order)
+                    VALUES (:card_id, :pie_root, :pie_ipa, :pie_meaning, NULL, :order)
+                """), {
+                    "card_id": str(flashcard_id),
+                    "pie_root": r_root,
+                    "pie_ipa": r_ipa,
+                    "pie_meaning": r_meaning,
+                    "order": i
+                })
+            db.commit()
+            logger.info(f"[REQ-021] Compound junction rows written for card {flashcard_id}: {len(compound_roots)} roots")
+        except Exception as jt_err:
+            logger.warning(f"[REQ-021] Compound junction update failed for card {flashcard_id}: {jt_err}")
+    elif 'pie_root' in update_data and update_data['pie_root']:
+        try:
+            from sqlalchemy import text as _text
+            set_parts = ["pie_root = :pie_root", "pie_audio_url = NULL"]
+            jt_params = {
+                "pie_root": update_data['pie_root'],
+                "card_id":  str(flashcard_id),
+            }
+            if update_data.get('pie_ipa') is not None:
+                set_parts.append("pie_ipa = :pie_ipa")
+                jt_params["pie_ipa"] = update_data['pie_ipa']
+            if update_data.get('pie_meaning') is not None:
+                set_parts.append("pie_meaning = :pie_meaning")
+                jt_params["pie_meaning"] = update_data['pie_meaning']
+            jt_sql = f"""
                     UPDATE flashcard_pie_roots
-                    SET pie_root = :pie_root,
-                        pie_ipa  = :pie_ipa,
-                        pie_audio_url = NULL
+                    SET {', '.join(set_parts)}
                     WHERE flashcard_id = :card_id
                       AND display_order = 0
-                """),
-                {
-                    "pie_root": update_data['pie_root'],
-                    "pie_ipa":  update_data.get('pie_ipa') or None,
-                    "card_id":  str(flashcard_id),
-                }
-            )
+                """
+            db.execute(_text(jt_sql), jt_params)
             db.commit()
-            logger.info(f"[BUG-031] flashcard_pie_roots row 0 updated for card {flashcard_id}")
+            logger.info(f"[BUG-031/BUG-034] flashcard_pie_roots row 0 updated for card {flashcard_id}")
         except Exception as jt_err:
             # Non-fatal: base flashcards.pie_root already updated
-            logger.warning(f"[BUG-031] junction table update failed for card {flashcard_id}: {jt_err}")
+            logger.warning(f"[BUG-031/BUG-034] junction table update failed for card {flashcard_id}: {jt_err}")
 
     return db_flashcard
 
