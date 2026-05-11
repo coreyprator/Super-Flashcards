@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.16.0 - REQ-021: compound PIE root accept flow — verify API returns compound_roots, PUT writes multi-row junction
+# Version: 3.18.0 - SF17 REQ-022: Standard PIE relationship repair process; BUG-039/037/038 fixes
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.17.0"
+APP_VERSION = "3.19.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -225,6 +225,10 @@ app.include_router(cards.router, prefix="/api", tags=["cards"])
 from .routers import efg
 app.include_router(efg.router, prefix="/api/efg", tags=["efg"])
 
+# SF17 REQ-022: Admin PIE relationship repair
+from .routers import admin_repair
+app.include_router(admin_repair.router, tags=["admin-repair"])
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
@@ -379,6 +383,9 @@ async def read_root():
             html = f.read()
         import re
         html = re.sub(r'app\.js\?v=[\d.]+', f'app.js?v={APP_VERSION}', html)
+        # BUG-041: inject APP_VERSION into window.APP_VERSION and visible badge
+        html = re.sub(r"window\.APP_VERSION = '[^']*'", f"window.APP_VERSION = '{APP_VERSION}'", html)
+        html = re.sub(r'id="version-badge">v[\d.]+<', f'id="version-badge">v{APP_VERSION}<', html)
         return html
     return "<h1>Language Learning App</h1><p>Frontend not found. Please add frontend/index.html</p>"
 

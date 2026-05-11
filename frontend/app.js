@@ -3,7 +3,7 @@
 // Version: 3.6.0 (SF-SENT-001: Sentence cards, Count of Monte Cristo, Shadowing mode)
 
 // VERSION CONSISTENCY CHECK
-const APP_JS_VERSION = '3.17.0';
+const APP_JS_VERSION = '3.19.0';
 
 // BA41: Frontend instrumentation for debug tracing
 window.PortfolioDebug = window.PortfolioDebug || {
@@ -1376,6 +1376,15 @@ function renderFlashcard(flashcard) {
                                         data-current-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
                                         data-definition="${(flashcard.definition || '').replace(/"/g, '&quot;')}"
                                         title="Verify this PIE root with AI">🔍 Verify PIE</button>
+                                    ${(window.authManager && window.authManager.getUser() && window.authManager.getUser().is_admin) ? `
+                                    <button class="pie-repair-btn px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700 hover:bg-orange-200 cursor-pointer"
+                                        data-card-id="${flashcard.id}"
+                                        data-pie-root="${(flashcard.pie_root || '').replace(/"/g, '&quot;')}"
+                                        data-pie-ipa="${(flashcard.pie_ipa || '').replace(/"/g, '&quot;')}"
+                                        data-pie-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
+                                        data-word="${(flashcard.word_or_phrase || '').replace(/"/g, '&quot;')}"
+                                        title="Admin: Repair PIE relationship (6-layer write)">🔧 Repair PIE</button>
+                                    ` : ''}
                                 </div>
                             </div>
                             <p class="text-amber-800 font-mono font-semibold text-sm"><span id="pie-root-${flashcard.id}"></span> <span class="text-amber-600 font-normal" id="pie-ipa-${flashcard.id}"></span></p>
@@ -6639,6 +6648,118 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
             const sendBtn = document.getElementById('pie-verify-ask-send');
             if (sendBtn) sendBtn.click();
         }
+    });
+
+    // SF17 REQ-022: Admin repair PIE relationship modal + handler
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.pie-repair-btn');
+        if (!btn) return;
+        e.preventDefault();
+        const cardId = btn.dataset.cardId;
+        const pieRoot = btn.dataset.pieRoot;
+        const pieIpa = btn.dataset.pieIpa;
+        const pieMeaning = btn.dataset.pieMeaning;
+        const word = btn.dataset.word;
+        const existing = document.getElementById('pie-repair-modal');
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = 'pie-repair-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">🔧 Repair PIE Relationship</h2>
+                <p class="text-sm text-gray-600 mb-4">Card: <strong>${word}</strong> (${cardId.substring(0,8)}...)</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">PIE Root</label>
+                        <input id="repair-pie-root" type="text" value="${pieRoot}" class="w-full border rounded px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">PIE IPA</label>
+                        <input id="repair-pie-ipa" type="text" value="${pieIpa}" class="w-full border rounded px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-700">PIE Meaning</label>
+                        <input id="repair-pie-meaning" type="text" value="${pieMeaning}" class="w-full border rounded px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input id="repair-regen-audio" type="checkbox" checked class="rounded">
+                        <label class="text-sm text-gray-700">Regenerate audio</label>
+                    </div>
+                </div>
+                <div id="repair-status" class="mt-3 text-sm"></div>
+                <div class="flex gap-2 mt-4">
+                    <button id="repair-submit-btn" class="flex-1 bg-orange-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-orange-700">Run 6-Layer Repair</button>
+                    <button id="repair-cancel-btn" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300">Cancel</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        document.getElementById('repair-cancel-btn').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+        document.getElementById('repair-submit-btn').addEventListener('click', async () => {
+            const submitBtn = document.getElementById('repair-submit-btn');
+            const statusEl = document.getElementById('repair-status');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Repairing...';
+            statusEl.textContent = '';
+            const payload = {
+                card_id: cardId,
+                pie_root: document.getElementById('repair-pie-root').value.trim(),
+                pie_ipa: document.getElementById('repair-pie-ipa').value.trim() || null,
+                pie_meaning: document.getElementById('repair-pie-meaning').value.trim() || null,
+                regenerate_audio: document.getElementById('repair-regen-audio').checked,
+                triggered_by: 'admin_ui'
+            };
+            try {
+                const token = window.authManager ? window.authManager.getToken() : null;
+                const resp = await fetch('/api/admin/repair-pie-relationship', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? {'Authorization': 'Bearer ' + token} : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    statusEl.innerHTML = '<span class="text-red-600">Error: ' + (err.detail || resp.status) + '</span>';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Run 6-Layer Repair';
+                    return;
+                }
+                const result = await resp.json();
+                statusEl.innerHTML = '<span class="text-green-700">✅ Repaired! Log #' + result.log_id + ' — Layers: ' + result.layers_written.join(', ') + '</span>';
+                const stateIdx = state.flashcards ? state.flashcards.findIndex(c => c.id === cardId) : -1;
+                if (stateIdx !== -1) {
+                    state.flashcards[stateIdx].pie_root = payload.pie_root;
+                    state.flashcards[stateIdx].pie_ipa = payload.pie_ipa;
+                    state.flashcards[stateIdx].pie_meaning = payload.pie_meaning;
+                }
+                if (offlineDB) {
+                    try {
+                        const cached = await offlineDB.getFlashcard(cardId);
+                        if (cached) {
+                            cached.pie_root = payload.pie_root;
+                            cached.pie_ipa = payload.pie_ipa;
+                            cached.pie_meaning = payload.pie_meaning;
+                            cached.pie_audio_url = null;
+                            await offlineDB.saveFlashcard(cached);
+                        }
+                    } catch(idbErr) { console.warn('[REQ-022] IndexedDB invalidation failed:', idbErr); }
+                }
+                const rootEl = document.getElementById('pie-root-' + cardId);
+                if (rootEl) rootEl.textContent = payload.pie_root;
+                const ipaEl = document.getElementById('pie-ipa-' + cardId);
+                if (ipaEl) ipaEl.textContent = payload.pie_ipa ? '/' + payload.pie_ipa + '/' : '';
+                const meaningEl = document.getElementById('pie-meaning-' + cardId);
+                if (meaningEl && payload.pie_meaning) { meaningEl.textContent = payload.pie_meaning; meaningEl.style.display = 'block'; }
+                setTimeout(() => modal.remove(), 3000);
+            } catch (err) {
+                statusEl.innerHTML = '<span class="text-red-600">Network error: ' + err.message + '</span>';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Run 6-Layer Repair';
+            }
+        });
     });
 
     // Real-time search functionality in browse mode
