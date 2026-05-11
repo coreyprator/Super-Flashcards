@@ -7389,7 +7389,7 @@ window.openPieExplorer = async function(pieRoot) {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/flashcards/pie-explorer/${encodeURIComponent(pieRoot)}`);
+        const response = await fetch(`/api/flashcards/pie-explorer/${encodeURIComponent(pieRoot)}`);
         if (!response.ok) throw new Error('Failed to fetch PIE data');
 
         const data = await response.json();
