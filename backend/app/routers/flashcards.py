@@ -19,8 +19,108 @@ def create_flashcard(
     flashcard: schemas.FlashcardCreate,
     db: Session = Depends(get_db)
 ):
-    """Create a new flashcard"""
-    return crud.create_flashcard(db=db, flashcard=flashcard)
+    """Create a new flashcard. SF18: if pie_root is set, writes all 7 EFG layers."""
+    db_card = crud.create_flashcard(db=db, flashcard=flashcard)
+
+    # SF18 Fix 3: when pie_root provided, do full 7-layer EFG write on new cards
+    if flashcard.pie_root and flashcard.pie_root.strip() not in ('', 'N/A'):
+        try:
+            import unicodedata as _unicodedata
+            import re as _re
+            from app.routers.efg import _get_efg_connection
+
+            def _make_efg_slug_create(label, cursor):
+                s = label.replace('*', '').replace('\u02b7', 'w').replace('\u02b0', 'h')
+                s = _unicodedata.normalize('NFKD', s)
+                s = ''.join(c for c in s if _unicodedata.category(c) not in ('Mn', 'Mc'))
+                for old, new in [('\u2081', '1'), ('\u2082', '2'), ('\u2083', '3'), ('\u2084', '4')]:
+                    s = s.replace(old, new)
+                s = _re.sub(r'[^a-z0-9\-]', '_', s.lower())
+                s = s.replace('-', '_')
+                s = _re.sub(r'_+', '_', s).strip('_')
+                slug = 'pie_' + s
+                if not cursor.execute("SELECT 1 FROM nodes WHERE id = ?", (slug,)).fetchone():
+                    return slug
+                for i in range(2, 20):
+                    candidate = f"{slug}_{i}"
+                    if not cursor.execute("SELECT 1 FROM nodes WHERE id = ?", (candidate,)).fetchone():
+                        return candidate
+                return slug + '_x'
+
+            conn_efg = _get_efg_connection()
+            cursor = conn_efg.cursor()
+            new_root = flashcard.pie_root.strip()
+
+            # Look up or create PIE node
+            row = cursor.execute("SELECT id FROM nodes WHERE label = ?", (new_root,)).fetchone()
+            if row:
+                efg_node_id = row[0]
+            else:
+                efg_node_id = _make_efg_slug_create(new_root, cursor)
+                gloss = (flashcard.pie_meaning or '').strip() if hasattr(flashcard, 'pie_meaning') else ''
+                cursor.execute(
+                    "INSERT INTO nodes (id, label, gloss, pie_root, language, node_type, source) VALUES (?, ?, ?, ?, 'PIE', 'pie_root', 'sf18-add-card')",
+                    (efg_node_id, new_root, gloss, new_root)
+                )
+                logger.info(f"[SF18-add-card] EFG PIE node created: {efg_node_id}")
+
+            # Look up word node by label; create if missing
+            word_node_row = cursor.execute(
+                "SELECT id FROM nodes WHERE label = ?", (db_card.word_or_phrase,)
+            ).fetchone()
+            if word_node_row:
+                word_node_id = word_node_row[0]
+            else:
+                card_id_short = str(db_card.id).replace('-', '').lower()[:12]
+                word_node_id = f"sf_{card_id_short}"
+                lang = getattr(db_card, 'language_id', None) or 'Unknown'
+                cursor.execute(
+                    "INSERT INTO nodes (id, label, node_type, language, source) VALUES (?, ?, 'word', ?, 'sf18-add-card')",
+                    (word_node_id, db_card.word_or_phrase, lang)
+                )
+                logger.info(f"[SF18-add-card] EFG word node created: {word_node_id}")
+
+            # Write edge
+            cursor.execute(
+                "DELETE FROM edges WHERE target_node = ? AND edge_type = 'pie_to_word'",
+                (word_node_id,)
+            )
+            new_edge_id = f"e_{efg_node_id}_{word_node_id}"
+            cursor.execute(
+                "INSERT INTO edges (id, source_node, target_node, edge_type, weight) VALUES (?, ?, ?, 'pie_to_word', 1.0)",
+                (new_edge_id, efg_node_id, word_node_id)
+            )
+            conn_efg.commit()
+            conn_efg.close()
+            logger.info(f"[SF18-add-card] EFG edge written: {new_edge_id}")
+
+            # Update flashcards.efg_node_id
+            from sqlalchemy import text as _text
+            db.execute(_text(
+                "UPDATE flashcards SET efg_node_id = :nid, efg_node_id_updated_at = GETDATE() WHERE id = :cid"
+            ), {"nid": efg_node_id, "cid": str(db_card.id)})
+
+            # Write flashcard_pie_roots junction row
+            pie_ipa = getattr(flashcard, 'pie_ipa', None) or None
+            pie_meaning = getattr(flashcard, 'pie_meaning', None) or None
+            db.execute(_text("""
+                INSERT INTO flashcard_pie_roots
+                    (flashcard_id, pie_root, pie_ipa, pie_meaning, pie_audio_url, efg_node_id, role, display_order)
+                VALUES (:cid, :pie_root, :pie_ipa, :pie_meaning, NULL, :efg_node_id, 'root', 0)
+            """), {
+                "cid": str(db_card.id),
+                "pie_root": new_root,
+                "pie_ipa": pie_ipa,
+                "pie_meaning": pie_meaning,
+                "efg_node_id": efg_node_id,
+            })
+            db.commit()
+            db.refresh(db_card)
+            logger.info(f"[SF18-add-card] 7-layer write complete for card {db_card.id}")
+        except Exception as efg_err:
+            logger.warning(f"[SF18-add-card] EFG 7-layer write failed (non-fatal) for card {db_card.id}: {efg_err}")
+
+    return db_card
 
 @router.get("/", response_model=List[schemas.Flashcard])
 def read_flashcards(
@@ -218,6 +318,25 @@ def update_flashcard(
                 )
                 logger.info(f"[BUG-035] Created new EFG node {new_efg_node_id} for root '{new_root}'")
             conn_efg.commit()
+            # SF18 7th layer: write EFG edges (pie_to_word)
+            word_node_row = cursor.execute(
+                "SELECT id FROM nodes WHERE label = ?", (db_flashcard.word_or_phrase,)
+            ).fetchone()
+            if word_node_row:
+                word_node_id = word_node_row[0]
+                cursor.execute(
+                    "DELETE FROM edges WHERE target_node = ? AND edge_type = 'pie_to_word'",
+                    (word_node_id,)
+                )
+                new_edge_id = f"e_{new_efg_node_id}_{word_node_id}"
+                cursor.execute(
+                    "INSERT INTO edges (id, source_node, target_node, edge_type, weight) VALUES (?, ?, ?, 'pie_to_word', 1.0)",
+                    (new_edge_id, new_efg_node_id, word_node_id)
+                )
+                conn_efg.commit()
+                logger.info(f"[BUG-035] EFG edge written: {new_edge_id}")
+            else:
+                logger.warning(f"[BUG-035] Word node not found for '{db_flashcard.word_or_phrase}' — edges skipped")
             conn_efg.close()
             from sqlalchemy import text as _text
             db.execute(_text(
