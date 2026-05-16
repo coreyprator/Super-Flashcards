@@ -44,6 +44,7 @@ try:
             config = json.load(f)
             GOOGLE_CLIENT_ID = config['web']['client_id']
             GOOGLE_CLIENT_SECRET = config['web']['client_secret']
+            GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI')
             print(f"✅ Loaded OAuth config from JSON file")
             print(f"   Client ID: {GOOGLE_CLIENT_ID[:20]}...")
     else:

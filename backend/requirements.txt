@@ -20,6 +20,7 @@ pyodbc==5.0.1
 
 # Authentication - Google OAuth + JWT
 python-jose[cryptography]==3.3.0
+bcrypt==3.2.2
 passlib[bcrypt]==1.7.4
 authlib==1.3.0  # OAuth client library
 httpx==0.27.0  # Async HTTP client for OAuth
@@ -27,6 +28,9 @@ itsdangerous==2.1.2  # Secure session management
 
 # OpenAI API - Updated to latest stable version for compatibility
 openai==1.54.0
+
+# Anthropic API - ETY01H: PIE verify endpoint
+anthropic>=0.25.0
 
 # HTTP requests (for downloading images)
 requests==2.31.0
