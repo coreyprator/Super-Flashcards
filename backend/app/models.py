@@ -26,7 +26,7 @@ class User(Base):
     auth_provider = Column(NVARCHAR(20), default='email')  # 'email', 'google', 'github', etc.
     
     # Google OAuth fields
-    google_id = Column(NVARCHAR(255), unique=True, nullable=True)  # Google's unique user ID
+    google_id = Column(NVARCHAR(255), nullable=True)  # Google's unique user ID (filtered unique index in DB)
     name = Column(NVARCHAR(100), nullable=True)  # Full name from OAuth
     picture = Column(NVARCHAR(500), nullable=True)  # Profile picture URL
     
@@ -36,7 +36,11 @@ class User(Base):
     # Account status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)  # Email verification status
-    
+    is_admin = Column(Boolean, default=False)  # SF17 REQ-022: admin role gate
+
+    # BWTL03: role tier — 'pl' | 'theo' | 'tutor' | 'learner'
+    role_tier = Column(NVARCHAR(20), nullable=False, server_default="learner")
+
     # Timestamps
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
@@ -146,6 +150,12 @@ class Flashcard(Base):
 
     # Cognate PIE root audit — SF04C
     cognate_pie_roots = Column(NVARCHAR(None), nullable=True)  # JSON audit trail
+
+    # EFG consolidation — ETY01H: link to EtymologyGraph.dbo.nodes for PIE data
+    efg_node_id = Column(NVARCHAR(100), nullable=True)  # EFG node ID when efg_node_id is set, use EFG as source of truth
+
+    # BWTL03: why a card has no PIE root ('proper_noun'|'modern_coinage'|'loanword_unrooted'|etc.)
+    non_pie_reason = Column(NVARCHAR(200), nullable=True)
 
     # Sentence card fields — SF-SENT-001
     card_type = Column(NVARCHAR(20), default="word")  # word, sentence, paragraph
@@ -328,3 +338,76 @@ class FlashcardPieRoot(Base):
     source = Column(NVARCHAR(100), nullable=True)  # "AI", "manual", "wiktionary", "etymonline"
     created_at = Column(DateTime, server_default=func.getdate())
     updated_at = Column(DateTime, server_default=func.getdate(), onupdate=func.getdate())
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BWTL03 models — Chat, Bookmarks
+# ──────────────────────────────────────────────────────────────────────────────
+
+class BookmarkCollection(Base):
+    __tablename__ = "bookmark_collections"
+
+    id = Column(NVARCHAR(50), primary_key=True)
+    name = Column(NVARCHAR(100), nullable=False)
+    owner_id = Column(NVARCHAR(50), nullable=False)
+    created_at = Column(DateTime, server_default=func.getutcdate())
+
+    bookmarks = relationship("Bookmark", back_populates="collection")
+
+
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+
+    id = Column(NVARCHAR(50), primary_key=True)
+    kind = Column(NVARCHAR(20), nullable=False)          # word|root|figure|thread|collection
+    ref_id = Column(NVARCHAR(100), nullable=False)
+    ref_label = Column(NVARCHAR(200), nullable=True)
+    owner_id = Column(NVARCHAR(50), nullable=False)
+    collection_id = Column(NVARCHAR(50), ForeignKey("bookmark_collections.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.getutcdate())
+
+    collection = relationship("BookmarkCollection", back_populates="bookmarks")
+
+
+class ChatThread(Base):
+    __tablename__ = "chat_threads"
+
+    id = Column(NVARCHAR(50), primary_key=True)
+    anchor_mode = Column(NVARCHAR(20), nullable=False, default="flashcard_id")
+    anchor_value = Column(NVARCHAR(100), nullable=False)
+    owner_id = Column(NVARCHAR(50), nullable=False)
+    title = Column(NVARCHAR(200), nullable=True)
+    created_at = Column(DateTime, server_default=func.getutcdate())
+    updated_at = Column(DateTime, server_default=func.getutcdate())
+
+    messages = relationship("ChatMessage", back_populates="thread")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(NVARCHAR(50), primary_key=True)
+    thread_id = Column(NVARCHAR(50), ForeignKey("chat_threads.id"), nullable=False)
+    role = Column(NVARCHAR(10), nullable=False)          # user|ai
+    text = Column(NVARCHAR(None), nullable=False)
+    context_snapshot = Column(NVARCHAR(None), nullable=True)  # JSON
+    promotable_json = Column(NVARCHAR(None), nullable=True)   # JSON
+    created_at = Column(DateTime, server_default=func.getutcdate())
+
+    thread = relationship("ChatThread", back_populates="messages")
+    promotions = relationship("ChatPromotion", back_populates="message")
+
+
+class ChatPromotion(Base):
+    __tablename__ = "chat_promotions"
+
+    id = Column(NVARCHAR(50), primary_key=True)
+    chat_message_id = Column(NVARCHAR(50), ForeignKey("chat_messages.id"), nullable=False)
+    card_id = Column(NVARCHAR(50), nullable=False)
+    target_field = Column(NVARCHAR(50), nullable=False)
+    before_value = Column(NVARCHAR(None), nullable=True)
+    after_value = Column(NVARCHAR(None), nullable=True)
+    accepted_by = Column(NVARCHAR(50), nullable=False)
+    accepted_at = Column(DateTime, server_default=func.getutcdate())
+
+    message = relationship("ChatMessage", back_populates="promotions")
