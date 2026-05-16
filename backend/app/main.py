@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.19.1"
+APP_VERSION = "3.20.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -240,9 +240,20 @@ frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
 if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "../frontend")
-    
+
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+# BWTL03: serve the BWTL frontend at /bwtl and /bwtl/*
+bwtl_path = os.path.join(frontend_path, "bwtl")
+if os.path.exists(bwtl_path):
+    app.mount("/bwtl/src", StaticFiles(directory=os.path.join(bwtl_path, "src")), name="bwtl-src")
+
+    @app.get("/bwtl", include_in_schema=False)
+    @app.get("/bwtl/", include_in_schema=False)
+    async def serve_bwtl():
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(bwtl_path, "index.html"), media_type="text/html")
 
 # Serve manifest.json from root path
 @app.get("/manifest.json")
