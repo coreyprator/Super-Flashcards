@@ -701,15 +701,32 @@ async def compare_ipa_strings(expected: str, actual: str):
 @router.get("/pie-explorer/{pie_root}")
 async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
     """
-    ETY01 Phase 4 (REQ-013): PIE Explorer Panel endpoint.
-    Returns all flashcards with the given PIE root, plus enriched EFG data.
+    BWTL03 (extends ETY01 Phase 4 REQ-013): PIE Explorer merged endpoint.
+    Returns SF flashcards PLUS EFG verbal_paradigm, nominal_derivatives,
+    modern_cognates, efg_pie_ipa, efg_pie_audio_url, atomic_roots,
+    and heuristic language_paradigm from EFG prose.
     """
-    # Query flashcards with this PIE root
+    import re
+    import json as _json
+
+    # SF query: flashcards with this PIE root
     cards = db.query(models.Flashcard).filter(
         models.Flashcard.pie_root == pie_root
     ).all()
 
-    # Build response with Full Root, Branches, History data
+    # atomic_roots: collect all distinct pie_roots linked to any of these cards
+    card_ids = [str(c.id) for c in cards]
+    atomic_roots = [pie_root]
+    if card_ids:
+        rows = db.execute(
+            text("SELECT DISTINCT pie_root FROM flashcard_pie_roots WHERE flashcard_id IN :ids"),
+            {"ids": tuple(card_ids) if len(card_ids) > 1 else (card_ids[0],)}
+        ).fetchall()
+        candidates = [r[0] for r in rows if r[0]]
+        if len(candidates) > 1:
+            atomic_roots = candidates
+
+    # Build branches (SF cards)
     branches = []
     for card in cards:
         branches.append({
@@ -723,11 +740,86 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
             "pie_audio_url": card.pie_audio_url
         })
 
+    # EFG query: merge verbal_paradigm, nominal_derivatives, modern_cognates,
+    # efg_pie_ipa, efg_pie_audio_url, and heuristic language_paradigm
+    verbal_paradigm = None
+    nominal_derivatives = None
+    modern_cognates = None
+    efg_node_id = None
+    efg_pie_ipa = None
+    efg_pie_audio_url = None
+    language_paradigm = {}
+
+    try:
+        from app.routers.efg import _get_efg_connection
+        # Normalize: strip *, leading/trailing - and spaces for efg_pie_explorer_data lookup
+        efg_key = re.sub(r'[*\-]', '', pie_root).strip()
+        efg_conn = _get_efg_connection()
+        efg_cursor = efg_conn.cursor()
+
+        # Get EFG prose blocks
+        efg_cursor.execute(
+            "SELECT verbal_paradigm, nominal_derivatives, modern_cognates "
+            "FROM efg_pie_explorer_data WHERE pie_root = ?",
+            efg_key
+        )
+        efg_row = efg_cursor.fetchone()
+        if efg_row:
+            verbal_paradigm = efg_row[0]
+            nominal_derivatives = efg_row[1]
+            modern_cognates = efg_row[2]
+
+            # Heuristic language_paradigm from modern_cognates JSON
+            if modern_cognates:
+                try:
+                    mc = _json.loads(modern_cognates)
+                    lang_map = {
+                        "greek": "Greek",
+                        "latin": "Latin",
+                        "sanskrit": "Sanskrit",
+                        "french": "French",
+                    }
+                    for efg_lang, disp_lang in lang_map.items():
+                        if efg_lang in mc:
+                            forms = [
+                                {"form": f[0], "gloss": f[1] if len(f) > 1 else ""}
+                                for f in mc[efg_lang] if isinstance(f, list) and f
+                            ]
+                            if forms:
+                                language_paradigm[disp_lang] = {"forms": forms}
+                except Exception:
+                    pass
+
+        # Get EFG node for IPA and audio (95% fill)
+        efg_cursor.execute(
+            "SELECT id, pie_ipa, pie_audio_url FROM nodes "
+            "WHERE node_type = 'pie_root' AND label = ?",
+            pie_root
+        )
+        node_row = efg_cursor.fetchone()
+        if node_row:
+            efg_node_id = node_row[0]
+            efg_pie_ipa = node_row[1]
+            efg_pie_audio_url = node_row[2]
+
+        efg_conn.close()
+    except Exception as e:
+        logger.warning(f"[pie-explorer] EFG merge failed for '{pie_root}': {e}")
+
     return {
         "pie_root": pie_root,
         "card_count": len(cards),
         "pie_meaning": cards[0].pie_meaning if cards else None,
         "pie_ipa": cards[0].pie_ipa if cards else None,
         "pie_audio_url": cards[0].pie_audio_url if cards else None,
-        "branches": branches
+        "branches": branches,
+        # BWTL03 additions
+        "verbal_paradigm": verbal_paradigm,
+        "nominal_derivatives": nominal_derivatives,
+        "modern_cognates": modern_cognates,
+        "efg_node_id": efg_node_id,
+        "efg_pie_ipa": efg_pie_ipa,
+        "efg_pie_audio_url": efg_pie_audio_url,
+        "atomic_roots": atomic_roots,
+        "language_paradigm": language_paradigm,
     }

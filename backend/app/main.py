@@ -229,6 +229,12 @@ app.include_router(efg.router, prefix="/api/efg", tags=["efg"])
 from .routers import admin_repair
 app.include_router(admin_repair.router, tags=["admin-repair"])
 
+# BWTL03: Chat, Bookmarks, Admin coverage
+from .routers import chat, bookmarks, admin_bwtl
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+app.include_router(bookmarks.router, prefix="/api", tags=["bookmarks"])
+app.include_router(admin_bwtl.router, prefix="/api", tags=["admin-bwtl"])
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
