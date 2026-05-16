@@ -30,3 +30,10 @@ pwd.bin
 *.bat
 *.cmd
 *.sh
+
+*.gsheet
+*.gdoc
+*.gslides
+
+# Stale OAuth credentials - Cloud Run uses env vars instead
+**/google_oauth_client.json

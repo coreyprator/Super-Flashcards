@@ -56,6 +56,8 @@ class FlashcardBase(BaseModel):
     video_url: Optional[str] = None
     # Cognate PIE root audit (SF04C)
     cognate_pie_roots: Optional[str] = None
+    # EFG consolidation — ETY01H
+    efg_node_id: Optional[str] = None
     # Sentence card fields (SF-SENT-001)
     card_type: Optional[str] = "word"  # word, sentence, paragraph
     source_book: Optional[str] = None
@@ -66,6 +68,12 @@ class FlashcardBase(BaseModel):
 class FlashcardCreate(FlashcardBase):
     language_id: UUID  # CORRECTED: language_id DOES exist in Cloud SQL!
     source: str = "manual"
+
+# REQ-021: Compound PIE root structure for multi-row junction writes
+class CompoundRoot(BaseModel):
+    pie_root: str
+    pie_ipa: Optional[str] = None
+    pie_meaning: Optional[str] = None
 
 class FlashcardUpdate(BaseModel):
     word_or_phrase: Optional[str] = None
@@ -98,6 +106,9 @@ class FlashcardUpdate(BaseModel):
     chapter_number: Optional[int] = None
     sentence_order: Optional[int] = None
     translation: Optional[str] = None
+    # REQ-021: Compound PIE root accept flow
+    compound_roots: Optional[List[CompoundRoot]] = None
+    is_compound: Optional[bool] = False
 
 class Flashcard(FlashcardBase):
     id: UUID
@@ -213,6 +224,7 @@ class User(UserBase):
     picture: Optional[str] = None
     is_active: bool
     is_verified: bool
+    is_admin: bool = False  # SF17 REQ-022
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
