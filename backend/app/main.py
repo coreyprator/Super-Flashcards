@@ -255,6 +255,13 @@ if os.path.exists(bwtl_path):
         from fastapi.responses import FileResponse
         return FileResponse(os.path.join(bwtl_path, "index.html"), media_type="text/html")
 
+    # BWTL03-FIX: SPA catch-all so /bwtl/* sub-routes serve index.html for client-side routing
+    @app.get("/bwtl/{path:path}", include_in_schema=False)
+    async def serve_bwtl_spa(path: str):
+        from fastapi.responses import FileResponse
+        # Static assets under /bwtl/src/ are already handled by the StaticFiles mount above.
+        return FileResponse(os.path.join(bwtl_path, "index.html"), media_type="text/html")
+
 # Serve manifest.json from root path
 @app.get("/manifest.json")
 async def serve_manifest():
