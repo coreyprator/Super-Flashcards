@@ -52,6 +52,7 @@ const PROMOTE_FIELDS = [
 
 async function fetchCard(id) {
   const card = await _apiFetch(`/api/flashcards/${id}`);
+  card.word = card.word || card.word_or_phrase; // normalize: API returns word_or_phrase, FE reads card.word
   window.BWTL.FLASHCARDS[id] = card;
   return card;
 }
@@ -166,6 +167,98 @@ const EFG_STATS    = { node_count: 0, pie_root_count: 0, edge_count: 0, word_cou
 const RAG_COLLECTIONS = [];
 const DOCUMENT_RUNS = [];
 
+// ─── Cross-app service base URLs ─────────────────────────────────────────────
+const _EM_URL  = 'https://etymython.rentyourcio.com';
+const _EFG_URL = 'https://efg.rentyourcio.com';
+const _RAG_URL = 'https://portfolio-rag-57478301787.us-central1.run.app';
+
+async function _fetchExternal(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`External ${res.status}: ${url}`);
+  return res.json();
+}
+
+// ─── Languages API ────────────────────────────────────────────────────────────
+async function fetchLanguages() {
+  const data = await _apiFetch('/api/languages');
+  const langs = Array.isArray(data) ? data : [];
+  window.BWTL.LANGUAGES = langs;
+  return langs;
+}
+
+// ─── Study API ────────────────────────────────────────────────────────────────
+async function fetchStudyDue() {
+  const data = await _apiFetch('/api/study/due');
+  const queue = Array.isArray(data) ? data : [];
+  window.BWTL.STUDY_QUEUE = queue;
+  return queue;
+}
+
+async function fetchStudyStats() {
+  return _apiFetch('/api/study/stats');
+}
+
+// ─── EM (Etymython) API ───────────────────────────────────────────────────────
+async function fetchFigures(limit = 20) {
+  const data = await _fetchExternal(`${_EM_URL}/api/v1/figures?limit=${limit}`);
+  const figures = Array.isArray(data) ? data : (data.items || []);
+  figures.forEach(f => { window.BWTL.FIGURES[f.id] = f; });
+  return figures;
+}
+
+async function fetchFigure(id) {
+  const data = await _fetchExternal(`${_EM_URL}/api/v1/figures/${id}/mythology-data`);
+  window.BWTL.FIGURES[id] = data;
+  return data;
+}
+
+async function fetchFigureStory(id) {
+  return _fetchExternal(`${_EM_URL}/api/v1/figures/${id}/artforge-story`);
+}
+
+async function fetchCognates(word) {
+  return _fetchExternal(`${_EM_URL}/api/v1/cognates/lookup?word=${encodeURIComponent(word)}`);
+}
+
+// ─── EFG API ──────────────────────────────────────────────────────────────────
+async function fetchEfgGraph(nodeId) {
+  return _fetchExternal(`${_EFG_URL}/api/graph?node=${encodeURIComponent(nodeId)}`);
+}
+
+async function fetchEfgRoots() {
+  const data = await _fetchExternal(`${_EFG_URL}/api/roots`);
+  return Array.isArray(data) ? data : (data.roots || []);
+}
+
+// ─── RAG API ──────────────────────────────────────────────────────────────────
+async function searchRag(q, collection) {
+  const path = collection === 'etymology'
+    ? `/search/etymology?q=${encodeURIComponent(q)}`
+    : `/search?collection=${encodeURIComponent(collection || 'etymology')}&q=${encodeURIComponent(q)}`;
+  return _fetchExternal(`${_RAG_URL}${path}`);
+}
+
+// ─── ArtForge API (via SF proxy) ──────────────────────────────────────────────
+async function fetchAfJobs() {
+  return _apiFetch('/api/bwtl/af-jobs');
+}
+
+async function generateVideo(cardId) {
+  return _apiFetch(`/api/flashcards/${cardId}/generate-video`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+async function fetchAfJobStatus(jobId) {
+  return _apiFetch(`/api/bwtl/af-jobs/${jobId}`);
+}
+
+// ─── Voice clones API ─────────────────────────────────────────────────────────
+async function fetchVoiceClones() {
+  const data = await _apiFetch('/api/v1/voice_clone');
+  const clones = Array.isArray(data) ? data : (data.items || []);
+  window.BWTL.VOICE_CLONES = clones;
+  return clones;
+}
+
 // ─── Initialize window.BWTL ───────────────────────────────────────────────────
 
 window.BWTL = {
@@ -177,7 +270,7 @@ window.BWTL = {
   FLASHCARDS: {},
   PIE_ROOTS: {},
 
-  // stubs (display-only)
+  // stubs (display-only, populated on demand)
   NODES,
   FIGURES,
   RAG_ENTRIES,
@@ -196,7 +289,7 @@ window.BWTL = {
   RAG_COLLECTIONS,
   DOCUMENT_RUNS,
 
-  // API helpers — components call these for live data
+  // SF API helpers
   fetchCard,
   fetchCards,
   fetchPieRoot,
@@ -211,4 +304,20 @@ window.BWTL = {
   createCollection,
   getCollections,
   getCoverage,
+  fetchLanguages,
+  fetchStudyDue,
+  fetchStudyStats,
+  fetchVoiceClones,
+
+  // Cross-app API helpers
+  fetchFigures,
+  fetchFigure,
+  fetchFigureStory,
+  fetchCognates,
+  fetchEfgGraph,
+  fetchEfgRoots,
+  searchRag,
+  fetchAfJobs,
+  generateVideo,
+  fetchAfJobStatus,
 };

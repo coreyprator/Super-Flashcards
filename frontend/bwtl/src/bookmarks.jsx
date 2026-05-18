@@ -6,7 +6,17 @@
 
 function BookmarksView({ go, onOpenCard, onOpenFigure }) {
   const [filter, setFilter] = React.useState('all');
-  const bms = window.BWTL.BOOKMARKS;
+  const [bms, setBms] = React.useState(window.BWTL.BOOKMARKS || []);
+  const [loading, setLoading] = React.useState(!bms.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.getBookmarks('')
+      .then(data => setBms(Array.isArray(data) ? data : (data.items || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
   const filtered = filter === 'all' ? bms : bms.filter(b => b.kind === filter);
 
   const groups = React.useMemo(() => {
@@ -30,6 +40,14 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
     thread: 'CHAT',
     collection: 'CLS',
   }[k] || k);
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading bookmarks…</div>;
+  if (!bms.length) return (
+    <div style={{ padding: '18px 20px 200px', maxWidth: 1500, margin: '0 auto' }}>
+      <h1 className="display" style={{ fontSize: 34, margin: 0 }}>Bookmarks</h1>
+      <div className="bm-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14, marginTop: 24 }}>No bookmarks yet. Tap a card’s bookmark button to save it here.</div>
+    </div>
+  );
 
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1500, margin: '0 auto' }}>

@@ -718,9 +718,11 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
     card_ids = [str(c.id) for c in cards]
     atomic_roots = [pie_root]
     if card_ids:
+        id_params = {f"id_{i}": card_ids[i] for i in range(len(card_ids))}
+        placeholders = ", ".join([f":id_{i}" for i in range(len(card_ids))])
         rows = db.execute(
-            text("SELECT DISTINCT pie_root FROM flashcard_pie_roots WHERE flashcard_id IN :ids"),
-            {"ids": tuple(card_ids) if len(card_ids) > 1 else (card_ids[0],)}
+            text(f"SELECT DISTINCT pie_root FROM flashcard_pie_roots WHERE flashcard_id IN ({placeholders})"),
+            id_params
         ).fetchall()
         candidates = [r[0] for r in rows if r[0]]
         if len(candidates) > 1:

@@ -24,14 +24,37 @@ function Workspace({
   setActiveThreadId,
   onPromote
 }) {
-  const card = window.BWTL.FLASHCARDS[cardId];
-  if (!card) return null;
+  const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
+  const [loadingCard, setLoadingCard] = React.useState(!card);
+  const [threads, setThreads] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!cardId) return;
+    setLoadingCard(true);
+    window.BWTL.fetchCard(cardId)
+      .then(c => { setCard(c); setLoadingCard(false); })
+      .catch(err => { console.error('[Workspace] fetchCard error:', err); setLoadingCard(false); });
+  }, [cardId]);
+
+  React.useEffect(() => {
+    if (!cardId) return;
+    window.BWTL.getThreads({ anchor_value: cardId })
+      .then(data => setThreads(Array.isArray(data) ? data : (data.items || [])))
+      .catch(() => setThreads([]));
+  }, [cardId]);
+
+  if (loadingCard) return (
+    <div className="ws-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--fg-3)', fontSize: 14 }}>
+      Loading card…
+    </div>
+  );
+  if (!card) return (
+    <div className="ws-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--fg-3)', fontSize: 14 }}>
+      No card loaded. Select a card from the Library to begin.
+    </div>
+  );
 
   const pieRootKey = card.pie_root;
-  // REV item 1 — chat threads are anchored to flashcard_id, NOT pie_root.
-  // Cross-card relevance (e.g. *men- threads across mémoire/μνήμη/mentir) is
-  // surfaced through the Chat tab's cross-app index, not through anchor logic.
-  const threads = window.BWTL.CHAT_THREADS[card.id] || [];
   const figureId = card.figure_link || card.fun_facts?.find((f) => f.figure)?.figure;
 
   // ── handle: cross-app link clicks ────────────────────────────────────────
@@ -196,7 +219,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           </span>
         </h4>
         <div style={{ display: 'grid', gap: 6 }}>
-          {card.etymology_layered.map((l, i) =>
+          {(card.etymology_layered || []).map((l, i) =>
           <div key={l.layer} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, alignItems: 'baseline' }}>
               <span className="mono" style={{ fontSize: 10.5, color: 'var(--fg-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l.layer}</span>
               <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--fg-2)' }}>
@@ -213,11 +236,11 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
       <div className="wc-section">
         <h4>
           <span className="dot acc" /> Cognates
-          <span className="pill ghost" style={{ marginLeft: 'auto', fontSize: 9.5 }}>{card.cognates.length} · including {card.cognates.filter((c) => c.false).length} false</span>
+          <span className="pill ghost" style={{ marginLeft: 'auto', fontSize: 9.5 }}>{(card.cognates || []).length} · including {(card.cognates || []).filter((c) => c.false).length} false</span>
           {canEdit && <AiEditButton field="cognates" label="Cognates" />}
         </h4>
         <div className="chip-row">
-          {card.cognates.map((c) =>
+          {(card.cognates || []).map((c) =>
           <span key={c.word} className="cog" onClick={() => onNavigateWord && onNavigateWord(null /* mock */)}>
               <span className="lang">{c.lang}</span>
               <span className="greek">{c.word}</span>
@@ -239,7 +262,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           </span>
         </h4>
         <div style={{ display: 'grid', gap: 8 }}>
-          {card.fun_facts.map((f, i) =>
+          {(card.fun_facts || []).map((f, i) =>
           <div key={i} className="ff-card">
               <FunFactBody text={f.text} figure={f.figure} onDrillFigure={onDrillFigure} onDrillPie={onDrillPie} />
               <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', fontSize: 10.5, color: 'var(--fg-4)' }}>

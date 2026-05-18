@@ -93,6 +93,15 @@ def get_due_cards(
     return crud.get_cards_due_for_review(db, language_id=language_id, limit=limit)
 
 
+@router.get("/next", response_model=List[schemas.Flashcard])
+def get_next_study_card(
+    language_id: Optional[str] = None,
+    limit: int = Query(default=10, le=50),
+    db: Session = Depends(get_db),
+):
+    """Alias for /due — returns next due card(s) for SRS session."""
+    return crud.get_cards_due_for_review(db, language_id=language_id, limit=limit)
+
 # ─────────────────────────────────────────────
 # Statistics
 # ─────────────────────────────────────────────
