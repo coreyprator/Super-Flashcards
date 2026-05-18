@@ -56,6 +56,17 @@ async def _load_dcc_data() -> dict:
     return _dcc_cache
 
 
+@router.get("/v1/dcc/list")
+async def list_dcc_words():
+    """Return the full DCC word list array (cached from EFG API)."""
+    try:
+        dcc_data = await _load_dcc_data()
+    except Exception as e:
+        logger.error(f"Failed to load DCC data: {e}")
+        raise HTTPException(status_code=502, detail="DCC data unavailable")
+    return list(dcc_data.values())
+
+
 @router.get("/v1/cards/{card_id}/dcc")
 async def get_card_dcc(card_id: UUID = Path(...), db: Session = Depends(get_db)):
     """

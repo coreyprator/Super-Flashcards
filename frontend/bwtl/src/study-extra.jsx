@@ -2,8 +2,25 @@
 // Mirrors SF /api/study/*, /api/v1/pronunciation/*, /api/shadowing/*.
 
 function StudyQueueView({ onNavigateWord }) {
-  const queue = window.BWTL.STUDY_QUEUE;
-  const reviewedCount = 2;
+  const [queue, setQueue] = React.useState(window.BWTL.STUDY_QUEUE || []);
+  const [loading, setLoading] = React.useState(!queue.length);
+  const reviewedCount = 0;
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.fetchStudyDue()
+      .then(data => setQueue(Array.isArray(data) ? data : (data.items || data.cards || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading study queue…</div>;
+  if (!queue.length) return (
+    <div style={{ padding: '18px 20px 200px', maxWidth: 1300, margin: '0 auto' }}>
+      <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Today's queue</h1>
+      <div className="study-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14, marginTop: 24 }}>No cards due. Great job — check back tomorrow!</div>
+    </div>
+  );
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1300, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 20 }}>

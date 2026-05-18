@@ -56,12 +56,27 @@ function LibraryView({ onNavigateWord, onOpenFigure, role }) {
 }
 
 function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
-  const cards = Object.values(window.BWTL.FLASHCARDS);
-  const langs = window.BWTL.LANGUAGES;
+  const [cards, setCards] = React.useState(Object.values(window.BWTL.FLASHCARDS));
+  const [langs, setLangs] = React.useState(window.BWTL.LANGUAGES || []);
+  const [loading, setLoading] = React.useState(!cards.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      window.BWTL.fetchCards({ limit: 200 })
+        .then(data => setCards(Array.isArray(data) ? data : (data.items || []))),
+      window.BWTL.fetchLanguages()
+        .then(data => setLangs(Array.isArray(data) ? data : [])),
+    ]).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
   const filtered = cards.filter(c =>
     (langFilter === 'all' || c.language === langFilter) &&
-    (!q || c.word.toLowerCase().includes(q.toLowerCase()) || c.definition.toLowerCase().includes(q.toLowerCase()))
+    (!q || (c.word_or_phrase || c.word || '').toLowerCase().includes(q.toLowerCase()) || (c.definition || '').toLowerCase().includes(q.toLowerCase()))
   );
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading cards…</div>;
+  if (!cards.length) return <div className="cards-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No cards in library yet.</div>;
 
   return (
     <>
@@ -71,14 +86,14 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
         <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8 }}>
           <button onClick={() => setLangFilter('all')} className="btn xs ghost" style={{ background: langFilter === 'all' ? 'var(--bg-4)' : 'transparent' }}>All <span className="mono" style={{ color: 'var(--fg-5)' }}>2936</span></button>
           {langs.map(l => (
-            <button key={l.code} onClick={() => setLangFilter(l.name)} className="btn xs ghost"
-              style={{ background: langFilter === l.name ? 'var(--bg-4)' : 'transparent' }}>
-              {l.name} <span className="mono" style={{ color: 'var(--fg-5)' }}>{l.total}</span>
+            <button key={l.code || l.name} onClick={() => setLangFilter(l.name || l)} className="btn xs ghost"
+              style={{ background: langFilter === (l.name || l) ? 'var(--bg-4)' : 'transparent' }}>
+              {l.name || l}
             </button>
           ))}
         </div>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">
-          {filtered.length} shown · 2936 total in SF.flashcards
+          {filtered.length} shown · {cards.length} total
         </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
@@ -89,7 +104,7 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
               {c.bookmarked && <Ic.bookmark_filled style={{ color: 'var(--acc-2)' }} />}
             </div>
             <div style={{ padding: '12px 14px' }}>
-              <div className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{c.word}</div>
+              <div className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{c.word_or_phrase || c.word}</div>
               <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>{c.ipa}</div>
               <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.4 }}>{c.definition}</div>
               <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -107,36 +122,43 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
 }
 
 function RootsTab({ q }) {
-  const roots = Object.entries(window.BWTL.PIE_ROOTS);
-  const filtered = roots.filter(([k, r]) => !q || r.root.toLowerCase().includes(q.toLowerCase()) || r.gloss.toLowerCase().includes(q.toLowerCase()));
+  const [roots, setRoots] = React.useState(Object.values(window.BWTL.PIE_ROOTS));
+  const [loading, setLoading] = React.useState(!roots.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.fetchEfgRoots()
+      .then(data => setRoots(Array.isArray(data) ? data : (data.roots || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = roots.filter(r => !q || (r.root || '').toLowerCase().includes(q.toLowerCase()) || (r.gloss || r.meaning || '').toLowerCase().includes(q.toLowerCase()));
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading PIE roots…</div>;
+  if (!roots.length) return <div className="roots-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No PIE roots loaded. The EFG service may be offline.</div>;
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="pill graph" style={{ fontSize: 10.5 }}>EFG · 1057 PIE root nodes</span>
-        <span className="pill ok" style={{ fontSize: 10.5 }}><span className="dot ok" /> 992 with explorer data (94%)</span>
-        <span className="pill warn" style={{ fontSize: 10.5 }}>65 missing</span>
-        <span className="pill warn" style={{ fontSize: 10.5 }}>52 missing IPA/audio · REQ-011</span>
+        <span className="pill graph" style={{ fontSize: 10.5 }}>EFG · {roots.length} PIE root nodes</span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">{filtered.length} shown</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 }}>
-        {filtered.map(([k, r]) => (
-          <div key={k} className="card">
+        {filtered.map((r, i) => (
+          <div key={r.id || r.root || i} className="card">
             <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line-soft)' }}>
-              <div className="display" style={{ fontSize: 22, color: 'var(--pie)' }}>{r.root}</div>
+              <div className="display" style={{ fontSize: 22, color: 'var(--pie)' }}>{r.root || r.label}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{r.ipa}</span>
-                <button className="pie-audio" style={{ width: 22, height: 22 }}><Ic.play /></button>
+                {r.ipa && <button className="pie-audio" style={{ width: 22, height: 22 }}><Ic.play /></button>}
               </div>
             </div>
             <div style={{ padding: '12px 14px' }}>
-              <div style={{ fontSize: 13, color: 'var(--fg-2)' }}>"{r.gloss}"</div>
+              <div style={{ fontSize: 13, color: 'var(--fg-2)' }}>{r.gloss || r.meaning ? `"${r.gloss || r.meaning}"` : ''}</div>
               <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <span className="pill ghost" style={{ fontSize: 9.5 }}>{r.word_count} cards</span>
+                {r.word_count > 0 && <span className="pill ghost" style={{ fontSize: 9.5 }}>{r.word_count} cards</span>}
                 {r.atomic && <span className="pill pie" style={{ fontSize: 9.5 }}>compound</span>}
-                <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" /> explorer data</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--fg-4)', marginTop: 8, lineHeight: 1.45 }}>
-                {r.modern_cognates.slice(0, 120)}…
               </div>
             </div>
           </div>
@@ -147,24 +169,26 @@ function RootsTab({ q }) {
 }
 
 function FiguresTab({ q, onOpenFigure }) {
-  const figs = Object.values(window.BWTL.FIGURES);
-  // Pad list with mock additional figures for density
-  const allFigs = [
-    ...figs.map(f => ({ ...f })),
-    { id: 'zeus',     english_name: 'Zeus',     greek_name: 'Ζεύς',     figure_type: 'Olympian',  domain: 'sky, thunder, kingship', pie_root: '*dyḗws-', ipa: '/zjuːs/' },
-    { id: 'hera',     english_name: 'Hera',     greek_name: 'Ἥρα',      figure_type: 'Olympian',  domain: 'marriage, women, sky',   pie_root: '*yeh₁-',  ipa: '/ˈhɛr.ə/' },
-    { id: 'apollon',  english_name: 'Apollon',  greek_name: 'Ἀπόλλων',  figure_type: 'Olympian',  domain: 'music, prophecy, light', pie_root: '?',       ipa: '/əˈpɒl.oʊ/', missing_audio: true },
-    { id: 'athena',   english_name: 'Athena',   greek_name: 'Ἀθηνᾶ',    figure_type: 'Olympian',  domain: 'wisdom, war, craft',     pie_root: '?',       ipa: '/əˈθiː.nə/' },
-    { id: 'lethe',    english_name: 'Lethe',    greek_name: 'Λήθη',     figure_type: 'Primordial',domain: 'forgetfulness, underworld river', pie_root: '*leh₂dʰ-', ipa: '/ˈliː.θi/' },
-    { id: 'gaia',     english_name: 'Gaia',     greek_name: 'Γαῖα',     figure_type: 'Primordial',domain: 'earth, mother',          pie_root: '?',       ipa: '/ˈɡaɪ.ə/' },
-  ];
-  const filtered = allFigs.filter(f => !q || f.english_name.toLowerCase().includes(q.toLowerCase()) || f.greek_name.includes(q));
+  const [figs, setFigs] = React.useState(Object.values(window.BWTL.FIGURES));
+  const [loading, setLoading] = React.useState(!figs.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.fetchFigures(100)
+      .then(data => setFigs(Array.isArray(data) ? data : (data.items || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = figs.filter(f => !q || (f.english_name || '').toLowerCase().includes(q.toLowerCase()) || (f.greek_name || '').includes(q) || (f.latin_name || '').toLowerCase().includes(q.toLowerCase()));
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading figures…</div>;
+  if (!figs.length) return <div className="figures-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No mythology figures loaded. The Etymython service may be offline.</div>;
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="pill myth" style={{ fontSize: 10.5 }}>EM · 183 figures</span>
-        <span className="pill warn" style={{ fontSize: 10.5 }}>113 missing IPA · 111 missing audio</span>
-        <span className="pill ok" style={{ fontSize: 10.5 }}>173 with origin_story (95%)</span>
+        <span className="pill myth" style={{ fontSize: 10.5 }}>EM · {figs.length} figures</span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">{filtered.length} shown</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
@@ -176,15 +200,14 @@ function FiguresTab({ q, onOpenFigure }) {
               borderBottom: '1px solid var(--line-soft)',
               display: 'flex', alignItems: 'flex-end', padding: 8,
               fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--fg-4)',
-            }}>{f.figure_type.toLowerCase()}</div>
+            }}>{(f.figure_type || '').toLowerCase()}</div>
             <div style={{ padding: '10px 12px' }}>
-              <div className="display" style={{ fontSize: 18, color: 'var(--myth)' }}>{f.english_name}</div>
-              <div className="greek" style={{ fontSize: 13, color: 'var(--fg-2)' }}>{f.greek_name}</div>
+              <div className="display" style={{ fontSize: 18, color: 'var(--myth)' }}>{f.english_name || f.name}</div>
+              <div className="greek" style={{ fontSize: 13, color: 'var(--fg-2)' }}>{f.greek_name || f.latin_name}</div>
               <div style={{ fontSize: 11, color: 'var(--fg-4)', marginTop: 4 }}>{f.domain}</div>
               <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <span className="pill myth" style={{ fontSize: 9.5 }}>{f.figure_type}</span>
+                {f.figure_type && <span className="pill myth" style={{ fontSize: 9.5 }}>{f.figure_type}</span>}
                 {f.pie_root && f.pie_root !== '?' && <span className="pill pie" style={{ fontSize: 9.5 }}>{f.pie_root}</span>}
-                {f.missing_audio && <span className="pill warn" style={{ fontSize: 9.5 }}>no audio</span>}
               </div>
             </div>
           </div>
@@ -195,22 +218,51 @@ function FiguresTab({ q, onOpenFigure }) {
 }
 
 function BeekesTab({ q }) {
-  const docs = window.BWTL.BEEKES_DOCS;
-  const filtered = docs.filter(d => !q || d.headword.toLowerCase().includes(q.toLowerCase()) || d.excerpt.toLowerCase().includes(q.toLowerCase()));
+  const [docs, setDocs] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const lastQ = React.useRef('');
+
+  React.useEffect(() => {
+    const term = q || '*';
+    if (term === lastQ.current) return;
+    lastQ.current = term;
+    setLoading(true);
+    window.BWTL.searchRag(term, 'etymology')
+      .then(data => {
+        const items = Array.isArray(data) ? data : (data.results || data.items || []);
+        setDocs(items.map((d, i) => ({
+          id: d.id || i,
+          headword: d.word || d.title || d.headword || term,
+          excerpt: d.text || d.content || d.excerpt || '',
+          source: d.source || 'etymology',
+          confidence: (d.score || 0) > 0.8 ? 'high' : 'medium',
+          page: d.page || '',
+        })));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [q]);
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Searching Beekes entries…</div>;
+  if (!docs.length) return (
+    <div className="beekes-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>
+      Type a root or word in the search bar above to browse Beekes dictionary entries.
+    </div>
+  );
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="pill accent" style={{ fontSize: 10.5 }}>Portfolio RAG · etymology collection · 1840 docs</span>
-        <span className="pill ghost" style={{ fontSize: 10.5 }}>queried via /search /semantic /query</span>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">{filtered.length} shown</span>
+        <span className="pill accent" style={{ fontSize: 10.5 }}>Portfolio RAG · etymology collection</span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">{docs.length} results</span>
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
-        {filtered.map(d => (
+        {docs.map(d => (
           <div key={d.id} className="card">
             <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 14, alignItems: 'baseline' }}>
               <div>
                 <div className="display" style={{ fontSize: 18, color: 'var(--acc-2)' }}>{d.headword}</div>
-                <div className="mono" style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 2 }}>Beekes p.{d.page}</div>
+                {d.page && <div className="mono" style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 2 }}>Beekes p.{d.page}</div>}
               </div>
               <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.5 }}>{d.excerpt}</div>
               <button className="btn xs ghost"><Ic.book /> Read full</button>
@@ -223,15 +275,33 @@ function BeekesTab({ q }) {
 }
 
 function DccTab({ q, onNavigateWord }) {
-  const words = window.BWTL.DCC_WORDS;
-  const filtered = words.filter(w => !q || w.word.includes(q) || w.gloss.toLowerCase().includes(q.toLowerCase()));
+  const [words, setWords] = React.useState(window.BWTL.DCC_WORDS || []);
+  const [loading, setLoading] = React.useState(!words.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetch('/api/v1/dcc/list')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.words || data.nodes || []);
+        window.BWTL.DCC_WORDS = list;
+        setWords(list);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = words.filter(w => !q || (w.label || w.word || '').includes(q) || (w.gloss || w.definition || '').toLowerCase().includes(q.toLowerCase()));
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading DCC word list…</div>;
+  if (!words.length) return <div className="dcc-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>DCC word list unavailable. EFG service may be offline.</div>;
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <span className="pill graph" style={{ fontSize: 10.5 }}>DCC · Greek core vocabulary</span>
-        <span className="pill ghost" style={{ fontSize: 10.5 }}>2086 entries · ranked by frequency</span>
-        <span className="pill ghost" style={{ fontSize: 10.5 }}>enriched via SF dcc.py + RAG</span>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">showing {filtered.length} of 2086</span>
+        <span className="pill ghost" style={{ fontSize: 10.5 }}>{words.length} entries · ranked by frequency</span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">showing {filtered.length}</span>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
         <thead>
@@ -242,14 +312,14 @@ function DccTab({ q, onNavigateWord }) {
           </tr>
         </thead>
         <tbody>
-          {filtered.map(w => (
-            <tr key={w.rank} style={{ borderTop: '1px solid var(--line-soft)' }}>
-              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-4)' }}>{w.rank}</td>
-              <td style={{ padding: '8px 12px' }} className="greek"><span style={{ fontSize: 15, fontWeight: 600 }}>{w.word}</span></td>
-              <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg-2)' }}>{w.gloss}</td>
-              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--fg-4)' }}>{w.pos}</td>
-              <td style={{ padding: '8px 12px' }}>{w.pie_root && <span className="pill pie" style={{ fontSize: 9.5 }}>{w.pie_root}</span>}</td>
-              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{w.freq_per_10k}</td>
+          {filtered.map((w, i) => (
+            <tr key={w.id || w.rank || i} style={{ borderTop: '1px solid var(--line-soft)' }}>
+              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-4)' }}>{w.frequency_rank || w.rank || i+1}</td>
+              <td style={{ padding: '8px 12px' }} className="greek"><span style={{ fontSize: 15, fontWeight: 600 }}>{w.label || w.word}</span></td>
+              <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg-2)' }}>{w.gloss || w.definition}</td>
+              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--fg-4)' }}>{w.pos || w.part_of_speech}</td>
+              <td style={{ padding: '8px 12px' }}>{(w.pie_root || w.pie) && <span className="pill pie" style={{ fontSize: 9.5 }}>{w.pie_root || w.pie}</span>}</td>
+              <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{w.freq_per_10k || w.frequency}</td>
               <td style={{ padding: '8px 12px' }}>{w.sf_linked ? <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" />linked</span> : <button className="btn xs ghost">Create card</button>}</td>
             </tr>
           ))}

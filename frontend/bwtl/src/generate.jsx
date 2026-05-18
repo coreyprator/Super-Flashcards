@@ -45,10 +45,23 @@ function GenerateView({ cardId, role }) {
 }
 
 function JobsTab() {
-  const jobs = window.BWTL.AF_JOBS;
+  const [jobs, setJobs] = React.useState(window.BWTL.AF_JOBS || []);
+  const [loading, setLoading] = React.useState(!jobs.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.fetchAfJobs()
+      .then(data => setJobs(Array.isArray(data) ? data : (data.items || data.jobs || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading jobs…</div>;
+  if (!jobs.length) return <div className="jobs-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No video generation jobs yet. Use “From word” or “From figure” to queue your first job.</div>;
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <span className="pill ghost" style={{ fontSize: 10.5 }}>{jobs.length} total jobs</span>
         <span className="pill forge" style={{ fontSize: 10.5 }}>ArtForge · /api/external/jobs</span>
         <span className="pill ok" style={{ fontSize: 10.5 }}><span className="dot ok" /> {jobs.filter(j => j.status === 'done').length} done</span>
         <span className="pill warn" style={{ fontSize: 10.5 }}>{jobs.filter(j => j.status === 'rendering' || j.status === 'queued').length} active</span>
@@ -97,7 +110,28 @@ function JobsTab() {
 }
 
 function FromWordTab({ cardId }) {
-  const card = window.BWTL.FLASHCARDS[cardId] || window.BWTL.FLASHCARDS.fc_souvenir;
+  const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
+  const [generating, setGenerating] = React.useState(false);
+  const [genJobId, setGenJobId] = React.useState(null);
+  const [genError, setGenError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!cardId) return;
+    if (window.BWTL.FLASHCARDS[cardId]) { setCard(window.BWTL.FLASHCARDS[cardId]); return; }
+    window.BWTL.fetchCard(cardId)
+      .then(c => setCard(c))
+      .catch(console.error);
+  }, [cardId]);
+
+  const handleGenerate = () => {
+    if (!card?.id) return;
+    setGenerating(true); setGenError(null);
+    window.BWTL.generateVideo(card.id)
+      .then(data => { setGenJobId(data.job_id || data.id || null); setGenerating(false); })
+      .catch(err => { setGenError(err.message); setGenerating(false); });
+  };
+
+  if (!card) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Select a card first in the Study workspace.</div>;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
       <div className="card" style={{ padding: 0 }}>
@@ -145,9 +179,18 @@ function FromWordTab({ cardId }) {
           <strong style={{ color: 'var(--fg-2)' }}>Will hit:</strong> <span className="mono" style={{ color: 'var(--forge)' }}>POST artforge /api/external/generate-video</span> with embedded {card.pie_root} context · poll <span className="mono">GET /api/external/jobs/{'{'}id{'}'}</span> · result stored in <span className="mono">SF.flashcards.video_url</span>
         </div>
 
+        {genError && <div style={{ color: 'var(--err)', fontSize: 12, padding: '6px 0' }}>{genError}</div>}
+        {genJobId && (
+          <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--bg-2)', border: '1px solid var(--line)', fontSize: 12, color: 'var(--fg-2)', marginTop: 8 }}>
+            Job queued: <span className="mono gen-job-id">{genJobId}</span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
           <button className="btn ghost"><Ic.pencil /> Scene editor first</button>
-          <button className="btn primary" style={{ '--b-bg': 'var(--forge)', '--b-fg': '#0b0918', '--b-bd': 'var(--forge)' }}><Ic.spark /> Generate</button>
+          <button className="btn primary" style={{ '--b-bg': 'var(--forge)', '--b-fg': '#0b0918', '--b-bd': 'var(--forge)' }} onClick={handleGenerate} disabled={generating}>
+            <Ic.spark /> {generating ? 'Generating…' : 'Generate'}
+          </button>
         </div>
       </div>
     </div>
@@ -155,19 +198,26 @@ function FromWordTab({ cardId }) {
 }
 
 function FromFigureTab() {
-  const figures = Object.values(window.BWTL.FIGURES);
+  const [figures, setFigures] = React.useState(Object.values(window.BWTL.FIGURES));
+  const [loading, setLoading] = React.useState(!figures.length);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.BWTL.fetchFigures(50)
+      .then(data => setFigures(Array.isArray(data) ? data : (data.items || [])))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading figures…</div>;
+
   return (
     <>
       <div style={{ fontSize: 12, color: 'var(--fg-3)', marginBottom: 14 }}>
         Generate a 5-scene story for a mythological figure. Hits <span className="mono" style={{ color: 'var(--forge)' }}>POST /api/v1/stories/from-figure</span> with figure name, Greek name, domain, origin story, etymology.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
-        {[
-          ...figures,
-          { id: 'apollon', english_name: 'Apollon', greek_name: 'Ἀπόλλων', figure_type: 'Olympian', domain: 'music, prophecy', image_caption: 'lyre player' },
-          { id: 'zeus', english_name: 'Zeus', greek_name: 'Ζεύς', figure_type: 'Olympian', domain: 'sky, thunder', image_caption: 'thunderbolt' },
-          { id: 'athena', english_name: 'Athena', greek_name: 'Ἀθηνᾶ', figure_type: 'Olympian', domain: 'wisdom, craft', image_caption: 'owl & spear' },
-        ].map(f => (
+        {figures.map(f => (
           <div key={f.id} className="card" style={{ cursor: 'pointer' }}>
             <div style={{ aspectRatio: '4/3', background: 'linear-gradient(135deg, var(--myth-bg), var(--forge-bg))', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'flex-end', padding: 8, fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--fg-4)' }}>
               {f.image_caption || 'placeholder'}

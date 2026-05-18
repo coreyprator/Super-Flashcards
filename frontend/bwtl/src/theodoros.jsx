@@ -18,6 +18,13 @@
 
 function TheodorosView({ onAccept, onReject, onNavigateWord }) {
   const [tab, setTab] = React.useState('threads');
+  const [allThreads, setAllThreads] = React.useState([]);
+
+  React.useEffect(() => {
+    window.BWTL.getThreads()
+      .then(data => setAllThreads(Array.isArray(data) ? data : (data.items || [])))
+      .catch(console.error);
+  }, []);
 
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1500, margin: '0 auto' }}>
@@ -36,12 +43,12 @@ function TheodorosView({ onAccept, onReject, onNavigateWord }) {
         </div>
       </div>
 
-      <ChatStatRow />
+      <ChatStatRow allThreads={allThreads} />
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--line)' }}>
         {[
-          ['threads',   'Threads',    Object.values(window.BWTL.CHAT_THREADS).reduce((a, x) => a + x.length, 0)],
-          ['audit',     'Audit log',  window.BWTL.CHAT_PROMOTIONS.length],
+          ['threads',   'Threads',    allThreads.length],
+          ['audit',     'Audit log',  null],
           ['new_cards', 'New cards',  null],
           ['batch',     'Batch jobs', null],
         ].map(([k, lab, n]) => (
@@ -57,7 +64,7 @@ function TheodorosView({ onAccept, onReject, onNavigateWord }) {
         ))}
       </div>
 
-      {tab === 'threads'   && <ThreadsIndexTab onNavigateWord={onNavigateWord} />}
+      {tab === 'threads'   && <ThreadsIndexTab allThreads={allThreads} onNavigateWord={onNavigateWord} />}
       {tab === 'audit'     && <AuditLogTab onNavigateWord={onNavigateWord} />}
       {tab === 'new_cards' && <NewCardsTab />}
       {tab === 'batch'     && <BatchJobsRedirectTab />}
@@ -65,18 +72,11 @@ function TheodorosView({ onAccept, onReject, onNavigateWord }) {
   );
 }
 
-function ChatStatRow() {
-  const allThreads = Object.values(window.BWTL.CHAT_THREADS).flat();
-  const promotions = window.BWTL.CHAT_PROMOTIONS;
-  const cardsWithThreads = Object.keys(window.BWTL.CHAT_THREADS).length;
-  const lastAccept = promotions[0]?.when || '—';
+function ChatStatRow({ allThreads }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 18 }}>
       {[
-        { lab: 'Threads · all cards',  n: allThreads.length, sub: `across ${cardsWithThreads} cards`, clr: 'var(--acc)' },
-        { lab: 'Accepts · this week',  n: promotions.length, sub: `last: ${lastAccept}`, clr: 'var(--ok)' },
-        { lab: 'Cards touched',        n: new Set(promotions.map(p => p.card)).size, sub: 'via chat-promoted writes', clr: 'var(--pie)' },
-        { lab: 'AI batch jobs',        n: 7, sub: '— see Batch jobs tab', clr: 'var(--graph)' },
+        { lab: 'Threads · all cards', n: allThreads.length, sub: `across multiple cards`, clr: 'var(--acc)' },
       ].map(s => (
         <div key={s.lab} className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{s.lab}</div>
@@ -89,13 +89,22 @@ function ChatStatRow() {
 }
 
 // ── Threads · cross-app index ──────────────────────────────────────────────
-function ThreadsIndexTab({ onNavigateWord }) {
-  const grouped = window.BWTL.CHAT_THREADS;
-  const cardIds = Object.keys(grouped);
-  const [activeId, setActiveId] = React.useState(grouped[cardIds[0]]?.[0]?.id);
+function ThreadsIndexTab({ allThreads, onNavigateWord }) {
+  const [activeId, setActiveId] = React.useState(allThreads[0]?.id || null);
 
-  // flat list with card metadata
-  const flat = cardIds.flatMap(cid => grouped[cid].map(t => ({ ...t, card: window.BWTL.FLASHCARDS[cid] })));
+  if (!allThreads.length) return (
+    <div className="threads-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No chat threads yet. Start a conversation on any card to see threads here.</div>
+  );
+
+  // group by anchor_value (card id)
+  const grouped = {};
+  for (const t of allThreads) {
+    const key = t.anchor_value || t.card_id || t.id;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(t);
+  }
+  const cardIds = Object.keys(grouped);
+  const flat = allThreads;
   const active = flat.find(t => t.id === activeId) || flat[0];
 
   return (
@@ -106,7 +115,8 @@ function ThreadsIndexTab({ onNavigateWord }) {
         </div>
         <div style={{ overflowY: 'auto' }}>
           {cardIds.map(cid => {
-            const c = window.BWTL.FLASHCARDS[cid];
+            const c = grouped[cid][0];
+            const cardMeta = window.BWTL.FLASHCARDS[cid] || {};
             return (
               <div key={cid}>
                 <div
@@ -118,10 +128,10 @@ function ThreadsIndexTab({ onNavigateWord }) {
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 10,
                   }}>
-                  <span className="greek" style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{c.word}</span>
+                  <span className="greek" style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{cardMeta.word || cid}</span>
                   <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>{cid}</span>
-                  <span className="pill ghost" style={{ fontSize: 9, marginLeft: 'auto' }}>{c.language}</span>
-                  {c.pie_root && <span className="pill pie" style={{ fontSize: 9 }}>{c.pie_root}</span>}
+                  <span className="pill ghost" style={{ fontSize: 9, marginLeft: 'auto' }}>{cardMeta.language}</span>
+                  {cardMeta.pie_root && <span className="pill pie" style={{ fontSize: 9 }}>{cardMeta.pie_root}</span>}
                 </div>
                 {grouped[cid].map(t => (
                   <div
@@ -136,7 +146,7 @@ function ThreadsIndexTab({ onNavigateWord }) {
                     }}>
                     <div style={{ fontSize: 12.5, color: 'var(--fg)', fontWeight: 600 }}>{t.title}</div>
                     <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 3, display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="mono">{t.when}</span>
+                      <span className="mono">{t.when || t.created_at}</span>
                       <span>·</span>
                       <span>{t.messages.length} msg</span>
                       {t.context?.steering && <><span>·</span><span style={{ color: 'var(--acc-2)' }}>steered</span></>}

@@ -43,8 +43,29 @@ function App() {
   const [role, setRole] = React.useState('pl');
   const [section, setSection] = React.useState('study');
   const [sub, setSub] = React.useState('card');  // study sub-view: queue|card|pronunciation|shadowing
-  const [view, setView] = React.useState({ kind: 'card', id: 'fc_souvenir' });
+  const [view, setView] = React.useState({ kind: 'card', id: null });
   const [createOpen, setCreateOpen] = React.useState(false);
+
+  // ── URL-based routing on mount ───────────────────────────────────────────
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    const cardMatch = path.match(/^\/bwtl\/study\/card\/([^/]+)/);
+    if (cardMatch) {
+      setSection('study'); setSub('card'); setView({ kind: 'card', id: cardMatch[1] });
+    } else if (/^\/bwtl\/library/.test(path)) {
+      setSection('library');
+    } else if (/^\/bwtl\/bookmarks/.test(path)) {
+      setSection('bookmarks');
+    } else if (/^\/bwtl\/generate/.test(path)) {
+      setSection('generate');
+    } else if (/^\/bwtl\/admin/.test(path)) {
+      setSection('admin');
+    } else if (/^\/bwtl\/theodoros/.test(path)) {
+      setSection('theodoros');
+    } else if (/^\/bwtl\/settings/.test(path)) {
+      setSection('settings');
+    }
+  }, []);
 
   // ── workspace UI state ───────────────────────────────────────────────────
   const [panelState, setPanelState] = React.useState({
@@ -75,8 +96,7 @@ function App() {
 
   // ── navigate to a different card ─────────────────────────────────────────
   const navigateWord = (cardId) => {
-    if (!cardId) cardId = 'fc_memoire'; // mock fallback for cognate clicks
-    if (!window.BWTL.FLASHCARDS[cardId]) return;
+    if (!cardId) return;
     setView({ kind: 'card', id: cardId });
     setSection('study');
     setSub('card');

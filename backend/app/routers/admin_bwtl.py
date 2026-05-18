@@ -1,6 +1,8 @@
-# backend/app/routers/admin_bwtl.py — BWTL03 admin coverage endpoint
+# backend/app/routers/admin_bwtl.py — BWTL03 admin coverage + BWTL04 af-jobs proxy
 import logging
-from fastapi import APIRouter, Depends
+import os
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -65,3 +67,28 @@ def get_coverage(
         "total_flashcards": total_rows,
         "coverage": results,
     }
+
+
+# ── ArtForge jobs proxy ────────────────────────────────────────────────────
+
+_AF_BASE = "https://artforge.rentyourcio.com/api/external"
+
+
+@router.get("/bwtl/af-jobs")
+async def list_af_jobs(_user: models.User = Depends(require_pl)):
+    """Stub: ArtForge jobs list. No list endpoint at ArtForge yet — returns empty."""
+    return {"items": [], "total": 0}
+
+
+@router.get("/bwtl/af-jobs/{job_id}")
+async def get_af_job_status(job_id: str, _user: models.User = Depends(require_pl)):
+    """Proxy ArtForge job status check."""
+    api_key = os.environ.get("ARTFORGE_EXTERNAL_API_KEY", "")
+    url = f"{_AF_BASE}/jobs/{job_id}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            r = await client.get(url, headers={"X-API-Key": api_key})
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"ArtForge error: {e}")

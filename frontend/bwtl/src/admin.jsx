@@ -47,78 +47,65 @@ function AdminView({ role }) {
 }
 
 function DataHealthTab() {
-  const stats = window.BWTL.EFG_STATS;
-  const rows = [
-    { app: 'SF',  table: 'flashcards.pie_audio_url',           total: 2936, missing: 2581, target: 95, in_flight: 'TSK-001 cc_executing', sev: 'high' },
-    { app: 'SF',  table: 'flashcards.pie_root',                total: 2936, missing: 879,  target: 85, in_flight: 'TSK-008 req_created', sev: 'high' },
-    { app: 'SF',  table: 'flashcards.pie_ipa',                 total: 2936, missing: 883,  target: 95, in_flight: 'TSK-001 cc_executing', sev: 'high' },
-    { app: 'SF',  table: 'flashcards.etymology',               total: 2936, missing: 304,  target: 95, in_flight: '—', sev: 'med' },
-    { app: 'SF',  table: 'flashcards.english_cognates',        total: 2936, missing: 724,  target: 90, in_flight: '—', sev: 'med' },
-    { app: 'SF',  table: 'flashcards.efg_node_id',             total: 2936, missing: 790,  target: 95, in_flight: 'REQ-015 cc_executing', sev: 'med' },
-    { app: 'SF',  table: 'flashcard_pie_roots.etymology_layer',total: 2922, missing: 2922, target: 95, in_flight: 'REQ-008 req_created', sev: 'high' },
-    { app: 'SF',  table: 'flashcards.gender',                  total: 2936, missing: 2936, target: 0,  in_flight: 'DEAD COLUMN', sev: 'dead' },
-    { app: 'EFG', table: 'nodes.pie_ipa (pie_root only)',      total: 1057, missing: 52,   target: 100,in_flight: 'REQ-011 cai_designing', sev: 'low' },
-    { app: 'EFG', table: 'nodes.pie_audio_url (pie_root only)',total: 1057, missing: 52,   target: 100,in_flight: 'REQ-011 cai_designing', sev: 'low' },
-    { app: 'EFG', table: 'efg_pie_explorer_data',              total: 1057, missing: 65,   target: 100,in_flight: '—', sev: 'low' },
-    { app: 'EM',  table: 'mythological_figures.ipa_transcription', total: 183, missing: 113, target: 95, in_flight: '—', sev: 'med' },
-    { app: 'EM',  table: 'mythological_figures.pronunciation_audio_url', total: 183, missing: 111, target: 95, in_flight: '—', sev: 'med' },
-    { app: 'EM',  table: 'mythological_figures.origin_story',  total: 183, missing: 10, target: 95, in_flight: '—', sev: 'low' },
-    { app: 'EM',  table: 'english_cognates.pie_audio_url',     total: 560, missing: 286, target: 95, in_flight: '—', sev: 'med' },
-    { app: 'EM',  table: 'english_cognates.pie_root',          total: 560, missing: 41, target: 95, in_flight: '—', sev: 'low' },
-    { app: 'EM',  table: 'cognate_greek_roots',                total: 2,   missing: 0,  target: 0,  in_flight: 'DEAD TABLE', sev: 'dead' },
-  ];
+  const [coverage, setCoverage] = React.useState(null);
+  const [loadingCov, setLoadingCov] = React.useState(true);
+
+  React.useEffect(() => {
+    window.BWTL.getCoverage()
+      .then(data => { setCoverage(data); setLoadingCov(false); })
+      .catch(err => { console.error('[DataHealthTab] getCoverage error:', err); setLoadingCov(false); });
+  }, []);
+
+  const rows = coverage ? (coverage.coverage || []) : [];
+  const totalCards = coverage ? (coverage.total_flashcards || 0) : 0;
+
   const pillFor = (s) => s === 'high' ? 'err' : s === 'med' ? 'warn' : s === 'low' ? 'ok' : 'ghost';
+
+  if (loadingCov) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading coverage data…</div>;
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
-        {[
-          { app: 'SF',  total: 2936, sub: '7 languages', color: 'var(--acc)' },
-          { app: 'EFG', total: 3290, sub: `${stats.word_nodes}w · ${stats.pie_root_nodes}r`, color: 'var(--graph)' },
-          { app: 'EM',  total: 183,  sub: 'figures · 1012 fun_facts', color: 'var(--myth)' },
-          { app: 'RAG', total: 7536, sub: '5 collections', color: 'var(--acc-2)' },
-        ].map(s => (
-          <div key={s.app} className="card card-body" style={{ padding: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{s.app}</div>
-            <div className="display" style={{ fontSize: 30, color: s.color, marginTop: 4, lineHeight: 1 }}>{s.total.toLocaleString()}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--fg-4)', marginTop: 4 }}>{s.sub}</div>
-          </div>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 18 }}>
+        <div className="card card-body" style={{ padding: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>SF Flashcards</div>
+          <div className="display" style={{ fontSize: 30, color: 'var(--acc)', marginTop: 4, lineHeight: 1 }}>{(totalCards || 0).toLocaleString()}</div>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        <div className="card-head"><h3>16 AI-healable fields · live coverage</h3></div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-2)' }}>
-              {['App','Table.column','Coverage','Missing','In-flight','Severity'].map(h => (
-                <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => {
-              const pct = r.total > 0 ? Math.round(((r.total - r.missing) / r.total) * 100) : 0;
-              const dead = r.sev === 'dead';
-              return (
-                <tr key={r.table} style={{ borderTop: '1px solid var(--line-soft)' }}>
-                  <td style={{ padding: '9px 12px' }}><span className="pill ghost" style={{ fontSize: 9.5 }}>{r.app}</span></td>
-                  <td style={{ padding: '9px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: dead ? 'var(--fg-5)' : 'var(--fg-2)', textDecoration: dead ? 'line-through' : 'none' }}>{r.table}</td>
-                  <td style={{ padding: '9px 12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 80, height: 5, background: 'var(--bg-3)', borderRadius: 99, overflow: 'hidden' }}>
-                        <div style={{ width: pct + '%', height: '100%', background: dead ? 'var(--fg-5)' : pct >= 90 ? 'var(--ok)' : pct >= 70 ? 'var(--warn)' : 'var(--err)' }} />
+        <div className="card-head"><h3>Field coverage · live from /api/admin/coverage</h3></div>
+        {!rows.length ? (
+          <div className="coverage-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No coverage data returned.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-2)' }}>
+                {['Field','Fill %','Missing','Total'].map(h => (
+                  <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const pct = Math.round(r.fill_pct || 0);
+                return (
+                  <tr key={r.field} style={{ borderTop: '1px solid var(--line-soft)' }}>
+                    <td style={{ padding: '9px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-2)' }}>{r.field}</td>
+                    <td style={{ padding: '9px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 80, height: 5, background: 'var(--bg-3)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ width: pct + '%', height: '100%', background: pct >= 90 ? 'var(--ok)' : pct >= 70 ? 'var(--warn)' : 'var(--err)' }} />
+                        </div>
+                        <span className="mono cov-pct" style={{ fontSize: 11, color: 'var(--fg-2)' }}>{pct}%</span>
                       </div>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--fg-2)' }}>{pct}%</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '9px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{r.missing.toLocaleString()} / {r.total.toLocaleString()}</td>
-                  <td style={{ padding: '9px 12px', fontSize: 11, color: 'var(--fg-3)' }}>{r.in_flight}</td>
-                  <td style={{ padding: '9px 12px' }}><span className={`pill ${pillFor(r.sev)}`} style={{ fontSize: 9.5 }}>{r.sev}</span></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td style={{ padding: '9px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{(r.missing_rows || 0).toLocaleString()}</td>
+                    <td style={{ padding: '9px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{(r.total_rows || 0).toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );
