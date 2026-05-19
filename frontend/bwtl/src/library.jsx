@@ -282,6 +282,7 @@ function BeekesTab({ q }) {
 function DccTab({ q, onNavigateWord }) {
   const [words, setWords] = React.useState(window.BWTL.DCC_WORDS || []);
   const [loading, setLoading] = React.useState(!words.length);
+  const [selectedEntry, setSelectedEntry] = React.useState(null); // REQ-031: DCC full content modal
 
   React.useEffect(() => {
     setLoading(true);
@@ -318,18 +319,47 @@ function DccTab({ q, onNavigateWord }) {
         </thead>
         <tbody>
           {filtered.map((w, i) => (
-            <tr key={w.id || w.rank || i} style={{ borderTop: '1px solid var(--line-soft)' }}>
+            <tr key={w.id || w.rank || i} style={{ borderTop: '1px solid var(--line-soft)', cursor: 'pointer' }}
+              onClick={() => setSelectedEntry(w)}>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-4)' }}>{w.frequency_rank || w.rank || i+1}</td>
-              <td style={{ padding: '8px 12px' }} className="greek"><span style={{ fontSize: 15, fontWeight: 600 }}>{w.label || w.word}</span></td>
-              <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg-2)' }}>{w.gloss || w.definition}</td>
+              <td style={{ padding: '8px 12px' }} className="greek"><span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>{w.label || w.word}</span></td>
+              <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg-2)', wordBreak: 'break-word', whiteSpace: 'normal' }}>{w.gloss || w.definition}</td>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--fg-4)' }}>{w.pos || w.part_of_speech}</td>
               <td style={{ padding: '8px 12px' }}>{(w.pie_root || w.pie) && <span className="pill pie" style={{ fontSize: 9.5 }}>{w.pie_root || w.pie}</span>}</td>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{w.freq_per_10k || w.frequency}</td>
-              <td style={{ padding: '8px 12px' }}>{w.sf_linked ? <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" />linked</span> : <button className="btn xs ghost">Create card</button>}</td>
+              <td style={{ padding: '8px 12px' }}>{w.sf_linked ? <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" />linked</span> : <button className="btn xs ghost" onClick={e => { e.stopPropagation(); }}>Create card</button>}</td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/* REQ-031: DCC full content modal */}
+      {selectedEntry && (
+        <dialog open style={{ position: 'fixed', inset: 0, zIndex: 999, width: '90vw', maxWidth: 600, margin: 'auto', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 0, boxShadow: '0 24px 80px rgba(0,0,0,0.7)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--line-soft)' }}>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--fg-4)' }}>DCC entry #{selectedEntry.frequency_rank || selectedEntry.rank}</span>
+            <button className="btn xs ghost" onClick={() => setSelectedEntry(null)}>✕</button>
+          </div>
+          <div style={{ padding: 20 }}>
+            <div className="greek" style={{ fontSize: 32, fontWeight: 600, marginBottom: 4 }}>{selectedEntry.label || selectedEntry.word}</div>
+            <div style={{ fontSize: 14, color: 'var(--fg-2)', marginBottom: 16, lineHeight: 1.5 }}>{selectedEntry.gloss || selectedEntry.definition}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12 }}>
+              {[['Part of speech', selectedEntry.pos || selectedEntry.part_of_speech], ['PIE root', selectedEntry.pie_root || selectedEntry.pie], ['DCC rank', selectedEntry.frequency_rank || selectedEntry.rank], ['Freq/10k', selectedEntry.freq_per_10k || selectedEntry.frequency], ['Semantic group', selectedEntry.semantic_group || selectedEntry.category], ['Source', selectedEntry.source]].filter(([,v]) => v).map(([k, v]) => (
+                <div key={k} style={{ background: 'var(--bg-2)', padding: '8px 10px', borderRadius: 6 }}>
+                  <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: 3 }}>{k}</div>
+                  <div style={{ color: 'var(--fg)' }}>{String(v)}</div>
+                </div>
+              ))}
+            </div>
+            {selectedEntry.notes && <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--fg-2)', lineHeight: 1.55 }}>{selectedEntry.notes}</div>}
+            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+              {selectedEntry.sf_card_id && <button className="btn sm primary" onClick={() => { setSelectedEntry(null); onNavigateWord(selectedEntry.sf_card_id); }}>Open SF card</button>}
+              <button className="btn sm ghost" onClick={() => setSelectedEntry(null)}>Close</button>
+            </div>
+          </div>
+        </dialog>
+      )}
+      {selectedEntry && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} onClick={() => setSelectedEntry(null)} />}
     </>
   );
 }

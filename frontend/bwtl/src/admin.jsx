@@ -49,6 +49,7 @@ function AdminView({ role }) {
 function DataHealthTab() {
   const [coverage, setCoverage] = React.useState(null);
   const [loadingCov, setLoadingCov] = React.useState(true);
+  const [search, setSearch] = React.useState(''); // REQ-030: text search above coverage table
 
   React.useEffect(() => {
     window.BWTL.getCoverage()
@@ -57,6 +58,7 @@ function DataHealthTab() {
   }, []);
 
   const rows = coverage ? (coverage.coverage || []) : [];
+  const filteredRows = search ? rows.filter(r => (r.field || '').toLowerCase().includes(search.toLowerCase())) : rows;
   const totalCards = coverage ? (coverage.total_flashcards || 0) : 0;
 
   const pillFor = (s) => s === 'high' ? 'err' : s === 'med' ? 'warn' : s === 'low' ? 'ok' : 'ghost';
@@ -72,7 +74,12 @@ function DataHealthTab() {
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        <div className="card-head"><h3>Field coverage · live from /api/admin/coverage</h3></div>
+        <div className="card-head">
+          <h3>Field coverage · live from /api/admin/coverage</h3>
+          {/* REQ-030: text search above coverage table */}
+          <input type="search" placeholder="Filter by field name…" value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '4px 8px', fontSize: 12, borderRadius: 'var(--r-sm)', border: '1px solid var(--line)', background: 'var(--bg-2)', color: 'var(--fg)', width: 200 }} />
+        </div>
         {!rows.length ? (
           <div className="coverage-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No coverage data returned.</div>
         ) : (
@@ -85,7 +92,7 @@ function DataHealthTab() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => {
+              {filteredRows.map(r => {
                 const pct = Math.round(r.fill_pct || 0);
                 return (
                   <tr key={r.field} style={{ borderTop: '1px solid var(--line-soft)' }}>

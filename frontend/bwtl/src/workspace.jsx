@@ -27,6 +27,7 @@ function Workspace({
   const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
   const [loadingCard, setLoadingCard] = React.useState(!card);
   const [threads, setThreads] = React.useState([]);
+  const [imgModalSrc, setImgModalSrc] = React.useState(null); // REQ-029: image iframe modal
 
   React.useEffect(() => {
     if (!cardId) return;
@@ -83,6 +84,33 @@ function Workspace({
     triggerGlow('rag');
   };
 
+  // ── handle: action buttons ────────────────────────────────────────────────
+  const handleBookmark = () => {
+    const wasBookmarked = card.bookmarked;
+    setCard((c) => ({ ...c, bookmarked: !wasBookmarked }));
+    if (wasBookmarked) {
+      // find bookmark id in cache and delete
+      const bm = (window.BWTL.BOOKMARKS || []).find(b => b.item_id === card.id);
+      if (bm) window.BWTL.deleteBookmark(bm.id).catch(() => setCard((c) => ({ ...c, bookmarked: true })));
+    } else {
+      window.BWTL.createBookmark({ item_id: card.id, item_type: 'flashcard' })
+        .then(bm => { if (bm?.id) window.BWTL.BOOKMARKS.push(bm); })
+        .catch(() => setCard((c) => ({ ...c, bookmarked: false })));
+    }
+  };
+
+  const handleChatAboutThis = () => {
+    setExpandedChat(true);
+    setActiveThreadId('new');
+  };
+
+  const handleNextInStudy = () => {
+    const queue = window.BWTL.STUDY_QUEUE || [];
+    const idx = queue.findIndex(q => (q.card_id || q.id) === card.id);
+    const next = idx >= 0 && idx < queue.length - 1 ? queue[idx + 1] : queue[0];
+    if (next) onNavigateWord(next.card_id || next.id);
+  };
+
   const togglePanel = (k) => {
     setPanelState((p) => ({ ...p, [k]: p[k] === 'collapsed' ? 'open' : p[k] === 'open' ? 'collapsed' : 'open' }));
   };
@@ -99,7 +127,11 @@ function Workspace({
           onDrillGraph={drillToGraph}
           onDrillForge={drillToForge}
           onDrillRag={drillToRag}
-          onNavigateWord={onNavigateWord} />
+          onNavigateWord={onNavigateWord}
+          onBookmark={handleBookmark}
+          onChatAboutThis={handleChatAboutThis}
+          onNextInStudy={handleNextInStudy}
+          onOpenImage={setImgModalSrc} />
         
       </div>
 
@@ -170,6 +202,18 @@ function Workspace({
         onNewThread={() => setActiveThreadId('new')}
         onPromote={onPromote}
         role={role} />
+
+      {/* REQ-029: Image iframe modal — click hero image to expand */}
+      {imgModalSrc && (
+        <dialog open style={{ position: 'fixed', inset: 0, zIndex: 999, width: '90vw', maxWidth: 900, height: '80vh', margin: 'auto', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 0, boxShadow: '0 24px 80px rgba(0,0,0,0.7)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid var(--line-soft)' }}>
+            <span style={{ fontSize: 12, color: 'var(--fg-3)', fontFamily: 'var(--ff-mono)' }}>{card.word} · image</span>
+            <button className="btn xs ghost" onClick={() => setImgModalSrc(null)}>✕ Close</button>
+          </div>
+          <img src={imgModalSrc} alt={card.word} style={{ width: '100%', height: 'calc(100% - 40px)', objectFit: 'contain', display: 'block', background: '#000' }} />
+        </dialog>
+      )}
+      {imgModalSrc && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 998 }} onClick={() => setImgModalSrc(null)} />}
       
     </div>);
 
@@ -179,12 +223,13 @@ function Workspace({
 // WORD CARD — the centerpiece of the workspace
 // ─────────────────────────────────────────────────────────────────────────────
 
-function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrillForge, onDrillRag, onNavigateWord }) {
+function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrillForge, onDrillRag, onNavigateWord, onBookmark, onChatAboutThis, onNextInStudy, onOpenImage }) {
   const canEdit = role === 'pl' || role === 'theo' || role === 'tutor';
   return (
     <div className="wordcard">
       <div className="wordcard-hero">
-        <div className="wordcard-img" title={card.image_caption || card.word} style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="wordcard-img" title={card.image_caption || card.word} style={{ position: 'relative', overflow: 'hidden', cursor: card.image_url ? 'zoom-in' : 'default' }}
+          onClick={() => card.image_url && onOpenImage && onOpenImage(card.image_url)}>
           {card.image_url
             ? <img src={card.image_url} alt={card.word} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             : <span style={{ position: 'absolute', bottom: 6, left: 8, fontSize: 9, color: 'var(--fg-4)', fontFamily: 'var(--ff-mono)' }}>no image</span>}
@@ -202,13 +247,13 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           </div>
           <div className="definition" style={{ marginTop: 4 }}>{card.definition}</div>
           <div className="wordcard-actions">
-            <button className="btn sm">
+            <button className="btn sm" onClick={onBookmark}>
               <Ic.bookmark_filled style={{ color: card.bookmarked ? 'var(--acc-2)' : 'var(--fg-3)' }} />
               {card.bookmarked ? 'Bookmarked' : 'Bookmark'}
             </button>
-            <button className="btn sm ghost"><Ic.chat /> Chat about this</button>
+            <button className="btn sm ghost" onClick={onChatAboutThis}><Ic.chat /> Chat about this</button>
             <button className="btn sm ghost" onClick={onDrillForge}><Ic.film /> Generate video</button>
-            <button className="btn sm ghost" style={{ marginLeft: 'auto' }}><Ic.shuffle /> Next in study</button>
+            <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={onNextInStudy}><Ic.shuffle /> Next in study</button>
           </div>
         </div>
       </div>
@@ -227,6 +272,19 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
             ? <EtymologyPIELine text={card.etymology} pieRoot={card.pie_root} onDrillPie={onDrillPie} />
             : <span style={{ color: 'var(--fg-4)' }}>No etymology on file.</span>}
         </div>
+        {/* PIE root row — shows IPA + audio button when available */}
+        {card.pie_root && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12.5, color: 'var(--fg-3)' }}>
+            <span className="pill pie" style={{ fontSize: 9.5 }}>{card.pie_root}</span>
+            {card.pie_ipa && <span className="mono" style={{ fontSize: 11 }}>{card.pie_ipa}</span>}
+            {card.pie_audio_url && (
+              <button className="btn xs ghost" style={{ padding: '2px 6px' }} title="Play PIE root audio"
+                onClick={() => new Audio(card.pie_audio_url).play()}>
+                <Ic.speaker />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Cognates — chips. Each chip is a cross-app drill-down to its word card. */}

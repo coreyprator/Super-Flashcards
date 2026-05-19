@@ -53,6 +53,11 @@ const PROMOTE_FIELDS = [
 async function fetchCard(id) {
   const card = await _apiFetch(`/api/flashcards/${id}`);
   card.word = card.word || card.word_or_phrase; // normalize: API returns word_or_phrase, FE reads card.word
+  // Option B (BWTL05): normalize language name from LANGUAGES cache
+  if (!card.language && card.language_id) {
+    const lang = (window.BWTL.LANGUAGES || []).find(l => l.id === card.language_id);
+    if (lang) card.language = lang.name;
+  }
   window.BWTL.FLASHCARDS[id] = card;
   return card;
 }

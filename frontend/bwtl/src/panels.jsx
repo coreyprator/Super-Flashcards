@@ -477,7 +477,7 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
       .then(results => {
         const items = Array.isArray(results) ? results : (results.results || results.items || []);
         if (items.length > 0) {
-          const entry = { headword: pieRootKey, excerpt: items[0].text || items[0].content || '', source: items[0].source || 'RAG · etymology', confidence: 'medium' };
+          const entry = { headword: pieRootKey, excerpt: items[0].full_text || items[0].snippet || items[0].text || items[0].content || '', source: items[0].source || 'RAG · etymology', confidence: 'medium' };
           window.BWTL.RAG_ENTRIES[pieRootKey] = entry;
           setE(entry);
         } else { setE(null); }
