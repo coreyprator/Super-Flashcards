@@ -63,11 +63,16 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
   React.useEffect(() => {
     setLoading(true);
     Promise.all([
-      window.BWTL.fetchCards({ limit: 200 })
-        .then(data => setCards(Array.isArray(data) ? data : (data.items || []))),
-      window.BWTL.fetchLanguages()
-        .then(data => setLangs(Array.isArray(data) ? data : [])),
-    ]).catch(console.error).finally(() => setLoading(false));
+      window.BWTL.fetchCards({ limit: 200 }),
+      window.BWTL.fetchLanguages(),
+    ]).then(([cardData, langData]) => {
+      const langMap = {};
+      (Array.isArray(langData) ? langData : []).forEach(l => { langMap[l.id] = l.name; });
+      const rawCards = Array.isArray(cardData) ? cardData : (cardData.items || []);
+      rawCards.forEach(c => { if (!c.language && c.language_id) c.language = langMap[c.language_id] || null; });
+      setCards(rawCards);
+      setLangs(Array.isArray(langData) ? langData : []);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   const filtered = cards.filter(c =>
@@ -105,13 +110,13 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
             </div>
             <div style={{ padding: '12px 14px' }}>
               <div className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{c.word_or_phrase || c.word}</div>
-              <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>{c.ipa}</div>
+              <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>{c.ipa_pronunciation}</div>
               <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.4 }}>{c.definition}</div>
               <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {c.pie_root && <span className="pill pie" style={{ fontSize: 9.5 }}>{c.pie_root}</span>}
                 {c.figure_link && <span className="pill myth" style={{ fontSize: 9.5 }}>figure</span>}
                 {c.has_video && <span className="pill forge" style={{ fontSize: 9.5 }}>video</span>}
-                {c.cognates && <span className="pill ghost" style={{ fontSize: 9.5 }}>{c.cognates.length} cog</span>}
+                {c.english_cognates && <span className="pill ghost" style={{ fontSize: 9.5 }}>cog</span>}
               </div>
             </div>
           </div>

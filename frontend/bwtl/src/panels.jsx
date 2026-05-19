@@ -184,7 +184,31 @@ function ProseBlock({ title, body, source, showSrc, open, onToggle }) {
         </span>
         {showSrc && <span className="src">{source}</span>}
       </div>
-      <div className="body">{body}</div>
+      <div className="body">
+        {(() => {
+          if (!body) return null;
+          if (typeof body !== 'string') return body;
+          try {
+            const parsed = JSON.parse(body);
+            const langs = Object.keys(parsed);
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${langs.length}, minmax(0, 1fr))`, gap: 0, border: '1px solid var(--line-soft)', borderRadius: 4, overflow: 'hidden', fontSize: 11 }}>
+                {langs.map((lang, ci) => (
+                  <div key={lang} style={{ borderRight: ci < langs.length - 1 ? '1px solid var(--line-soft)' : 'none' }}>
+                    <div style={{ padding: '4px 8px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', background: 'var(--bg-2)', borderBottom: '1px solid var(--line-soft)' }}>{lang}</div>
+                    {Object.entries(parsed[lang]).map(([form, val]) => (
+                      <div key={form} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
+                        <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{form}</span>
+                        <span className="greek">{typeof val === 'object' ? JSON.stringify(val) : val}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            );
+          } catch { return body; }
+        })()}
+      </div>
     </div>
   );
 }
