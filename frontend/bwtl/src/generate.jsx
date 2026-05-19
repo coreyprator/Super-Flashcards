@@ -138,7 +138,7 @@ function FromWordTab({ cardId }) {
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line-soft)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>Subject</div>
         <div style={{ padding: 14 }}>
           <div className="display" style={{ fontSize: 32 }}>{card.word}</div>
-          <div className="mono" style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 2 }}>{card.ipa}</div>
+          <div className="mono" style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 2 }}>{card.ipa_pronunciation}</div>
           <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 8 }}>{card.definition}</div>
           <div style={{ marginTop: 10, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <span className="pill pie" style={{ fontSize: 9.5 }}>{card.pie_root}</span>

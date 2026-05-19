@@ -211,8 +211,8 @@ function ChatDock({
 // directive the user can edit live.
 function ContextPanel({ ctx, card, onClose }) {
   const allFields = [
-    'word_or_phrase','language','pos','ipa','definition',
-    'etymology_layered','pie_root','pie_ipa','cognates','fun_facts','image_caption','efg_node_id',
+    'word_or_phrase','language','pos','ipa_pronunciation','definition',
+    'etymology','pie_root','pie_ipa','english_cognates','related_words','image_caption','efg_node_id',
   ];
   const [fields, setFields] = React.useState(new Set(ctx?.fields || []));
   const [efg, setEfg] = React.useState(!!ctx?.efg_node);

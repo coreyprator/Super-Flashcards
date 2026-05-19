@@ -83,7 +83,7 @@ function StudyQueueView({ onNavigateWord }) {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span className="display" style={{ fontSize: 20 }}>{card.word}</span>
-                    <span className="mono" style={{ fontSize: 11, color: 'var(--fg-4)' }}>{card.ipa}</span>
+                    <span className="mono" style={{ fontSize: 11, color: 'var(--fg-4)' }}>{card.ipa_pronunciation}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 2 }}>{card.definition}</div>
                 </div>

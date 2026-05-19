@@ -55,7 +55,8 @@ function Workspace({
   );
 
   const pieRootKey = card.pie_root;
-  const figureId = card.figure_link || card.fun_facts?.find((f) => f.figure)?.figure;
+  // Option B (BWTL05): read actual DB column names — no BE transformation layer
+  const figureId = card.figure_link;
 
   // ── handle: cross-app link clicks ────────────────────────────────────────
   const drillToPie = (rootKey) => {
@@ -183,8 +184,10 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
   return (
     <div className="wordcard">
       <div className="wordcard-hero">
-        <div className="wordcard-img" title="placeholder · awaiting user-uploaded image" style={{ position: 'relative' }}>
-          {card.image_caption}
+        <div className="wordcard-img" title={card.image_caption || card.word} style={{ position: 'relative', overflow: 'hidden' }}>
+          {card.image_url
+            ? <img src={card.image_url} alt={card.word} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <span style={{ position: 'absolute', bottom: 6, left: 8, fontSize: 9, color: 'var(--fg-4)', fontFamily: 'var(--ff-mono)' }}>no image</span>}
           {canEdit && <AiEditButton field="image" label="Image" floating />}
         </div>
         <div className="wordcard-meta">
@@ -192,8 +195,8 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
             <h1 className="display">{card.word}<span className="lang">{card.language} · {card.pos}</span></h1>
           </div>
           <div className="ipa mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            {card.ipa}
-            <button className="btn xs ghost" style={{ padding: '3px 7px' }} title="Play audio (TTS)"><Ic.speaker /></button>
+            {card.ipa_pronunciation}
+            <button className="btn xs ghost" style={{ padding: '3px 7px' }} title="Play audio (TTS)" onClick={() => { if (card.audio_url) new Audio(card.audio_url).play(); }}><Ic.speaker /></button>
             {canEdit && <AiEditButton field="ipa" label="IPA" subtle />}
             {canEdit && <AiEditButton field="audio" label="Audio" subtle />}
           </div>
@@ -218,17 +221,11 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
             {canEdit && <AiEditButton field="pie_root" label="PIE root" subtle />}
           </span>
         </h4>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {(card.etymology_layered || []).map((l, i) =>
-          <div key={l.layer} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, alignItems: 'baseline' }}>
-              <span className="mono" style={{ fontSize: 10.5, color: 'var(--fg-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l.layer}</span>
-              <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--fg-2)' }}>
-                {l.layer === 'PIE' ?
-              <EtymologyPIELine text={l.text} pieRoot={card.pie_root} onDrillPie={onDrillPie} /> :
-              l.text}
-              </div>
-            </div>
-          )}
+        {/* Option B (BWTL05): card.etymology is the raw DB string; no etymology_layered array from BE */}
+        <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--fg-2)' }}>
+          {card.etymology
+            ? <EtymologyPIELine text={card.etymology} pieRoot={card.pie_root} onDrillPie={onDrillPie} />
+            : <span style={{ color: 'var(--fg-4)' }}>No etymology on file.</span>}
         </div>
       </div>
 
@@ -236,44 +233,62 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
       <div className="wc-section">
         <h4>
           <span className="dot acc" /> Cognates
-          <span className="pill ghost" style={{ marginLeft: 'auto', fontSize: 9.5 }}>{(card.cognates || []).length} · including {(card.cognates || []).filter((c) => c.false).length} false</span>
+          <span className="pill ghost" style={{ marginLeft: 'auto', fontSize: 9.5 }}>
+            {(() => {
+              const ec = (card.english_cognates || '').split(',').filter(s => s.trim());
+              let rw = [];
+              try { rw = JSON.parse(card.related_words || '[]'); } catch { rw = (card.related_words || '').split(',').map(s => s.trim()).filter(Boolean); }
+              return ec.length + rw.length;
+            })()} cognates
+          </span>
           {canEdit && <AiEditButton field="cognates" label="Cognates" />}
         </h4>
+        {/* Option B (BWTL05): english_cognates is comma-string; related_words may be JSON array or comma-string */}
         <div className="chip-row">
-          {(card.cognates || []).map((c) =>
-          <span key={c.word} className="cog" onClick={() => onNavigateWord && onNavigateWord(null /* mock */)}>
-              <span className="lang">{c.lang}</span>
-              <span className="greek">{c.word}</span>
-              {c.def && <span style={{ color: 'var(--fg-3)', fontSize: 11 }}>· {c.def}</span>}
-              {c.false && <span className="false" title={c.false_reason}>false</span>}
+          {(card.english_cognates || '').split(',').map((c, i) => c.trim() ? (
+            <span key={'en_' + i} className="cog">
+              <span className="lang">en</span>
+              <span>{c.trim()}</span>
             </span>
-          )}
+          ) : null)}
+          {(() => {
+            let rw = [];
+            try { rw = JSON.parse(card.related_words || '[]'); } catch { rw = (card.related_words || '').split(',').map(s => s.trim()).filter(Boolean); }
+            return rw.map((c, i) => (
+              <span key={'rw_' + i} className="cog">
+                <span className="lang">rel</span>
+                <span>{typeof c === 'string' ? c.trim() : c}</span>
+              </span>
+            ));
+          })()}
           <span className="cog" style={{ borderStyle: 'dashed', color: 'var(--fg-3)' }} onClick={onDrillGraph}>
             <Ic.graph /> Open full graph
           </span>
         </div>
       </div>
 
-      {/* Fun facts — each one a small card; mention of a figure becomes a cross-app drill-down */}
-      <div className="wc-section">
-        <h4><span className="dot" style={{ background: 'var(--myth)' }} /> Fun facts
-          <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
-            {canEdit && <AiEditButton field="fun_facts" label="Fun facts" />}
-          </span>
-        </h4>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {(card.fun_facts || []).map((f, i) =>
-          <div key={i} className="ff-card">
-              <FunFactBody text={f.text} figure={f.figure} onDrillFigure={onDrillFigure} onDrillPie={onDrillPie} />
-              <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', fontSize: 10.5, color: 'var(--fg-4)' }}>
-                <Ic.chat />
-                <span>Discuss in chat</span>
-                <span style={{ marginLeft: 'auto' }} className="mono">fun_fact · {i + 1} of {card.fun_facts.length}</span>
+      {/* Fun facts — hidden when empty; DB has no fun_facts column (BWTL05) */}
+      {card.fun_facts && card.fun_facts.length > 0 && (
+        <div className="wc-section">
+          <h4><span className="dot" style={{ background: 'var(--myth)' }} /> Fun facts
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
+              {canEdit && <AiEditButton field="fun_facts" label="Fun facts" />}
+            </span>
+          </h4>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {card.fun_facts.map((f, i) =>
+            <div key={i} className="ff-card">
+                <FunFactBody text={f.text} figure={f.figure} onDrillFigure={onDrillFigure} onDrillPie={onDrillPie} />
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', fontSize: 10.5, color: 'var(--fg-4)' }}>
+                  <Ic.chat />
+                  <span>Discuss in chat</span>
+                  <span style={{ marginLeft: 'auto' }} className="mono">fun_fact · {i + 1} of {card.fun_facts.length}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Dictionary lookup hint — opens RAG panel */}
       <div className="wc-section" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
