@@ -46,8 +46,22 @@ function App() {
   const [view, setView] = React.useState({ kind: 'card', id: null });
   const [createOpen, setCreateOpen] = React.useState(false);
 
+  // ── auth state ──────────────────────────────────────────────────────────
+  const [authed, setAuthed] = React.useState(() => !!localStorage.getItem('access_token'));
+
   // ── URL-based routing on mount ───────────────────────────────────────────
   React.useEffect(() => {
+    // Pick up OAuth token dropped by /api/auth/google/callback redirect
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'success') {
+      const tok = params.get('token');
+      if (tok) {
+        localStorage.setItem('access_token', tok);
+        setAuthed(true);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
     const path = window.location.pathname;
     const cardMatch = path.match(/^\/bwtl\/study\/card\/([^/]+)/);
     if (cardMatch) {
@@ -67,6 +81,11 @@ function App() {
     }
   }, []);
 
+  // ── prefetch study queue on boot (BV-012) ────────────────────────────────
+  React.useEffect(() => {
+    window.BWTL.fetchStudyDue().catch(() => {});
+  }, []);
+
   // ── workspace UI state ───────────────────────────────────────────────────
   const [panelState, setPanelState] = React.useState({
     pie: 'open', graph: 'open', myth: 'closed', rag: 'collapsed', forge: 'collapsed',
@@ -82,6 +101,12 @@ function App() {
 
   // role switcher
   const [roleMenuOpen, setRoleMenuOpen] = React.useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    sessionStorage.removeItem('access_token');
+    setAuthed(false);
+  };
 
   // ── apply tweaks ─────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -150,7 +175,8 @@ function App() {
               role={role} setRole={setRole}
               canSeeAdmin={canSeeAdmin}
               roleMenuOpen={roleMenuOpen} setRoleMenuOpen={setRoleMenuOpen}
-              onNavigateWord={navigateWord} />
+              onNavigateWord={navigateWord}
+              authed={authed} onLogout={handleLogout} />
             {trail.length > 0 && <Crumbs trail={trail} go={(g) => { if (g.section) setSection(g.section); if (g.sub) setSub(g.sub); }} />}
             <div className="main-area">
               {section === 'study' && sub === 'queue' && <StudyQueueView onNavigateWord={navigateWord} />}
@@ -236,7 +262,7 @@ function App() {
 // Topbar — brand · primary nav · search · bookmark rail · role chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, onNavigateWord }) {
+function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, onNavigateWord, authed, onLogout }) {
   const r = window.BWTL.ROLES[role];
   return (
     <div className="topbar">
@@ -310,6 +336,26 @@ function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, 
           <button className="btn sm ghost" title="Bookmarks rail">
             <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{window.BWTL.BOOKMARKS.length}</span>
           </button>
+
+          {authed ? (
+            <button
+              className="btn sm ghost"
+              title="Sign out"
+              onClick={onLogout}
+              style={{ color: 'var(--fg-3)', fontSize: 12 }}
+            >
+              Sign out
+            </button>
+          ) : (
+            <a
+              href="/api/auth/google/login"
+              className="btn sm primary"
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              title="Sign in with Google to use AI Chat and save progress"
+            >
+              Sign in
+            </a>
+          )}
 
           <div style={{ position: 'relative' }}>
             <div className={`role-chip ${role === 'theo' ? 'theo' : role === 'learner' ? 'learner' : ''}`} onClick={() => setRoleMenuOpen(o => !o)}>
