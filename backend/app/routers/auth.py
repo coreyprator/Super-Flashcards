@@ -360,8 +360,17 @@ async def google_login(request: Request):
         redirect_uri = GOOGLE_REDIRECT_URI
         print(f"📍 Using redirect URI from environment: {redirect_uri}")
     else:
+        # In production GOOGLE_REDIRECT_URI must be set.
+        # Localhost fallback is for explicit local development only.
+        env = os.getenv("ENVIRONMENT", "").lower()
+        if env in ("production", "prod", "beta"):
+            raise HTTPException(
+                status_code=500,
+                detail="GOOGLE_REDIRECT_URI not configured. Set the env var on the Cloud Run service."
+            )
         origin = request.headers.get('origin', 'http://localhost:8000')
         redirect_uri = f"{origin}/api/auth/google/callback"
+        logger.warning(f"GOOGLE_REDIRECT_URI not set — using fallback {redirect_uri} (local dev mode)")
         print(f"📍 Derived redirect URI from origin: {redirect_uri}")
     
     redirect_time = (time.time() - redirect_start) * 1000
