@@ -549,7 +549,7 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         cookie_time = (time.time() - cookie_start) * 1000
         print(f"🍪 Refresh cookie set in {cookie_time:.2f}ms")
         
-        # Redirect to frontend login page with token (will be picked up by frontend)
+        # Redirect to BWTL frontend with token in URL params (picked up by app boot)
         redirect_start = time.time()
         # Use production URL in Cloud Run, localhost for local dev
         if os.getenv("K_SERVICE"):  # Running on Cloud Run
@@ -557,7 +557,7 @@ async def auth_callback(request: Request, response: Response, db: Session = Depe
         else:  # Local development
             origin = request.headers.get('origin', 'http://localhost:8000')
             frontend_url = origin
-        redirect_url = f"{frontend_url}/login?auth=success&token={access_token}"
+        redirect_url = f"{frontend_url}/bwtl/?auth=success&token={access_token}"
         redirect_time = (time.time() - redirect_start) * 1000
 
         total_time = (time.time() - start_time) * 1000
