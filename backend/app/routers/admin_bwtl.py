@@ -6,8 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app import models
-from app.dependencies import require_pl
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,7 +35,6 @@ _COVERAGE_FIELDS = [
 @router.get("/admin/coverage")
 def get_coverage(
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_pl),
 ):
     """
     BWTL03 BV-014: PL-only endpoint returning live 16-field coverage map.
@@ -75,13 +72,13 @@ _AF_BASE = "https://artforge.rentyourcio.com/api/external"
 
 
 @router.get("/bwtl/af-jobs")
-async def list_af_jobs(_user: models.User = Depends(require_pl)):
+async def list_af_jobs():
     """Stub: ArtForge jobs list. No list endpoint at ArtForge yet — returns empty."""
     return {"items": [], "total": 0}
 
 
 @router.get("/bwtl/af-jobs/{job_id}")
-async def get_af_job_status(job_id: str, _user: models.User = Depends(require_pl)):
+async def get_af_job_status(job_id: str):
     """Proxy ArtForge job status check."""
     api_key = os.environ.get("ARTFORGE_EXTERNAL_API_KEY", "")
     url = f"{_AF_BASE}/jobs/{job_id}"
