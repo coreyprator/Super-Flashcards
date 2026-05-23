@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 3.18.0 - SF17 REQ-022: Standard PIE relationship repair process; BUG-039/037/038 fixes
+# Version: 5.1.0 - BWTL09: Strip bypass auth middleware entirely (SF-16)
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "3.20.0"
+APP_VERSION = "5.1.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -96,20 +96,8 @@ if IS_QA:
     sql_db = os.getenv("SQL_DATABASE", "")
     logger.debug(f"🧪 QA Database: {sql_db}")
 
-# Session middleware for OAuth (required by authlib)
-from starlette.middleware.sessions import SessionMiddleware
-
-# Configure session cookie for Cloud Run (HTTPS) and local dev (HTTP)
-# SameSite=None + Secure=True required for iOS Safari compatibility.
-# iOS ITP blocks lax cookies on cross-origin OAuth redirects from Google.
-# In local dev, fall back to lax (SameSite=None requires HTTPS).
-IS_CLOUD_RUN = os.getenv("K_SERVICE") is not None
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", secrets.token_urlsafe(32)),
-    https_only=IS_CLOUD_RUN,  # Only require HTTPS in production
-    same_site="none" if IS_CLOUD_RUN else "lax",  # none for iOS compat in prod
-)
+# Session middleware removed in BWTL08 (OAuth removed)
+# Bypass auth middleware removed in BWTL09 (SF-16)
 
 # Proxy header middleware for Cloud Run
 # Cloud Run terminates HTTPS and forwards as HTTP, so we need to trust X-Forwarded-Proto
@@ -397,6 +385,25 @@ async def startup_event():
         logger.info(f"🎉 Server startup complete at {completion_time}! (Total elapsed: {elapsed_seconds}s)")
     else:
         logger.info(f"🎉 Server startup complete at {completion_time}! (App init: {elapsed_seconds}s)")
+
+    # BWTL08: Cache default PL user (cprator@cbsware.com) for voice_clone and admin_repair
+    try:
+        from app.default_user import set_default_user
+        from app.database import SessionLocal as _SessionLocal
+        _db = _SessionLocal()
+        try:
+            _pl_user = _db.query(models.User).filter(
+                models.User.email == "cprator@cbsware.com"
+            ).first()
+            if _pl_user:
+                set_default_user(str(_pl_user.id), _pl_user.email)
+                logger.info(f"✅ Default PL user cached: {_pl_user.email} (id={_pl_user.id})")
+            else:
+                logger.warning("⚠️ Default PL user (cprator@cbsware.com) not found in DB.")
+        finally:
+            _db.close()
+    except Exception as _e:
+        logger.warning(f"Default PL user cache failed (non-fatal): {_e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():

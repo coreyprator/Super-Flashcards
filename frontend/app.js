@@ -323,6 +323,8 @@ class CachedAudioPlayer {
 
 // Global cached audio player instance
 const audioPlayer = new CachedAudioPlayer();
+// BUG-048: expose global for browse-mode audio buttons (onclick passes (id, url); method expects (url, id))
+window.playAudio = (id, url) => audioPlayer.playAudio(url, id);
 
 // Standard B: type='error' defaults to 10s and logs to console.error
 function showToast(message, duration = 3000, type = '') {
@@ -1376,7 +1378,6 @@ function renderFlashcard(flashcard) {
                                         data-current-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
                                         data-definition="${(flashcard.definition || '').replace(/"/g, '&quot;')}"
                                         title="Verify this PIE root with AI">🔍 Verify PIE</button>
-                                    ${(window.authManager && window.authManager.getUser() && window.authManager.getUser().is_admin) ? `
                                     <button class="pie-repair-btn px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700 hover:bg-orange-200 cursor-pointer"
                                         data-card-id="${flashcard.id}"
                                         data-pie-root="${(flashcard.pie_root || '').replace(/"/g, '&quot;')}"
@@ -1384,7 +1385,6 @@ function renderFlashcard(flashcard) {
                                         data-pie-meaning="${(flashcard.pie_meaning || '').replace(/"/g, '&quot;')}"
                                         data-word="${(flashcard.word_or_phrase || '').replace(/"/g, '&quot;')}"
                                         title="Admin: Repair PIE relationship (6-layer write)">🔧 Repair PIE</button>
-                                    ` : ''}
                                 </div>
                             </div>
                             <p class="text-amber-800 font-mono font-semibold text-sm"><span id="pie-root-${flashcard.id}"></span> <span class="text-amber-600 font-normal" id="pie-ipa-${flashcard.id}"></span></p>
@@ -2922,7 +2922,7 @@ function resetImportForm() {
 
 async function downloadTemplate(format) {
     try {
-        const response = await fetch(`${API_BASE}/import/template/${format}`);
+        const response = await fetch(`${API_BASE}/template/${format}`);
         const data = await response.json();
         
         if (response.ok) {
@@ -2979,7 +2979,7 @@ async function handleFileUpload(event) {
         // Update progress
         updateImportProgress(25, 'Uploading file...');
         
-        const response = await fetch(`${API_BASE}/import/import`, {
+        const response = await fetch(`${API_BASE}/import`, {
             method: 'POST',
             body: formData
         });
@@ -5784,7 +5784,7 @@ async function importParsedEntries() {
         
         updateImportProgress(50, 'Uploading flashcards...');
         
-        const response = await fetch(`${API_BASE}/import/import`, {
+        const response = await fetch(`${API_BASE}/import`, {
             method: 'POST',
             body: formData
         });
@@ -6711,12 +6711,10 @@ document.getElementById('add-card-btn')?.addEventListener('click', () => {
                 triggered_by: 'admin_ui'
             };
             try {
-                const token = window.authManager ? window.authManager.getToken() : null;
                 const resp = await fetch('/api/admin/repair-pie-relationship', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? {'Authorization': 'Bearer ' + token} : {})
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -6891,47 +6889,41 @@ console.log('💡 Debug helpers loaded! Use debugReadMode() or testReadCard() in
  */
 function detectUserState() {
     console.log('\n👤 ===== USER STATE DETECTION =====');
-    
-    // Check various indicators
+
     const hasVisitedBefore = localStorage.getItem('has-visited');
-    const hasAuthToken = localStorage.getItem('auth_token');
     const hasIndexedDBData = localStorage.getItem('indexeddb-populated');
     const firstVisitTime = localStorage.getItem('first-visit-time');
-    
+
     let userState;
     let stateDescription;
-    
+
     if (!hasVisitedBefore) {
         userState = 'BRAND_NEW_USER';
         stateDescription = 'First-time visitor - never been here before';
         localStorage.setItem('has-visited', 'true');
         localStorage.setItem('first-visit-time', Date.now().toString());
-    } else if (!hasAuthToken) {
-        userState = 'RETURNING_NO_AUTH';
-        stateDescription = 'Returning visitor without authentication';
     } else if (!hasIndexedDBData) {
-        userState = 'AUTHED_NO_DATA';
-        stateDescription = 'Authenticated but no local data cached';
+        userState = 'NO_LOCAL_DATA';
+        stateDescription = 'Returning visitor without local cache';
     } else {
         userState = 'RETURNING_FULL';
         stateDescription = 'Returning user with full cache';
     }
-    
+
     console.log('User State:', userState);
     console.log('Description:', stateDescription);
     console.log('Details:', {
         'Has Visited': !!hasVisitedBefore,
-        'Has Auth Token': !!hasAuthToken,
         'Has IndexedDB Data': !!hasIndexedDBData,
         'First Visit': firstVisitTime ? new Date(parseInt(firstVisitTime)).toISOString() : 'N/A'
     });
-    
+
     // Store for later use
     window.userState = userState;
     window.timingCheckpoint?.('user-state-detected', `User state: ${userState} - ${stateDescription}`);
-    
+
     console.log('👤 ===== USER STATE: ' + userState + ' =====\n');
-    
+
     return userState;
 }
 
@@ -6969,8 +6961,7 @@ function displayTimingReport() {
     const milestones = {
         'Page Load → Head Complete': getDuration('T0-URL-requested', 'T1d-head-complete'),
         'Head → Body Start': getDuration('T1d-head-complete', 'T2-body-start'),
-        'Body → Auth Loaded': getDuration('T2-body-start', 'T3b-auth-js-loaded'),
-        'Auth → DOM Ready': getDuration('T3e-auth-success', 'T10-dom-ready'),
+        'Body → DOM Ready': getDuration('T2-body-start', 'T10-dom-ready'),
         'DOM Ready → Offline Init Done': getDuration('T10-dom-ready', 'T9-init-offline-complete'),
         'Offline Init → UI Ready': getDuration('T9-init-offline-complete', 'T12-ui-initialized'),
         'TOTAL: Page → UI Ready': getDuration('T0-URL-requested', 'T12-ui-initialized')
