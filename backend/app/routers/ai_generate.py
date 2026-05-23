@@ -179,7 +179,8 @@ Format your response as valid JSON only, no additional text:
             raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
 
 # ============================================================
-# DALL-E TEXT-FREE IMAGE GENERATION (ChatGPT/Claude Validated)
+# GPT-IMAGE-1.5 TEXT-FREE IMAGE GENERATION (SFCORE-IMG migration)
+# Migrated from dall-e-3 in SFCORE-IMG (DALL-E 3 shut down 2026-05-12)
 # ============================================================
 
 # Words that trigger DALL-E's text generation - must be removed
@@ -200,18 +201,21 @@ def clean_prompt_text(text: str) -> str:
 
 def generate_image(image_description: str, word: str, definition: str = None, verbose: bool = False) -> str:
     """
-    Generate an image using DALL-E, save locally, and upload to Cloud Storage
-    
-    Strategy (validated by ChatGPT/DALL-E testing):
+    Generate an image using gpt-image-1.5, save to Cloud Storage
+    Migrated from dall-e-3 in SFCORE-IMG (DALL-E 3 shut down 2026-05-12)
+
+    Strategy:
     - Use children's book watercolor style (naturally text-free)
     - Positive declarations ("text-free") not prohibitions ("DO NOT")
     - Fill frame to eliminate dead space where text appears
-    - Use style="natural" in API call to reduce poster aesthetics
-    
+    - Style hints folded into prompt (gpt-image-1.5 has no 'style' param)
+    - NOTE: gpt-image-1.5 returns b64_json, not a URL
+
     Implements 3-level intelligent fallback for content policy violations
     Returns the image URL path or None if failed
     """
     import requests
+    import base64
     import uuid
     from pathlib import Path
     from google.cloud import storage
@@ -231,11 +235,10 @@ def generate_image(image_description: str, word: str, definition: str = None, ve
         # Clean description - remove educational trigger words
         clean_description = clean_prompt_text(image_description)
         
-        prompt = f"""Watercolor children's-book illustration of {clean_description}.
-
-Soft edges, simple shapes, bright colors.
+        prompt = f"""A children's book illustration in soft watercolor style depicting {clean_description}.
+Pastel colors, gentle lines, friendly atmosphere.
 Single centered subject on a plain pale background, subject fills 80% of frame.
-Text-free artwork. No letters, symbols, signage, labels, or written marks.
+No text or letters in the image. Text-free artwork. No symbols, signage, labels, or written marks of any kind.
 Pure imagery only."""
         
         if verbose:
@@ -243,34 +246,39 @@ Pure imagery only."""
             logger.info(f"🔍 VERBOSE: Cleaned description: '{clean_description}'")
             logger.info(f"🔍 VERBOSE: Full prompt: '{prompt}'")
             logger.info(f"🔍 VERBOSE: Calling OpenAI client.images.generate()...")
-            logger.info(f"🔍 VERBOSE: Model: dall-e-3, Style: natural (reduces text)")
+            logger.info(f"🔍 VERBOSE: Model: gpt-image-1.5, Quality: medium (no style param)")
             logger.info(f"🔍 VERBOSE: Size: 1024x1024")
-            logger.info(f"🔍 VERBOSE: Quality: standard")
         
         try:
             if verbose:
-                logger.info(f"🔍 VERBOSE: >>> Sending request to DALL-E API...")
-            
-            response = get_openai_client().images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                size="1024x1024",
-                quality="standard",
-                style="natural",  # KEY: Reduces text hallucination
-                n=1
-            )
-            
+                logger.info(f"🔍 VERBOSE: >>> Sending request to gpt-image-1.5 API...")
+
+            try:
+                response = get_openai_client().images.generate(
+                    model="gpt-image-1.5",
+                    prompt=prompt,
+                    size="1024x1024",
+                    quality="medium",  # gpt-image-1.5 uses low/medium/high (not 'standard')
+                    n=1
+                    # NOTE: 'style' param removed; gpt-image-1.5 doesn't support it.
+                )
+            except Exception as e:
+                logger.error(f"OpenAI image generation failed: {e}")
+                raise
+
             if verbose:
-                logger.info(f"🔍 VERBOSE: <<< DALL-E API response received!")
-                logger.info(f"🔍 VERBOSE: Response type: {type(response)}")
+                logger.info(f"🔍 VERBOSE: <<< gpt-image-1.5 response received!")
                 logger.info(f"🔍 VERBOSE: Response data length: {len(response.data)}")
-            
-            dalle_url = response.data[0].url
-            
+
+            # SF-7 defensive: check b64_json field exists
+            if not response.data or not response.data[0].b64_json:
+                logger.error(f"gpt-image-1.5 returned unexpected shape: {response}")
+                raise Exception("Image generation returned no image data")
+
+            image_bytes_b64 = response.data[0].b64_json
+
             if verbose:
-                logger.info(f"🔍 VERBOSE: ✅ SUCCESS - Attempt 1 succeeded!")
-                logger.info(f"🔍 VERBOSE: DALL-E image URL: {dalle_url[:100]}...")
-                logger.info(f"🔍 VERBOSE: Full URL: {dalle_url}")
+                logger.info(f"🔍 VERBOSE: ✅ SUCCESS - Attempt 1 succeeded (b64_json received)!")
         
         except BadRequestError as policy_error:
             # Check if it's a content policy violation
@@ -335,19 +343,20 @@ Text-free artwork with no letters or symbols."""
                 
                 try:
                     response = get_openai_client().images.generate(
-                        model="dall-e-3",
+                        model="gpt-image-1.5",
                         prompt=fallback_prompt,
                         size="1024x1024",
-                        quality="standard",
-                        style="natural",  # Reduces poster aesthetics that trigger text
+                        quality="medium",
                         n=1
                     )
-                    dalle_url = response.data[0].url
+                    if not response.data or not response.data[0].b64_json:
+                        logger.error(f"gpt-image-1.5 fallback returned unexpected shape: {response}")
+                        raise Exception("Image generation returned no image data")
+                    image_bytes_b64 = response.data[0].b64_json
                     logger.info(f"✅ Fallback attempt succeeded for '{word}'")
-                    
+
                     if verbose:
-                        logger.info(f"🔍 VERBOSE: <<< Fallback response received!")
-                        logger.info(f"🔍 VERBOSE: Fallback image URL: {dalle_url[:100]}...")
+                        logger.info(f"🔍 VERBOSE: <<< Fallback response received (b64_json)!")
                 
                 except Exception as fallback_error:
                     logger.error(f"❌ Fallback image generation also failed for '{word}': {fallback_error}")
@@ -373,19 +382,20 @@ Imagine this is artwork for a children's picture book where text will be added s
                     
                     try:
                         response = get_openai_client().images.generate(
-                            model="dall-e-3",
+                            model="gpt-image-1.5",
                             prompt=ultra_generic_prompt,
                             size="1024x1024",
-                            quality="standard",
-                            style="natural",  # Reduces poster aesthetics that trigger text
+                            quality="medium",
                             n=1
                         )
-                        dalle_url = response.data[0].url
+                        if not response.data or not response.data[0].b64_json:
+                            logger.error(f"gpt-image-1.5 ultra-generic returned unexpected shape: {response}")
+                            raise Exception("Image generation returned no image data")
+                        image_bytes_b64 = response.data[0].b64_json
                         logger.info(f"✅ Ultra-generic fallback (cut-paper style) succeeded for '{word}'")
-                        
+
                         if verbose:
-                            logger.info(f"🔍 VERBOSE: <<< Ultra-generic response received!")
-                            logger.info(f"🔍 VERBOSE: Generic image URL: {dalle_url[:100]}...")
+                            logger.info(f"🔍 VERBOSE: <<< Ultra-generic response received (b64_json)!")
                     
                     except Exception as final_error:
                         logger.error(f"❌ Even ultra-generic fallback failed for '{word}': {final_error}")
@@ -399,18 +409,14 @@ Imagine this is artwork for a children's picture book where text will be added s
                     logger.error(f"🔍 VERBOSE: Not a content policy violation, re-raising...")
                 raise
         
-        # Download the image
+        # Decode base64 image bytes (gpt-image-1.5 returns b64_json, not a URL)
         if verbose:
-            logger.info(f"🔍 VERBOSE: --- Downloading image ---")
-            logger.info(f"🔍 VERBOSE: URL: {dalle_url}")
-            logger.info(f"🔍 VERBOSE: Timeout: 60 seconds")
-        
-        image_response = requests.get(dalle_url, timeout=60)
-        image_response.raise_for_status()
-        image_data = image_response.content
-        
+            logger.info(f"🔍 VERBOSE: --- Decoding base64 image data ---")
+
+        image_data = base64.b64decode(image_bytes_b64)
+
         if verbose:
-            logger.info(f"🔍 VERBOSE: ✅ Downloaded {len(image_data)} bytes")
+            logger.info(f"🔍 VERBOSE: ✅ Decoded {len(image_data)} bytes")
             logger.info(f"🔍 VERBOSE: Image size: {len(image_data) / 1024:.2f} KB")
         
         # Generate unique filename: word_uuid.png
@@ -755,15 +761,15 @@ def generate_image_only(
         image_url = generate_image(image_description, word_or_phrase, definition=definition, verbose=True)
         
         if image_url == "CONTENT_POLICY_VIOLATION":
-            logger.warning(f"⚠️ DALL-E rejected '{word_or_phrase}' due to content policy")
+            logger.warning(f"⚠️ Image generation rejected '{word_or_phrase}' due to content policy")
             raise HTTPException(
                 status_code=422, 
-                detail=f"DALL-E's safety system rejected the word '{word_or_phrase}'. This sometimes happens with unusual words. Try a different word or add the image manually."
+                detail=f"Image generation rejected the word '{word_or_phrase}'. This sometimes happens with unusual words. Try a different word or add the image manually."
             )
-        
+
         if not image_url:
             logger.error("❌ Image generation returned None")
-            raise HTTPException(status_code=500, detail="Failed to generate image - DALL-E returned no URL")
+            raise HTTPException(status_code=500, detail="Failed to generate image - no image data returned")
         
         logger.info(f"✅ Image generated successfully: {image_url}")
         
