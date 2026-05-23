@@ -139,7 +139,7 @@ async def batch_generate_flashcards(
                             'include_images': request.include_images
                         }),
                         api_provider='openai',
-                        api_model='dall-e-3'
+                        api_model='gpt-image-1.5'
                     ))
                     db.commit()
                     
