@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-bwtl04_regression.py — BWTL09 AUTH-NUKE-FINAL Post-Deploy Regression Suite
+bwtl04_regression.py — SFCORE-IMAGE-MIGRATION-001 Post-Deploy Regression Suite
 38 tests covering: health, reads, open writes (no auth), RBAC removal.
-Challenge token: 00622c89e40877f4a0917631a38e91b3
+Challenge token: 64e2d3f3c1bdf610cf50a8aa56952251
 
 Usage:
     python bwtl04_regression.py [--base https://learn.rentyourcio.com]
@@ -23,7 +23,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 # ── Config ────────────────────────────────────────────────────────────────────
 
 DEFAULT_BASE = "https://learn.rentyourcio.com"
-CHALLENGE_TOKEN = "00622c89e40877f4a0917631a38e91b3"
+CHALLENGE_TOKEN = "64e2d3f3c1bdf610cf50a8aa56952251"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -269,16 +269,16 @@ def run_tests(base):
         try:
             version_data = json.loads(body)
             version = version_data.get("version", "")
-            r("T31", "Version is 5.1.0 (version bump confirmed)", version == "5.1.0", f"version={version}")
+            r("T31", "Version is 5.2.0 (version bump confirmed)", version == "5.2.0", f"version={version}")
         except Exception:
-            r("T31", "Version is 5.1.0 (version bump confirmed)", "5.1.0" in body, f"raw: {body[:100]}")
+            r("T31", "Version is 5.2.0 (version bump confirmed)", "5.2.0" in body, f"raw: {body[:100]}")
     else:
         # Check version from root HTML
         status2, body2 = _get(base, "/")
         import re
         m = re.search(r'id="version-badge">v([^<]+)<', body2)
         found_ver = m.group(1) if m else "(not found)"
-        r("T31", "Version is 5.1.0 (version bump confirmed via HTML badge)", found_ver == "5.1.0", f"Found: {found_ver}")
+        r("T31", "Version is 5.2.0 (version bump confirmed via HTML badge)", found_ver == "5.2.0", f"Found: {found_ver}")
 
     # ── Bypass token on health exempt (GET on health never needs token) ───────
 
