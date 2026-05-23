@@ -4,15 +4,13 @@
 //
 // BWTL03-MEGA-001 (Challenge: 92c8f456ecf825af3edb3010f60633aa)
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-function _getAuthHeaders() {
-  const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-  return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-}
+// Bypass token removed in BWTL09 (SF-16)
 
 async function _apiFetch(path, opts = {}) {
-  const res = await fetch(path, { ...opts, headers: { ..._getAuthHeaders(), ...(opts.headers || {}) } });
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
   if (!res.ok) {
     const err = await res.text().catch(() => res.statusText);
     throw new Error(`API ${res.status}: ${err}`);
@@ -293,6 +291,9 @@ window.BWTL = {
   EFG_STATS,
   RAG_COLLECTIONS,
   DOCUMENT_RUNS,
+
+  // Internal API helper — exposed for components that need direct fetch access
+  _apiFetch,
 
   // SF API helpers
   fetchCard,
