@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PIE Voice Comparison — Scoring</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #0e0e12;
+    --surface: #17171f;
+    --border: #2a2a38;
+    --text: #e8e6f0;
+    --muted: #6b6882;
+    --accent: #7c6af7;
+    --accent-dim: #3d3580;
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  header {
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  header p { color: var(--muted); font-size: 13px; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .score-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--surface);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  th.voice-col { text-align: center; min-width: 110px; }
+
+  tr:nth-child(even) td { background: #11111a; }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  td.test-label {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  td.test-desc {
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 240px;
+  }
+
+  td.test-ipa {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #a89ee8;
+  }
+
+  .voice-cell {
+    text-align: center;
+  }
+
+  .cell-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .play-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+    color: var(--text);
+    font-size: 11px;
+  }
+
+  .play-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .play-btn.playing { border-color: var(--green); background: #1a3a26; color: var(--green); }
+  .play-btn.error   { border-color: var(--red);   background: #2a1212; color: var(--red); }
+  .play-btn.missing { opacity: 0.3; cursor: not-allowed; }
+
+  .stars {
+    display: flex;
+    gap: 2px;
+  }
+
+  .star {
+    width: 14px; height: 14px;
+    cursor: pointer;
+    color: var(--border);
+    font-size: 13px;
+    line-height: 1;
+    transition: color 0.1s;
+    user-select: none;
+  }
+
+  .star:hover,
+  .star.lit { color: var(--amber); }
+
+  .summary-section {
+    margin-top: 40px;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+  }
+
+  .summary-section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .voice-scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .voice-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .voice-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .voice-card .avg {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+
+  .voice-card .count { font-size: 11px; color: var(--muted); }
+
+  .winner-banner {
+    background: linear-gradient(135deg, var(--accent-dim), #1a1a2e);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: none;
+    margin-top: 16px;
+  }
+
+  .winner-banner h3 { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .winner-banner p  { font-size: 13px; color: var(--muted); }
+
+  .instructions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .instructions strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PIE Voice Comparison Scorer</h1>
+  <p>Rate each voice 1–5 stars per phoneme test. Summary auto-updates.</p>
+</header>
+
+<div class="instructions">
+  <strong>How to use:</strong> Click ▶ to play a clip. Rate it 1–5 stars (5 = sounds most like the intended PIE phoneme). 
+  Focus on: Does /ɛ/ sound Continental (like French "être") not English? Does /r/ have a trill or roll? Does /x/ sound guttural (like "Bach")? Does /bʱ/ sound breathy?
+  The scorer tallies averages and identifies the best overall voice at the bottom.
+</div>
+
+<div class="legend">
+  <span class="legend-item"><span class="score-dot" style="background:#4ade80"></span> 5 — Excellent</span>
+  <span class="legend-item"><span class="score-dot" style="background:#a3e635"></span> 4 — Good</span>
+  <span class="legend-item"><span class="score-dot" style="background:#fbbf24"></span> 3 — Acceptable</span>
+  <span class="legend-item"><span class="score-dot" style="background:#f97316"></span> 2 — Poor</span>
+  <span class="legend-item"><span class="score-dot" style="background:#f87171"></span> 1 — Wrong phoneme</span>
+</div>
+
+<table id="grid">
+  <thead>
+    <tr>
+      <th>PIE Root</th>
+      <th>IPA</th>
+      <th>What to listen for</th>
+      <th class="voice-col">Adam</th>
+      <th class="voice-col">Antoni</th>
+      <th class="voice-col">Josh</th>
+      <th class="voice-col">Arnold</th>
+      <th class="voice-col">Rachel</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<div class="summary-section">
+  <h2>Score Summary</h2>
+  <div class="voice-scores" id="summaryGrid"></div>
+  <div class="winner-banner" id="winnerBanner">
+    <h3 id="winnerName"></h3>
+    <p id="winnerDesc"></p>
+  </div>
+</div>
+
+<script>
+const voices = [
+  { slug: 'adam',   name: 'Adam'   },
+  { slug: 'antoni', name: 'Antoni' },
+  { slug: 'josh',   name: 'Josh'   },
+  { slug: 'arnold', name: 'Arnold' },
+  { slug: 'rachel', name: 'Rachel' }
+];
+
+const tests = [
+  { id:'t01', label:'*per-',    ipa:'pɛr',       desc:'Continental /ɛ/ + trill /r/ — the failing case',           slug:'per'    },
+  { id:'t02', label:'*bʰer-',   ipa:'bʱɛr',      desc:'Aspirated /bʱ/ — breathy voiced bilabial',                slug:'bher'   },
+  { id:'t03', label:'*h₂stḗr',  ipa:'xˈsteːr',   desc:'Laryngeal /x/ onset — confirmed working baseline',        slug:'hster'  },
+  { id:'t04', label:'*méh₂tēr', ipa:'ˈmeːxteːr', desc:'Full word with laryngeal — mother',                       slug:'mehter' },
+  { id:'t05', label:'*wódr̥',    ipa:'ˈwodər',    desc:'Syllabic resonant — water',                               slug:'wodr'   },
+  { id:'t06', label:'*ǵénh₁-',  ipa:'ɡʲɛnʔ',    desc:'Palatovelar /ɡʲ/ + glottal stop /ʔ/',                    slug:'genh'   },
+  { id:'t07', label:'*sed-',    ipa:'sɛd',        desc:'Simple baseline — to sit',                                slug:'sed'    },
+  { id:'t08', label:'*dʰébʰ-',  ipa:'dʱɛbʱ',    desc:'Double aspirated stops',                                  slug:'dhebh'  }
+];
+
+const scores = {};
+let currentAudio = null;
+let currentBtn   = null;
+
+function getPath(voiceSlug, testSlug) {
+  return `pie-voice-test/${voiceSlug}/${testSlug}.mp3`;
+}
+
+function buildGrid() {
+  const tbody = document.getElementById('tbody');
+  tests.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="test-label">${t.label}</td>
+      <td class="test-ipa">${t.ipa}</td>
+      <td class="test-desc">${t.desc}</td>
+      ${voices.map(v => `
+        <td class="voice-cell" id="cell-${v.slug}-${t.id}">
+          <div class="cell-inner">
+            <button class="play-btn" id="btn-${v.slug}-${t.id}"
+              onclick="playClip('${v.slug}','${t.id}','${t.slug}',this)">▶</button>
+            <div class="stars" id="stars-${v.slug}-${t.id}">
+              ${[1,2,3,4,5].map(n =>
+                `<span class="star" data-v="${v.slug}" data-t="${t.id}" data-n="${n}"
+                  onclick="setScore('${v.slug}','${t.id}',${n})">★</span>`
+              ).join('')}
+            </div>
+          </div>
+        </td>`).join('')}
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function playClip(voiceSlug, testId, testSlug, btn) {
+  if (currentAudio) {
+    currentAudio.pause();
+    if (currentBtn) { currentBtn.textContent = '▶'; currentBtn.className = 'play-btn'; }
+  }
+  const path = getPath(voiceSlug, testSlug);
+  const audio = new Audio(path);
+  currentAudio = audio;
+  currentBtn = btn;
+  btn.className = 'play-btn playing';
+  btn.textContent = '◼';
+  audio.onended = () => { btn.textContent = '▶'; btn.className = 'play-btn'; currentAudio = null; currentBtn = null; };
+  audio.onerror = () => { btn.textContent = '?'; btn.className = 'play-btn error'; };
+  audio.play().catch(() => { btn.textContent = '?'; btn.className = 'play-btn error'; });
+}
+
+function setScore(voiceSlug, testId, n) {
+  const key = `${voiceSlug}:${testId}`;
+  scores[key] = n;
+  const starEls = document.querySelectorAll(`#stars-${voiceSlug}-${testId} .star`);
+  starEls.forEach((s, i) => { s.classList.toggle('lit', i < n); });
+  updateSummary();
+}
+
+function updateSummary() {
+  const container = document.getElementById('summaryGrid');
+  container.innerHTML = '';
+  const voiceAvgs = voices.map(v => {
+    const vals = tests.map(t => scores[`${v.slug}:${t.id}`]).filter(x => x !== undefined);
+    const avg  = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+    return { ...v, avg, count: vals.length };
+  });
+
+  voiceAvgs.forEach(v => {
+    const card = document.createElement('div');
+    card.className = 'voice-card';
+    card.innerHTML = `
+      <h3>${v.name}</h3>
+      <div class="avg">${v.avg !== null ? v.avg.toFixed(1) : '—'}</div>
+      <div class="count">${v.count}/${tests.length} scored</div>
+    `;
+    container.appendChild(card);
+  });
+
+  const scored = voiceAvgs.filter(v => v.count >= 4 && v.avg !== null);
+  if (scored.length) {
+    const best = scored.reduce((a,b) => a.avg > b.avg ? a : b);
+    const banner = document.getElementById('winnerBanner');
+    banner.style.display = 'block';
+    document.getElementById('winnerName').textContent = `Best voice: ${best.name} (avg ${best.avg.toFixed(1)}/5)`;
+    document.getElementById('winnerDesc').textContent =
+      `Based on ${best.count} scored tests. If avg ≥ 3.5 across the phoneme range, this voice is worth switching to in pie_audio_service.py.`;
+  }
+}
+
+buildGrid();
+updateSummary();
+</script>
+</body>
+</html>

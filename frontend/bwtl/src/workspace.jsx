@@ -25,7 +25,8 @@ function Workspace({
   onPromote
 }) {
   const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
-  const [loadingCard, setLoadingCard] = React.useState(!card);
+  // loadingCard is only true when we have a real cardId to fetch
+  const [loadingCard, setLoadingCard] = React.useState(!!cardId && !card);
   const [threads, setThreads] = React.useState([]);
   const [imgModalSrc, setImgModalSrc] = React.useState(null); // REQ-029: image iframe modal
 
@@ -225,6 +226,18 @@ function Workspace({
 
 function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrillForge, onDrillRag, onNavigateWord, onBookmark, onChatAboutThis, onNextInStudy, onOpenImage }) {
   const canEdit = role === 'pl' || role === 'theo' || role === 'tutor';
+  // BV-006: navigate to a cognate word card by searching the flashcards cache
+  const handleCogClick = async (cogText) => {
+    const word = (cogText || '').toLowerCase().trim();
+    if (!word) return;
+    const cached = Object.values(window.BWTL.FLASHCARDS).find(
+      c => (c.word || c.word_or_phrase || '').toLowerCase() === word
+    );
+    if (cached) { onNavigateWord && onNavigateWord(cached.id); return; }
+    const cards = await window.BWTL.fetchCards({ limit: 1000 }).catch(() => []);
+    const found = cards.find(c => (c.word || c.word_or_phrase || '').toLowerCase() === word);
+    if (found) onNavigateWord && onNavigateWord(found.id);
+  };
   return (
     <div className="wordcard">
       <div className="wordcard-hero">
@@ -233,7 +246,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           {card.image_url
             ? <img src={card.image_url} alt={card.word} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             : <span style={{ position: 'absolute', bottom: 6, left: 8, fontSize: 9, color: 'var(--fg-4)', fontFamily: 'var(--ff-mono)' }}>no image</span>}
-          {canEdit && <AiEditButton field="image" label="Image" floating />}
+          {canEdit && <AiEditButton field="image" label="Image" floating card={card} />}
         </div>
         <div className="wordcard-meta">
           <div className="wordcard-row1">
@@ -242,8 +255,8 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           <div className="ipa mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             {card.ipa_pronunciation}
             <button className="btn xs ghost" style={{ padding: '3px 7px' }} title="Play audio (TTS)" onClick={() => { if (card.audio_url) new Audio(card.audio_url).play(); }}><Ic.speaker /></button>
-            {canEdit && <AiEditButton field="ipa" label="IPA" subtle />}
-            {canEdit && <AiEditButton field="audio" label="Audio" subtle />}
+            {canEdit && <AiEditButton field="ipa" label="IPA" subtle card={card} />}
+            {canEdit && <AiEditButton field="audio" label="Audio" subtle card={card} />}
           </div>
           <div className="definition" style={{ marginTop: 4 }}>{card.definition}</div>
           <div className="wordcard-actions">
@@ -262,8 +275,8 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
       <div className="wc-section">
         <h4><span className="dot pie" /> Etymology
           <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
-            {canEdit && <AiEditButton field="etymology" label="Etymology" />}
-            {canEdit && <AiEditButton field="pie_root" label="PIE root" subtle />}
+            {canEdit && <AiEditButton field="etymology" label="Etymology" card={card} />}
+            {canEdit && <AiEditButton field="pie_root" label="PIE root" subtle card={card} />}
           </span>
         </h4>
         {/* Option B (BWTL05): card.etymology is the raw DB string; no etymology_layered array from BE */}
@@ -299,12 +312,12 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
               return ec.length + rw.length;
             })()} cognates
           </span>
-          {canEdit && <AiEditButton field="cognates" label="Cognates" />}
+          {canEdit && <AiEditButton field="cognates" label="Cognates" card={card} />}
         </h4>
         {/* Option B (BWTL05): english_cognates is comma-string; related_words may be JSON array or comma-string */}
         <div className="chip-row">
           {(card.english_cognates || '').split(',').map((c, i) => c.trim() ? (
-            <span key={'en_' + i} className="cog">
+            <span key={'en_' + i} className="cog" style={{ cursor: 'pointer' }} onClick={() => handleCogClick(c.trim())}>
               <span className="lang">en</span>
               <span>{c.trim()}</span>
             </span>
@@ -313,7 +326,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
             let rw = [];
             try { rw = JSON.parse(card.related_words || '[]'); } catch { rw = (card.related_words || '').split(',').map(s => s.trim()).filter(Boolean); }
             return rw.map((c, i) => (
-              <span key={'rw_' + i} className="cog">
+              <span key={'rw_' + i} className="cog" style={{ cursor: 'pointer' }} onClick={() => handleCogClick(typeof c === 'string' ? c.trim() : String(c))}>
                 <span className="lang">rel</span>
                 <span>{typeof c === 'string' ? c.trim() : c}</span>
               </span>
@@ -330,7 +343,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
         <div className="wc-section">
           <h4><span className="dot" style={{ background: 'var(--myth)' }} /> Fun facts
             <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
-              {canEdit && <AiEditButton field="fun_facts" label="Fun facts" />}
+              {canEdit && <AiEditButton field="fun_facts" label="Fun facts" card={card} />}
             </span>
           </h4>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -428,13 +441,55 @@ function FunFactBody({ text, figure, onDrillFigure, onDrillPie }) {
 // queue for non-admin roles (per the role matrix).
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AiEditButton({ field, label, subtle, floating }) {
+function AiEditButton({ field, label, subtle, floating, card }) {
   const [open, setOpen] = React.useState(false);
   const [stage, setStage] = React.useState('idle'); // idle | running | done
+  const [proposedValue, setProposedValue] = React.useState(null);
+  const [promptText, setPromptText] = React.useState('');
   const meta = window.BWTL.AI_FIELDS[field] || { endpoint: 'POST /api/ai/generate', model: 'gpt-4o' };
-  const runIt = () => {
+  const FIELD_API_KEYS = {
+    ipa: 'ipa_pronunciation', audio: 'audio_url', cognates: 'english_cognates',
+    image: 'image_url', definition: 'definition', etymology: 'etymology',
+    pie_root: 'pie_root', pie_ipa: 'pie_ipa',
+  };
+  const runIt = async () => {
     setStage('running');
-    setTimeout(() => setStage('done'), 1600);
+    if (!card) { setProposedValue(null); setStage('done'); return; }
+    try {
+      const result = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          card_id: card.id, field, prompt: promptText,
+          word_or_phrase: card.word || card.word_or_phrase,
+          language_id: card.language_id,
+        }),
+      }).then(r => r.json());
+      const apiKey = FIELD_API_KEYS[field] || field;
+      setProposedValue(result[apiKey] ?? null);
+    } catch (e) {
+      console.error('[AiEditButton] generate error:', e);
+    }
+    setStage('done');
+  };
+  const applyIt = async () => {
+    if (card && proposedValue !== null) {
+      const apiKey = FIELD_API_KEYS[field] || field;
+      try {
+        await fetch(`/api/flashcards/${card.id}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [apiKey]: proposedValue }),
+        });
+        window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Applied AI ${label} to card` }));
+        window.dispatchEvent(new CustomEvent('bwtl:card-reload', { detail: card.id }));
+      } catch (e) {
+        window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Failed to apply ${label}` }));
+      }
+    } else {
+      window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Applied AI ${label} to card` }));
+    }
+    setOpen(false);
   };
   const popoverStyle = floating ? {
     position: 'absolute', bottom: 8, right: 8
@@ -487,6 +542,8 @@ function AiEditButton({ field, label, subtle, floating }) {
             <div><span className="mono" style={{ color: 'var(--fg-4)' }}>last run:</span> {meta.last_run} · avg {meta.avg_ms}ms</div>
           </div>
           <textarea
+          value={promptText}
+          onChange={e => setPromptText(e.target.value)}
           placeholder={`Optional: tell the AI what to focus on (e.g. "emphasize the compound nature of *h₁epi-+*gʷem-")`}
           style={{ width: '100%', height: 64, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, padding: 8, color: 'var(--fg)', font: 'inherit', fontSize: 12, resize: 'none' }} />
         
@@ -505,12 +562,14 @@ function AiEditButton({ field, label, subtle, floating }) {
         <div style={{ marginTop: 10 }}>
               <div style={{ padding: 8, borderRadius: 6, background: 'color-mix(in oklch, var(--ok) 5%, var(--bg-1))', border: '1px solid color-mix(in oklch, var(--ok) 30%, var(--line))', fontSize: 12, color: 'var(--fg-2)', lineHeight: 1.5, marginBottom: 8 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ok)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>Proposed</div>
-                Suggested {label.toLowerCase()} drafted. {label === 'IPA' ? '/ˈsuv.ə.nir/ → /su.və.niʁ/ (Parisian)' : 'Diff shown below; review before apply.'}
+                {proposedValue !== null
+                  ? <span style={{ fontFamily: label === 'IPA' ? 'var(--ff-mono)' : 'inherit' }}>{String(proposedValue)}</span>
+                  : `Suggested ${label.toLowerCase()} drafted. Review before apply.`}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn xs ghost" onClick={() => setStage('idle')}>Re-roll</button>
                 <button className="btn xs ghost" style={{ marginLeft: 'auto' }}>Send to review</button>
-                <button className="btn xs primary" onClick={() => {setOpen(false);window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Applied AI ${label} to card` }));}}>
+                <button className="btn xs primary" onClick={applyIt}>
                   <Ic.check /> Apply
                 </button>
               </div>

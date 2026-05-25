@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app import models
-from app.dependencies import get_current_user, require_write_access
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -84,7 +83,6 @@ def _promotion_dict(p: models.ChatPromotion) -> dict:
 def create_thread(
     body: ThreadCreate,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     thread = models.ChatThread(
         id=f"thr_{uuid.uuid4().hex[:12]}",
@@ -124,7 +122,6 @@ def append_message(
     thread_id: str,
     body: MessageCreate,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     thread = db.query(models.ChatThread).filter(models.ChatThread.id == thread_id).first()
     if not thread:
@@ -168,7 +165,6 @@ def list_messages(thread_id: str, db: Session = Depends(get_db)):
 def create_promotion(
     body: PromotionCreate,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == body.chat_message_id).first()
     if not msg:

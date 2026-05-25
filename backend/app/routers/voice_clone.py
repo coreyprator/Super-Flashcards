@@ -1,5 +1,6 @@
 """
 API endpoints for voice cloning feature.
+BWTL08: OAuth removed. Uses default PL user (get_default_user_id/get_default_user_email).
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
@@ -10,7 +11,7 @@ from app.database import get_db
 from app.services.elevenlabs_service import ElevenLabsService
 from app.services.storage_service import upload_to_gcs, download_from_gcs
 from app import crud
-from app.routers.auth import get_current_user, get_current_user_optional
+from app.default_user import get_default_user_id
 
 router = APIRouter(prefix="/voice-clone", tags=["voice-clone"])
 
@@ -18,10 +19,10 @@ router = APIRouter(prefix="/voice-clone", tags=["voice-clone"])
 @router.get("/status")
 async def get_voice_clone_status(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user_optional)
 ):
-    """Check if user has a voice clone set up. Returns empty if not authenticated."""
-    if not current_user:
+    """Check if default PL user has a voice clone set up."""
+    user_id = get_default_user_id()
+    if not user_id:
         return {
             "has_voice_clone": False,
             "clone_id": None,
@@ -30,8 +31,8 @@ async def get_voice_clone_status(
             "usage_count": 0,
             "authenticated": False
         }
-    
-    clone = crud.get_user_voice_clone(db, current_user.id)
+
+    clone = crud.get_user_voice_clone(db, user_id)
 
     return {
         "has_voice_clone": clone is not None,
@@ -47,14 +48,17 @@ async def get_voice_clone_status(
 async def create_voice_clone(
     samples: List[UploadFile] = File(..., description="Audio samples for voice cloning"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
 ):
     """
     Create a voice clone from uploaded audio samples.
     Requires 1-5 audio files, total duration > 30 seconds recommended.
     """
+    user_id = get_default_user_id()
+    if not user_id:
+        raise HTTPException(503, "Default PL user not yet loaded.")
+
     # Check if user already has a clone
-    existing = crud.get_user_voice_clone(db, current_user.id)
+    existing = crud.get_user_voice_clone(db, user_id)
     if existing:
         raise HTTPException(400, "Voice clone already exists. Delete it first to create a new one.")
 
@@ -81,7 +85,7 @@ async def create_voice_clone(
     if not service.is_available():
         raise HTTPException(503, "Voice cloning service not available")
 
-    voice_name = f"user_{str(current_user.id)[:8]}_voice"
+    voice_name = f"user_{str(user_id)[:8]}_voice"
 
     result = await service.create_voice_clone(
         audio_samples=audio_bytes_list,
@@ -95,7 +99,7 @@ async def create_voice_clone(
     # Save to database
     clone = crud.create_voice_clone(
         db=db,
-        user_id=current_user.id,
+        user_id=user_id,
         elevenlabs_voice_id=result["voice_id"],
         voice_name=voice_name,
         sample_count=len(samples)
@@ -105,7 +109,7 @@ async def create_voice_clone(
     for i, audio_bytes in enumerate(audio_bytes_list):
         gcs_url = upload_to_gcs(
             audio_bytes,
-            f"voice-clones/{current_user.id}/sample_{i}.wav",
+            f"voice-clones/{user_id}/sample_{i}.wav",
             content_type="audio/wav"
         )
         crud.add_voice_sample(db, clone.CloneID, gcs_url, 0)
@@ -123,15 +127,18 @@ async def generate_pronunciation(
     language_code: str,
     text: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
 ):
     """
     Generate pronunciation audio using user's cloned voice.
     Returns audio as base64 for immediate playback.
     Uses cache if available.
     """
+    user_id = get_default_user_id()
+    if not user_id:
+        raise HTTPException(503, "Default PL user not yet loaded.")
+
     # Get user's voice clone
-    clone = crud.get_user_voice_clone(db, current_user.id)
+    clone = crud.get_user_voice_clone(db, user_id)
     if not clone:
         raise HTTPException(404, "No voice clone found. Please create one first.")
 
@@ -165,7 +172,7 @@ async def generate_pronunciation(
     # Upload to GCS for caching
     gcs_url = upload_to_gcs(
         audio_bytes,
-        f"voice-clones/{current_user.id}/generated/{language_code}/{hash(text)}.mp3",
+        f"voice-clones/{user_id}/generated/{language_code}/{hash(text)}.mp3",
         content_type="audio/mpeg"
     )
 
@@ -183,10 +190,13 @@ async def generate_pronunciation(
 @router.delete("/")
 async def delete_voice_clone(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
 ):
-    """Delete user's voice clone."""
-    clone = crud.get_user_voice_clone(db, current_user.id)
+    """Delete default PL user's voice clone."""
+    user_id = get_default_user_id()
+    if not user_id:
+        raise HTTPException(503, "Default PL user not yet loaded.")
+
+    clone = crud.get_user_voice_clone(db, user_id)
     if not clone:
         raise HTTPException(404, "No voice clone found")
 
@@ -202,9 +212,7 @@ async def delete_voice_clone(
 
 
 @router.get("/subscription")
-async def get_subscription_info(
-    current_user = Depends(get_current_user)
-):
+async def get_subscription_info():
     """Get 11Labs subscription info (admin/debug endpoint)."""
     service = ElevenLabsService()
     return await service.get_subscription_info()
