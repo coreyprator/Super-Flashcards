@@ -1,0 +1,33 @@
+Project,Project Name,Code,Title,Status,Priority,Type,PTH,Created,Updated
+EFG,Etymology Graph Service,REQ-007,Remove Google OAuth auth from EFG — app has no per-user features auth adds friction with zero value,cc_prompt_ready,P1,feature,EG10,2026-04-17,2026-04-17
+EFG,Etymology Graph Service,BUG-002,Tooltip gloss text truncated at data source — pull full reference text,req_created,P1,bug,979C,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,BUG-003,Delete SF pronunciation phrases from EFG graph — add content-type filter to prevent re-import,req_created,P1,bug,0C7F,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,EFG-GRIMAL-001,Grimal mythology figure nodes in graph,req_created,P1,task,39C2,2026-03-30,2026-03-30
+EFG,Etymology Graph Service,REQ-002,Search-first UX: server-side search no full graph load on startup 3-char minimum trigger,req_created,P1,feature,A74B,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,REQ-003,UI modernization: consolidate DevTools session changes — floating toolbar dockable panels reference card tooltip search overlay search history theme toggle,req_created,P1,feature,7B2F,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,REQ-006,Migrate EFG node/edge data from in-memory Python files to Cloud SQL,req_created,P1,feature,0D8C,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,BUG-005,Fix /api/stats missing fields causing About panel to show Stats unavailable,cc_complete,P2,bug,EFG04,2026-04-07,2026-04-07
+EFG,Etymology Graph Service,BUG-004,Fix Cytoscape.js console warnings — shadow properties cursor invalid selector CSS vars wheelSensitivity,req_created,P2,bug,2184,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,EFG-GRIMM-001,Grimm Law edge annotations,req_created,P2,task,0BE6,2026-03-30,2026-03-30
+EFG,Etymology Graph Service,EFG-VISION-001,Full vision capture session,req_created,P2,task,E045,2026-03-30,2026-03-30
+EFG,Etymology Graph Service,REQ-004,RAG panel: connect #rag-input to Portfolio RAG etymology collection for natural language etymology explanations,req_created,P2,feature,81F3,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,REQ-005,SF card iframe popup — open linked SF cards in modal overlay instead of navigating away,req_created,P2,feature,A082,2026-04-03,2026-04-03
+EFG,Etymology Graph Service,REQ-013 (EFG),EFG PIE Explorer panel — multi-language paradigm panel on PIE_ROOT node click with verbal/nominal/cognates/declensions and feedback,cc_prompt_ready,P2,feature,EG09,2026-04-17,2026-04-17
+EM,Etymython,REQ-001,Mega UX Sprint: Taxonomy normalization two-level filter About card dark/light theme,cc_complete,P1,feature,90EC,2026-04-06,2026-04-06
+EM,Etymython,BUG-001,EM06 fix sprint: Roman figure content generation + light mode text contrast,cc_prompt_ready,P1,bug,877D,2026-04-06,2026-04-06
+EM,Etymython,EM-014,ArtForge video export button,backlog,P2,feature,297C,2026-03-05,2026-03-05
+EM,Etymython,EM-015,AI figure extraction from documents,backlog,P2,feature,14A6,2026-03-05,2026-03-05
+EM,Etymython,VIS-004,Etymython — Portfolio Vision,backlog,P2,vision,25A7,2026-03-06,2026-03-06
+SF,Super Flashcards,BUG-001 (SF),EFG backfill-pie-ipa endpoint 500 on Cloud Run — cc-deploy SA missing Secret Manager accessor for efg-db-password,cai_designing,P1,bug,5C86,2026-04-11,2026-04-17
+SF,Super Flashcards,REQ-011,EFG PIE audio — add pie_audio_url to nodes backfill endpoint PIE speaker button in node detail,cai_designing,P1,feature,9A4D,2026-04-17,2026-04-17
+SF,Super Flashcards,REQ-012,Etymython PIE audio — add pie_ipa/pie_audio_url to english_cognates backfill pipeline PIE button in figure view,cai_designing,P1,feature,CBAA,2026-04-17,2026-04-17
+SF,Super Flashcards,TSK-001 (SF),SF full PIE IPA and audio backfill — 2009 cards need pie_ipa ~2016 need pie_audio_url,cai_designing,P1,task,DC61,2026-04-16,2026-04-17
+SF,Super Flashcards,REQ-014,REQ: Deprecate HTTP Basic Auth on Super Flashcards — remove beta-gate middleware and env vars,req_created,P1,feature,34BB,2026-04-21,2026-04-21
+SF,Super Flashcards,REQ-015,AUDIT + DESIGN: Cross-portfolio PIE completeness — multi-PIE compound roots audio currency presentation standard across SF/Etymython/EFG,req_created,P1,feature,,2026-04-23,2026-04-23
+SF,Super Flashcards,VIS-001,Super Flashcards — Portfolio Vision,backlog,P2,vision,EF81,2026-03-06,2026-03-06
+SF,Super Flashcards,BUG-013,BUG: 2 SF11 UAT audio failures — oida pre-fix audio needs regeneration sycophant word-final /h/ sounds wrong,cc_complete,P2,bug,19B8,2026-04-18,2026-04-19
+SF,Super Flashcards,REQ-008,Add etymology_layer field to SF cards — PIE / Pre-Greek / Latin-loan / Modern-coinage / Unknown,req_created,P2,enhancement,3829,2026-04-11,2026-04-11
+SF,Super Flashcards,SF-011,Freemium payment model,backlog,P3,task,8E57,2026-02-17,2026-02-18
+SF,Super Flashcards,SF-012,Cleanup duplicate pronunciation_attempts tables,backlog,P3,task,15F0,2026-02-17,2026-03-18
+SF,Super Flashcards,SF-029,Shared auth as cross-portfolio pattern,backlog,P3,task,2F3C,2026-03-05,2026-03-07
+SF,Super Flashcards,SF-030,FSRS Algorithm Evaluation,backlog,P3,task,985F,2026-03-08,2026-03-08

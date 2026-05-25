@@ -46,22 +46,8 @@ function App() {
   const [view, setView] = React.useState({ kind: 'card', id: null });
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // ── auth state ──────────────────────────────────────────────────────────
-  const [authed, setAuthed] = React.useState(() => !!localStorage.getItem('access_token'));
-
   // ── URL-based routing on mount ───────────────────────────────────────────
   React.useEffect(() => {
-    // Pick up OAuth token dropped by /api/auth/google/callback redirect
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('auth') === 'success') {
-      const tok = params.get('token');
-      if (tok) {
-        localStorage.setItem('access_token', tok);
-        setAuthed(true);
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-
     const path = window.location.pathname;
     const cardMatch = path.match(/^\/bwtl\/study\/card\/([^/]+)/);
     if (cardMatch) {
@@ -83,8 +69,15 @@ function App() {
 
   // ── prefetch study queue on boot (BV-012) ────────────────────────────────
   React.useEffect(() => {
-    window.BWTL.fetchStudyDue().catch(() => {});
-  }, []);
+    window.BWTL.fetchStudyDue().then(queue => {
+      // Auto-navigate to first due card if app loaded with no card selected
+      if (queue && queue.length > 0 && !view.id) {
+        const first = queue[0];
+        const firstId = first.card_id || first.id;
+        if (firstId) setView({ kind: 'card', id: firstId });
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── workspace UI state ───────────────────────────────────────────────────
   const [panelState, setPanelState] = React.useState({
@@ -101,12 +94,6 @@ function App() {
 
   // role switcher
   const [roleMenuOpen, setRoleMenuOpen] = React.useState(false);
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    sessionStorage.removeItem('access_token');
-    setAuthed(false);
-  };
 
   // ── apply tweaks ─────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -149,13 +136,29 @@ function App() {
   React.useEffect(() => {
     const onCreate = () => setCreateOpen(true);
     const onToast = (e) => showToast(e.detail);
+    const onCardReload = (e) => {
+      // When a card is created/edited, if we have a specific ID reload it
+      if (e.detail) setView({ kind: 'card', id: e.detail });
+      else {
+        // Re-fetch study queue to pick up new card
+        window.BWTL.fetchStudyDue().then(queue => {
+          if (queue && queue.length > 0) {
+            const first = queue[0];
+            const firstId = first.card_id || first.id;
+            if (firstId && !view.id) setView({ kind: 'card', id: firstId });
+          }
+        }).catch(() => {});
+      }
+    };
     window.addEventListener('bwtl:open-create', onCreate);
     window.addEventListener('bwtl:toast', onToast);
+    window.addEventListener('bwtl:card-reload', onCardReload);
     return () => {
       window.removeEventListener('bwtl:open-create', onCreate);
       window.removeEventListener('bwtl:toast', onToast);
+      window.removeEventListener('bwtl:card-reload', onCardReload);
     };
-  }, []);
+  }, [view.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trail = buildTrail(section, sub, view);
 
@@ -175,8 +178,7 @@ function App() {
               role={role} setRole={setRole}
               canSeeAdmin={canSeeAdmin}
               roleMenuOpen={roleMenuOpen} setRoleMenuOpen={setRoleMenuOpen}
-              onNavigateWord={navigateWord}
-              authed={authed} onLogout={handleLogout} />
+              onNavigateWord={navigateWord} />
             {trail.length > 0 && <Crumbs trail={trail} go={(g) => { if (g.section) setSection(g.section); if (g.sub) setSub(g.sub); }} />}
             <div className="main-area">
               {section === 'study' && sub === 'queue' && <StudyQueueView onNavigateWord={navigateWord} />}
@@ -262,7 +264,7 @@ function App() {
 // Topbar — brand · primary nav · search · bookmark rail · role chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, onNavigateWord, authed, onLogout }) {
+function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, onNavigateWord }) {
   const r = window.BWTL.ROLES[role];
   return (
     <div className="topbar">
@@ -336,26 +338,6 @@ function TopBar({ section, setSection, sub, setSub, role, setRole, canSeeAdmin, 
           <button className="btn sm ghost" title="Bookmarks rail">
             <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{window.BWTL.BOOKMARKS.length}</span>
           </button>
-
-          {authed ? (
-            <button
-              className="btn sm ghost"
-              title="Sign out"
-              onClick={onLogout}
-              style={{ color: 'var(--fg-3)', fontSize: 12 }}
-            >
-              Sign out
-            </button>
-          ) : (
-            <a
-              href="/api/auth/google/login"
-              className="btn sm primary"
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              title="Sign in with Google to use AI Chat and save progress"
-            >
-              Sign in
-            </a>
-          )}
 
           <div style={{ position: 'relative' }}>
             <div className={`role-chip ${role === 'theo' ? 'theo' : role === 'learner' ? 'learner' : ''}`} onClick={() => setRoleMenuOpen(o => !o)}>
@@ -543,33 +525,59 @@ function NewCardSheet({ role, onClose, onCreated }) {
   const [step, setStep] = React.useState(1);
   const [word, setWord] = React.useState('');
   const [lang, setLang] = React.useState('Greek');
-  const [aiStage, setAiStage] = React.useState('idle'); // idle | running | done
+  const [aiStage, setAiStage] = React.useState('idle'); // idle | running | done | error
   const [progress, setProgress] = React.useState([]);
+  const [createdCard, setCreatedCard] = React.useState(null); // set after AI generate succeeds
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Ensure LANGUAGES are loaded (real objects with .id)
+  React.useEffect(() => {
+    const langs = window.BWTL.LANGUAGES;
+    if (!Array.isArray(langs) || typeof langs[0] === 'string' || !langs[0]?.id) {
+      window.BWTL.fetchLanguages().catch(() => {});
+    }
+  }, []);
 
   const langs = window.BWTL.LANGUAGES;
 
-  const runAi = () => {
+  // Resolve language UUID from current lang name
+  const _getLangId = () => {
+    const langsArr = window.BWTL.LANGUAGES;
+    if (Array.isArray(langsArr) && langsArr[0]?.id) {
+      const match = langsArr.find(l => l.name === lang || l.code === lang);
+      return match?.id || null;
+    }
+    return null;
+  };
+
+  const runAi = async () => {
     setAiStage('running');
     setProgress([]);
-    const steps = [
-      { lab: 'Looking up Beekes via Portfolio RAG', endpoint: 'GET rag/search/etymology', t: 700 },
-      { lab: 'Etymology + PIE root',                endpoint: 'POST /api/ai/generate',     t: 1500 },
-      { lab: 'IPA transcription',                   endpoint: 'POST /api/v1/pronunciation', t: 800 },
-      { lab: 'English cognates + cross-link',       endpoint: 'POST /api/ai/generate',     t: 1100 },
-      { lab: 'Fun facts (Etymython link check)',    endpoint: 'GET em/cognates/lookup',     t: 900 },
-      { lab: 'TTS audio',                           endpoint: 'POST /api/audio/tts',        t: 1000 },
-      { lab: 'Wire to EFG node',                    endpoint: 'POST efg /api/nodes',        t: 600 },
-    ];
-    let acc = 0;
-    steps.forEach((s, i) => {
-      acc += s.t;
-      setTimeout(() => {
-        setProgress(p => [...p, { ...s, done: true }]);
-        if (i === steps.length - 1) {
-          setTimeout(() => setAiStage('done'), 200);
-        }
-      }, acc);
-    });
+    const langId = _getLangId();
+    if (!langId) {
+      // If languages not loaded yet, try fetching and retry once
+      try {
+        await window.BWTL.fetchLanguages();
+      } catch (_) {}
+    }
+    const resolvedId = _getLangId();
+    if (!resolvedId) {
+      setAiStage('error');
+      return;
+    }
+    setProgress([{ lab: 'Generating card via AI (POST /api/ai/generate)', endpoint: 'POST /api/ai/generate', done: false }]);
+    try {
+      const card = await window.BWTL._apiFetch('/api/ai/generate', {
+        method: 'POST',
+        body: JSON.stringify({ word_or_phrase: word || 'souvenir', language_id: resolvedId }),
+      });
+      setProgress([{ lab: 'Card created by AI', endpoint: 'POST /api/ai/generate', done: true }]);
+      setCreatedCard(card);
+      setTimeout(() => setAiStage('done'), 200);
+    } catch (err) {
+      setProgress([{ lab: `AI generate failed: ${err.message}`, endpoint: 'POST /api/ai/generate', done: false }]);
+      setAiStage('error');
+    }
   };
 
   return (
@@ -749,8 +757,38 @@ function NewCardSheet({ role, onClose, onCreated }) {
           <div style={{ flex: 1 }} />
           {step > 1 && <button className="btn ghost" onClick={() => setStep(s => s - 1)}>← Back</button>}
           {step === 1 && <button className="btn primary" disabled={!word.trim()} onClick={() => setStep(2)}>Next: AI fill →</button>}
-          {step === 2 && aiStage === 'done' && <button className="btn primary" onClick={() => setStep(3)}>Next: Review →</button>}
-          {step === 3 && <button className="btn primary" onClick={() => onCreated(word || 'souvenir', lang)}><Ic.check /> Create card</button>}
+          {step === 2 && (aiStage === 'done' || aiStage === 'error') && <button className="btn primary" onClick={() => setStep(3)}>Next: Review →</button>}
+          {step === 3 && (
+            <button className="btn primary" disabled={isSubmitting} onClick={async () => {
+              const finalWord = word.trim() || 'souvenir';
+              if (createdCard) {
+                // Card was created by AI fill in Step 2 — dispatch reload + close
+                window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
+                onCreated(createdCard.word_or_phrase || finalWord, lang);
+              } else {
+                // Manual path: POST to /api/flashcards
+                setIsSubmitting(true);
+                try {
+                  const langId = _getLangId();
+                  if (!langId) {
+                    await window.BWTL.fetchLanguages().catch(() => {});
+                  }
+                  const resolvedId = _getLangId();
+                  if (!resolvedId) throw new Error('Language not found');
+                  await window.BWTL._apiFetch('/api/flashcards/', {
+                    method: 'POST',
+                    body: JSON.stringify({ word_or_phrase: finalWord, language_id: resolvedId }),
+                  });
+                  window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
+                  onCreated(finalWord, lang);
+                } catch (err) {
+                  // eslint-disable-next-line no-console
+                  console.error('[NewCardSheet] create failed:', err);
+                  setIsSubmitting(false);
+                }
+              }
+            }}><Ic.check /> {isSubmitting ? 'Saving…' : 'Create card'}</button>
+          )}
         </div>
       </div>
     </>

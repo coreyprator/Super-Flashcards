@@ -461,17 +461,6 @@
         console.log(`⏱️  PAGE LOAD START: ${new Date().toISOString()}`);
         window.timingCheckpoint('T2b-page-load-var', 'pageLoadStart variable set');
     </script>
-    
-    <!-- Authentication Module - Load First -->
-    <script>
-        window.timingCheckpoint('T3a-loading-auth-js', 'Starting to load auth.js');
-    </script>
-    <script src="/auth.js?v=2"></script>
-    <script>
-        const authScriptLoaded = performance.now();
-        console.log(`⏱️  AUTH SCRIPT LOADED: ${(authScriptLoaded - window.pageLoadStart).toFixed(0)}ms`);
-        window.timingCheckpoint('T3b-auth-js-loaded', 'auth.js loaded and parsed');
-    </script>
 
     <!-- First-Time User Loading Overlay -->
     <div id="first-time-overlay" class="fixed inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center z-50 hidden">
@@ -570,7 +559,6 @@
                         </div>
                         <div class="text-right">
                             <div id="user-name" class="text-sm font-medium text-gray-900"></div>
-                            <button id="logout-btn" class="text-xs text-indigo-600 hover:text-indigo-800">Logout</button>
                         </div>
                     </div>
                     <!-- Minimalist Online Indicator -->
@@ -1617,15 +1605,6 @@
         window.timingCheckpoint('T5b-audio-player-loaded', 'audio-player.js loaded');
     </script>
     
-    <!-- Performance Tracking -->
-    <script>
-        window.timingCheckpoint('T5c-loading-oauth-tracker', 'Loading oauth-tracker.js');
-    </script>
-    <script src="/oauth-tracker.js?v=1.0.0"></script>
-    <script>
-        window.timingCheckpoint('T5d-oauth-tracker-loaded', 'oauth-tracker.js loaded');
-    </script>
-    
     <!-- Sprint 5: Offline Sync Modules -->
     <script>
         window.timingCheckpoint('T5e-loading-db-js', 'Loading db.js (IndexedDB wrapper)');
@@ -1696,16 +1675,6 @@
                         pictureEl.alt = user.name || user.username;
                         avatarDiv.classList.remove('hidden');
                     }
-                }
-                
-                // Setup logout button
-                const logoutBtn = document.getElementById('logout-btn');
-                if (logoutBtn) {
-                    logoutBtn.addEventListener('click', async () => {
-                        if (confirm('Are you sure you want to logout?')) {
-                            await window.auth.logout();
-                        }
-                    });
                 }
             }
         })();

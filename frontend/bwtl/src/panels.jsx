@@ -93,7 +93,9 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
         </div>
         <div style={{ flex: 1 }} />
         <div className="ipa">{root.ipa}</div>
-        <div className="pie-audio" title="Play PIE root audio · from EFG nodes (95% coverage)">
+        <div className="pie-audio" title="Play PIE root audio · from EFG nodes (95% coverage)"
+          style={{ cursor: root.audio_url ? 'pointer' : 'default' }}
+          onClick={() => root.audio_url && new Audio(root.audio_url).play()}>
           <Ic.play />
         </div>
       </div>
@@ -193,17 +195,44 @@ function ProseBlock({ title, body, source, showSrc, open, onToggle }) {
             const langs = Object.keys(parsed);
             return (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${langs.length}, minmax(0, 1fr))`, gap: 0, border: '1px solid var(--line-soft)', borderRadius: 4, overflow: 'hidden', fontSize: 11 }}>
-                {langs.map((lang, ci) => (
-                  <div key={lang} style={{ borderRight: ci < langs.length - 1 ? '1px solid var(--line-soft)' : 'none' }}>
-                    <div style={{ padding: '4px 8px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', background: 'var(--bg-2)', borderBottom: '1px solid var(--line-soft)' }}>{lang}</div>
-                    {Object.entries(parsed[lang]).map(([form, val]) => (
-                      <div key={form} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
-                        <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{form}</span>
-                        <span className="greek">{typeof val === 'object' ? JSON.stringify(val) : val}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                {langs.map((lang, ci) => {
+                  const val = parsed[lang];
+                  return (
+                    <div key={lang} style={{ borderRight: ci < langs.length - 1 ? '1px solid var(--line-soft)' : 'none' }}>
+                      <div style={{ padding: '4px 8px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', background: 'var(--bg-2)', borderBottom: '1px solid var(--line-soft)' }}>{lang}</div>
+                      {Array.isArray(val)
+                        ? val.map((item, idx) => (
+                            <div key={idx} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4, borderBottom: '1px solid var(--line-soft)' }}>
+                              <span className="greek" style={{ fontWeight: 600 }}>{Array.isArray(item) ? item[0] : (item.form || '')}</span>
+                              <span style={{ color: 'var(--fg-3)', fontSize: 10 }}>{Array.isArray(item) ? item[1] : (item.gloss || item.gram || '')}</span>
+                            </div>
+                          ))
+                        : typeof val === 'object' && val !== null
+                          ? Object.entries(val).map(([k, v]) =>
+                              typeof v === 'object' && v !== null && !Array.isArray(v)
+                                ? (
+                                  <div key={k}>
+                                    <div style={{ padding: '2px 8px', fontSize: 9, fontWeight: 700, color: 'var(--fg-4)', background: 'var(--bg-1)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{k}</div>
+                                    {Object.entries(v).map(([person, form]) => (
+                                      <div key={person} style={{ padding: '2px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
+                                        <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{person}</span>
+                                        <span className="greek">{form}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                                : (
+                                  <div key={k} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
+                                    <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{k}</span>
+                                    <span className="greek">{Array.isArray(v) ? v.join(', ') : String(v ?? '')}</span>
+                                  </div>
+                                )
+                            )
+                          : <div style={{ padding: '3px 8px' }}><span className="greek">{String(val ?? '')}</span></div>
+                      }
+                    </div>
+                  );
+                })}
               </div>
             );
           } catch { return body; }
@@ -311,7 +340,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
 
   // Derive root and siblings from graph data or cached PIE_ROOTS
   const rootData = (graphData && graphData.pie_root) ? graphData : window.BWTL.PIE_ROOTS[pieRootKey];
-  const siblings = graphData ? (graphData.nodes || []).filter(n => n.node_type === 'word') : [];
+  const siblings = graphData ? (graphData.nodes || []).filter(n => (n.type || n.node_type) === 'word') : [];
 
   // simple radial layout
   const W = 360, H = 200, cx = W/2, cy = H/2;

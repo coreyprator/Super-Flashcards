@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app import models
-from app.dependencies import require_write_access
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,7 +59,6 @@ def _col_dict(c: models.BookmarkCollection) -> dict:
 def create_bookmark(
     body: BookmarkCreate,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     if body.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {body.kind}")
@@ -103,7 +101,6 @@ def list_bookmarks(
 def delete_bookmark(
     bookmark_id: str,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     bm = db.query(models.Bookmark).filter(models.Bookmark.id == bookmark_id).first()
     if not bm:
@@ -119,7 +116,6 @@ def delete_bookmark(
 def create_collection(
     body: CollectionCreate,
     db: Session = Depends(get_db),
-    _user: models.User = Depends(require_write_access),
 ):
     col = models.BookmarkCollection(
         id=f"col_{uuid.uuid4().hex[:12]}",

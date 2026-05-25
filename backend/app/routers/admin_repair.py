@@ -13,21 +13,12 @@ from sqlalchemy import text as _text
 
 from app.database import get_db
 from app import models
-from app.routers.auth import get_current_user
 from app.routers.efg import _get_efg_connection
+from app.default_user import get_default_user_email
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin-repair"])
-
-
-# ── Auth gate ────────────────────────────────────────────────────────────────
-
-def get_admin_user(current_user: models.User = Depends(get_current_user)):
-    """Raise 403 if the authenticated user is not an admin."""
-    if not getattr(current_user, "is_admin", False):
-        raise HTTPException(status_code=403, detail="Admin role required")
-    return current_user
 
 
 # ── Request/Response schemas ─────────────────────────────────────────────────
@@ -350,13 +341,12 @@ async def _repair_one(req: RepairPieRequest, db: Session, admin_email: str) -> d
 async def repair_pie_relationship(
     req: RepairPieRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_admin_user),
 ):
     """
     REQ-022: 7-layer atomic PIE relationship repair.
     Admin only. Rewrites flashcards + junction + EFG nodes + EFG edges + audio + audit log.
     """
-    result = await _repair_one(req, db, current_user.email)
+    result = await _repair_one(req, db, get_default_user_email())
     return result
 
 
@@ -364,7 +354,6 @@ async def repair_pie_relationship(
 async def repair_pie_batch(
     req: RepairPieBatchRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_admin_user),
 ):
     """
     REQ-022: Batch PIE repair. Each item runs in its own transaction.
@@ -376,7 +365,7 @@ async def repair_pie_batch(
 
     for item in req.repairs:
         try:
-            result = await _repair_one(item, db, current_user.email)
+            result = await _repair_one(item, db, get_default_user_email())
             results.append({"status": "ok", **result})
             succeeded += 1
         except HTTPException as e:

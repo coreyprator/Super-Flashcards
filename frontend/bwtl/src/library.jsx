@@ -60,7 +60,7 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
   const [langs, setLangs] = React.useState(window.BWTL.LANGUAGES || []);
   const [loading, setLoading] = React.useState(!cards.length);
 
-  React.useEffect(() => {
+  const loadCards = React.useCallback(() => {
     setLoading(true);
     Promise.all([
       window.BWTL.fetchCards({ limit: 200 }),
@@ -74,6 +74,13 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
       setLangs(Array.isArray(langData) ? langData : []);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  React.useEffect(() => {
+    loadCards();
+    // BV-CROSS-LIBRARY-001: refresh when a new card is created
+    window.addEventListener('bwtl:card-reload', loadCards);
+    return () => window.removeEventListener('bwtl:card-reload', loadCards);
+  }, [loadCards]);
 
   const filtered = cards.filter(c =>
     (langFilter === 'all' || c.language === langFilter) &&
@@ -155,8 +162,8 @@ function RootsTab({ q }) {
             <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line-soft)' }}>
               <div className="display" style={{ fontSize: 22, color: 'var(--pie)' }}>{r.root || r.label}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{r.ipa}</span>
-                {r.ipa && <button className="pie-audio" style={{ width: 22, height: 22 }}><Ic.play /></button>}
+                <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{r.pie_ipa}</span>
+                {r.pie_audio_url && <button className="pie-audio" style={{ width: 22, height: 22 }} onClick={() => new Audio(r.pie_audio_url).play()}><Ic.play /></button>}
               </div>
             </div>
             <div style={{ padding: '12px 14px' }}>
@@ -176,6 +183,9 @@ function RootsTab({ q }) {
 function FiguresTab({ q, onOpenFigure }) {
   const [figs, setFigs] = React.useState(Object.values(window.BWTL.FIGURES));
   const [loading, setLoading] = React.useState(!figs.length);
+  const [iframeFig, setIframeFig] = React.useState(null); // BV-FIG-IFRAME-001: iFrame modal
+
+  const _EM_URL = 'https://etymython.rentyourcio.com';
 
   React.useEffect(() => {
     setLoading(true);
@@ -198,14 +208,19 @@ function FiguresTab({ q, onOpenFigure }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
         {filtered.map(f => (
-          <div key={f.id} className="card" style={{ cursor: 'pointer' }} onClick={() => onOpenFigure(f.id)}>
+          <div key={f.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setIframeFig(f)}>
             <div style={{
               aspectRatio: '16/10',
               background: 'linear-gradient(135deg, var(--myth-bg), var(--bg-3))',
               borderBottom: '1px solid var(--line-soft)',
-              display: 'flex', alignItems: 'flex-end', padding: 8,
-              fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--fg-4)',
-            }}>{(f.figure_type || '').toLowerCase()}</div>
+              overflow: 'hidden',
+              position: 'relative',
+            }}>
+              {f.image_url
+                ? <img src={f.image_url} alt={f.english_name || f.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <span style={{ position: 'absolute', bottom: 6, left: 8, fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--fg-4)' }}>{(f.figure_type || '').toLowerCase()}</span>
+              }
+            </div>
             <div style={{ padding: '10px 12px' }}>
               <div className="display" style={{ fontSize: 18, color: 'var(--myth)' }}>{f.english_name || f.name}</div>
               <div className="greek" style={{ fontSize: 13, color: 'var(--fg-2)' }}>{f.greek_name || f.latin_name}</div>
@@ -218,6 +233,25 @@ function FiguresTab({ q, onOpenFigure }) {
           </div>
         ))}
       </div>
+
+      {/* BV-FIG-IFRAME-001: iFrame modal for Etymython figure page */}
+      {iframeFig && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 998 }} onClick={() => setIframeFig(null)} />
+          <dialog open style={{ position: 'fixed', inset: '5vh 5vw', width: '90vw', height: '90vh', margin: 0, padding: 0, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--line-soft)', gap: 8 }}>
+              <span className="pill myth" style={{ fontSize: 10.5 }}>{iframeFig.english_name || iframeFig.name}</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)', flex: 1 }}>{_EM_URL}/figures/{iframeFig.id}</span>
+              <button className="btn xs ghost" onClick={() => setIframeFig(null)}>✕ Close</button>
+            </div>
+            <iframe
+              src={`${_EM_URL}/figures/${iframeFig.id}`}
+              title={`Etymython · ${iframeFig.english_name}`}
+              style={{ flex: 1, border: 'none', width: '100%' }}
+            />
+          </dialog>
+        </>
+      )}
     </>
   );
 }
@@ -283,6 +317,12 @@ function DccTab({ q, onNavigateWord }) {
   const [words, setWords] = React.useState(window.BWTL.DCC_WORDS || []);
   const [loading, setLoading] = React.useState(!words.length);
   const [selectedEntry, setSelectedEntry] = React.useState(null); // REQ-031: DCC full content modal
+  const [sortBy, setSortBy] = React.useState(null);
+  const [sortDir, setSortDir] = React.useState('asc');
+  const handleSort = (key) => {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(key); setSortDir('asc'); }
+  };
 
   React.useEffect(() => {
     setLoading(true);
@@ -298,6 +338,12 @@ function DccTab({ q, onNavigateWord }) {
   }, []);
 
   const filtered = words.filter(w => !q || (w.label || w.word || '').includes(q) || (w.gloss || w.definition || '').toLowerCase().includes(q.toLowerCase()));
+  const sorted = sortBy ? [...filtered].sort((a, b) => {
+    const av = a[sortBy] ?? '';
+    const bv = b[sortBy] ?? '';
+    const r = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return sortDir === 'asc' ? r : -r;
+  }) : filtered;
 
   if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading DCC word list…</div>;
   if (!words.length) return <div className="dcc-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>DCC word list unavailable. EFG service may be offline.</div>;
@@ -312,17 +358,17 @@ function DccTab({ q, onNavigateWord }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-2)' }}>
-            {['Rank','Word','Gloss','POS','PIE root','Freq/10k','SF card'].map(h => (
-              <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{h}</th>
+            {[['Rank','frequency_rank'],['Word','label'],['Gloss','gloss'],['POS','pos'],['PIE root','pie_root'],['Freq/10k','freq_per_10k'],['SF card','sf_linked']].map(([h, key]) => (
+              <th key={h} onClick={() => handleSort(key)} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)', cursor: 'pointer', userSelect: 'none' }}>{h}{sortBy === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {filtered.map((w, i) => (
+          {sorted.map((w, i) => (
             <tr key={w.id || w.rank || i} style={{ borderTop: '1px solid var(--line-soft)', cursor: 'pointer' }}
               onClick={() => setSelectedEntry(w)}>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-4)' }}>{w.frequency_rank || w.rank || i+1}</td>
-              <td style={{ padding: '8px 12px' }} className="greek"><span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>{w.label || w.word}</span></td>
+              <td style={{ padding: '8px 12px', maxWidth: 120 }} className="greek"><span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-all', overflowWrap: 'anywhere', whiteSpace: 'normal', display: 'block' }}>{w.label || w.word}</span></td>
               <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fg-2)', wordBreak: 'break-word', whiteSpace: 'normal' }}>{w.gloss || w.definition}</td>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--fg-4)' }}>{w.pos || w.part_of_speech}</td>
               <td style={{ padding: '8px 12px' }}>{(w.pie_root || w.pie) && <span className="pill pie" style={{ fontSize: 9.5 }}>{w.pie_root || w.pie}</span>}</td>

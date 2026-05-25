@@ -1,0 +1,1 @@
+ERROR: (gcloud.run.services.logs.read) PERMISSION_DENIED: Permission denied for all log views. This command is authenticated as cc-deploy@super-flashcards-475210.iam.gserviceaccount.com which is the active account specified by the [core/account] property
