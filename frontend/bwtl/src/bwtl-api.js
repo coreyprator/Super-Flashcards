@@ -50,6 +50,7 @@ const PROMOTE_FIELDS = [
 
 async function fetchCard(id) {
   const card = await _apiFetch(`/api/flashcards/${id}`);
+  if (!card || typeof card !== 'object') throw new Error(`Card not found: ${id}`);
   card.word = card.word || card.word_or_phrase; // normalize: API returns word_or_phrase, FE reads card.word
   // Option B (BWTL05): normalize language name from LANGUAGES cache
   if (!card.language && card.language_id) {
@@ -85,7 +86,16 @@ async function fetchPieRoot(root) {
     language_paradigm: data.language_paradigm || {},
     word_count: data.card_count || 0,
     branches: data.branches || [],
+    scholarly_notes: data.scholarly_notes || [],
   };
+  // Also populate the SCHOLARLY_NOTES cache keyed by root
+  window.BWTL.SCHOLARLY_NOTES[root] = (data.scholarly_notes || []).map(n => ({
+    source: n.source || '',
+    ref: n.page_ref || '',
+    excerpt: n.content || '',
+    kind: 'dictionary',
+    confidence: null,
+  }));
   return window.BWTL.PIE_ROOTS[root];
 }
 
@@ -256,7 +266,8 @@ async function fetchAfJobStatus(jobId) {
 
 // ─── Voice clones API ─────────────────────────────────────────────────────────
 async function fetchVoiceClones() {
-  const data = await _apiFetch('/api/v1/voice_clone');
+  // BUG fix: correct URL is /voice-clone (hyphen), not /voice_clone (underscore)
+  const data = await _apiFetch('/api/v1/voice-clone');
   const clones = Array.isArray(data) ? data : (data.items || []);
   window.BWTL.VOICE_CLONES = clones;
   return clones;
@@ -272,6 +283,7 @@ window.BWTL = {
   // lazy-populated caches
   FLASHCARDS: {},
   PIE_ROOTS: {},
+  SCHOLARLY_NOTES: {},
 
   // stubs (display-only, populated on demand)
   NODES,

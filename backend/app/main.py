@@ -853,22 +853,40 @@ async def health_check_database(db: Session = Depends(get_db)):
             "error": str(e)
         }
 
-@app.get("/api/search", response_model=schemas.SearchResponse, tags=["search"])
-def cross_language_search(
-    q: str = Query(..., min_length=1, description="Search term"),
-    language: str = Query(default="all", description="Language filter: name (e.g. greek), code (e.g. el), or 'all'"),
-    limit: int = Query(default=50, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    db: Session = Depends(get_db)
-):
-    """Cross-language search. Returns results with language name field. SF-014."""
-    cards, total = crud.search_cross_language(db, q, language, limit, offset)
-    results = []
-    for card in cards:
-        card_dict = schemas.Flashcard.model_validate(card).model_dump()
-        card_dict['language'] = card.language.name.lower() if card.language else ""
-        results.append(schemas.FlashcardWithLanguage(**card_dict))
-    return schemas.SearchResponse(results=results, total=total)
+# REV2-BUILD-001: 3-kind unified search (cards + figures + pie_roots) via search router
+from .routers import search as search_router
+app.include_router(search_router.router, tags=["search"])
+
+
+@app.get("/api/stats", tags=["stats"])
+async def portfolio_stats(db: Session = Depends(get_db)):
+    """
+    REV2-BUILD-001: Portfolio-wide semantic object counts from unified learning DB.
+    Scope: flashcards, languages, mythological_figures, etymologies, flashcard_pie_roots,
+           english_cognates, fun_facts, figure_relationships, efg_pie_explorer_data.
+    """
+    from sqlalchemy import text as _text
+    counts = {}
+    table_map = {
+        "flashcards": "flashcards",
+        "languages": "languages",
+        "figures": "mythological_figures",
+        "etymologies": "etymologies",
+        "pie_roots": "flashcard_pie_roots",
+        "english_cognates": "english_cognates",
+        "fun_facts": "fun_facts",
+        "figure_relationships": "figure_relationships",
+        "efg_pie_explorer_data": "efg_pie_explorer_data",
+        "scholarly_notes": "scholarly_notes",
+    }
+    for key, table in table_map.items():
+        try:
+            row = db.execute(_text(f"SELECT COUNT(1) FROM {table}")).fetchone()
+            counts[key] = row[0] if row else 0
+        except Exception:
+            counts[key] = None
+    return {"counts": counts, "db": os.getenv("SQL_DATABASE", "LanguageLearning")}
+
 
 
 @app.get("/api/sync")

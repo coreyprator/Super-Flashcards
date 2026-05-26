@@ -90,11 +90,17 @@ function Workspace({
     const wasBookmarked = card.bookmarked;
     setCard((c) => ({ ...c, bookmarked: !wasBookmarked }));
     if (wasBookmarked) {
-      // find bookmark id in cache and delete
-      const bm = (window.BWTL.BOOKMARKS || []).find(b => b.item_id === card.id);
+      // find bookmark id in cache and delete (BUG-053 fix: match on flashcard_ref_id)
+      const bm = (window.BWTL.BOOKMARKS || []).find(b => b.flashcard_ref_id === card.id);
       if (bm) window.BWTL.deleteBookmark(bm.id).catch(() => setCard((c) => ({ ...c, bookmarked: true })));
     } else {
-      window.BWTL.createBookmark({ item_id: card.id, item_type: 'flashcard' })
+      // BUG-053 fix: send canonical BookmarkCreate shape matching learning DB schema
+      window.BWTL.createBookmark({
+        kind: 'word',
+        flashcard_ref_id: card.id,
+        ref_label: card.word_or_phrase || card.word || null,
+        owner_id: role,
+      })
         .then(bm => { if (bm?.id) window.BWTL.BOOKMARKS.push(bm); })
         .catch(() => setCard((c) => ({ ...c, bookmarked: false })));
     }
@@ -300,6 +306,14 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
         )}
       </div>
 
+      {/* REV-2: Multi-root PIE pills (equation style) */}
+      {window.Etymology && <window.Etymology.MultiRootPie
+        pieRoots={card.pie_roots || (card.pie_root ? [card.pie_root] : [])}
+        currentCard={card}
+        onDrillPie={onDrillPie}
+        canEdit={canEdit}
+      />}
+
       {/* Cognates — chips. Each chip is a cross-app drill-down to its word card. */}
       <div className="wc-section">
         <h4>
@@ -337,6 +351,17 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           </span>
         </div>
       </div>
+
+      {/* REV-2: Scholarly notes stack — per-root citations */}
+      {window.Etymology && <window.Etymology.ScholarlyNotesStack
+        pieRoots={card.pie_roots || (card.pie_root ? [card.pie_root] : [])}
+        currentCard={card}
+      />}
+
+      {/* REV-2: Empty etymology placeholder for cards with no PIE root */}
+      {window.Etymology && !card.pie_root && !card.etymology && (
+        <window.Etymology.EmptyEtymologyState card={card} onAskAI={(field) => onChatAboutThis && onChatAboutThis(field)} />
+      )}
 
       {/* Fun facts — hidden when empty; DB has no fun_facts column (BWTL05) */}
       {card.fun_facts && card.fun_facts.length > 0 && (
@@ -456,15 +481,15 @@ function AiEditButton({ field, label, subtle, floating, card }) {
     setStage('running');
     if (!card) { setProposedValue(null); setStage('done'); return; }
     try {
-      const result = await fetch('/api/ai/generate', {
+      // BUG-055 fix: use _apiFetch instead of raw fetch()
+      const result = await window.BWTL._apiFetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           card_id: card.id, field, prompt: promptText,
           word_or_phrase: card.word || card.word_or_phrase,
           language_id: card.language_id,
         }),
-      }).then(r => r.json());
+      });
       const apiKey = FIELD_API_KEYS[field] || field;
       setProposedValue(result[apiKey] ?? null);
     } catch (e) {
@@ -476,9 +501,9 @@ function AiEditButton({ field, label, subtle, floating, card }) {
     if (card && proposedValue !== null) {
       const apiKey = FIELD_API_KEYS[field] || field;
       try {
-        await fetch(`/api/flashcards/${card.id}/`, {
+        // BUG-055 fix: use _apiFetch instead of raw fetch()
+        await window.BWTL._apiFetch(`/api/flashcards/${card.id}/`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [apiKey]: proposedValue }),
         });
         window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Applied AI ${label} to card` }));

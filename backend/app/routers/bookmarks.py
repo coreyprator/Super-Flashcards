@@ -12,14 +12,23 @@ from app import models
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-VALID_KINDS = {"word", "root", "figure", "thread", "collection"}
+VALID_KINDS = {"word", "flashcard", "root", "figure", "thread", "collection"}
+
+# Kinds that require flashcard_ref_id
+_FLASHCARD_KINDS = {"word", "flashcard"}
+# Kinds that require figure_ref_id
+_FIGURE_KINDS = {"figure"}
+# Kinds with no FK required
+_ROOTLESS_KINDS = {"root", "thread", "collection"}
 
 
 # ── Pydantic schemas ───────────────────────────────────────────────────────────
 
 class BookmarkCreate(BaseModel):
     kind: str
-    ref_id: str
+    # REV-2 canonical FK fields (hard cutover — matches learning DB schema)
+    flashcard_ref_id: Optional[str] = None  # UUID string; required when kind in ('word','flashcard')
+    figure_ref_id: Optional[int] = None     # required when kind = 'figure'
     ref_label: Optional[str] = None
     owner_id: str
     collection_id: Optional[str] = None
@@ -36,7 +45,8 @@ def _bm_dict(b: models.Bookmark) -> dict:
     return {
         "id": b.id,
         "kind": b.kind,
-        "ref_id": b.ref_id,
+        "flashcard_ref_id": str(b.flashcard_ref_id) if b.flashcard_ref_id else None,
+        "figure_ref_id": b.figure_ref_id,
         "ref_label": b.ref_label,
         "owner_id": b.owner_id,
         "collection_id": b.collection_id,
@@ -63,6 +73,21 @@ def create_bookmark(
     if body.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {body.kind}")
 
+    # Enforce canonical FK shape matching CHK_bookmarks_ref in learning DB
+    if body.kind in _FLASHCARD_KINDS:
+        if not body.flashcard_ref_id:
+            raise HTTPException(status_code=422, detail=f"flashcard_ref_id required for kind '{body.kind}'")
+        if body.figure_ref_id is not None:
+            raise HTTPException(status_code=422, detail="figure_ref_id must be null for flashcard kinds")
+    elif body.kind in _FIGURE_KINDS:
+        if body.figure_ref_id is None:
+            raise HTTPException(status_code=422, detail="figure_ref_id required for kind 'figure'")
+        if body.flashcard_ref_id is not None:
+            raise HTTPException(status_code=422, detail="flashcard_ref_id must be null for figure kind")
+    else:  # rootless kinds
+        if body.flashcard_ref_id is not None or body.figure_ref_id is not None:
+            raise HTTPException(status_code=422, detail=f"No FK fields allowed for kind '{body.kind}'")
+
     if body.collection_id:
         col = db.query(models.BookmarkCollection).filter(
             models.BookmarkCollection.id == body.collection_id
@@ -73,7 +98,8 @@ def create_bookmark(
     bm = models.Bookmark(
         id=f"bm_{uuid.uuid4().hex[:12]}",
         kind=body.kind,
-        ref_id=body.ref_id,
+        flashcard_ref_id=body.flashcard_ref_id,
+        figure_ref_id=body.figure_ref_id,
         ref_label=body.ref_label,
         owner_id=body.owner_id,
         collection_id=body.collection_id,
