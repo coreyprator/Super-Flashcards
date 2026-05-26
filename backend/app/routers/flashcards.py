@@ -743,7 +743,8 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
         })
 
     # EFG query: merge verbal_paradigm, nominal_derivatives, modern_cognates,
-    # efg_pie_ipa, efg_pie_audio_url, and heuristic language_paradigm
+    # efg_pie_ipa, efg_pie_audio_url, and heuristic language_paradigm.
+    # REV2-BUILD-001: Data now served from learning DB — no cross-DB connection.
     verbal_paradigm = None
     nominal_derivatives = None
     modern_cognates = None
@@ -751,21 +752,18 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
     efg_pie_ipa = None
     efg_pie_audio_url = None
     language_paradigm = {}
+    scholarly_notes = []
 
     try:
-        from app.routers.efg import _get_efg_connection
         # Normalize: strip *, leading/trailing - and spaces for efg_pie_explorer_data lookup
         efg_key = re.sub(r'[*\-]', '', pie_root).strip()
-        efg_conn = _get_efg_connection()
-        efg_cursor = efg_conn.cursor()
 
-        # Get EFG prose blocks
-        efg_cursor.execute(
-            "SELECT verbal_paradigm, nominal_derivatives, modern_cognates "
-            "FROM efg_pie_explorer_data WHERE pie_root = ?",
-            efg_key
-        )
-        efg_row = efg_cursor.fetchone()
+        # Get EFG prose blocks from learning DB
+        efg_row = db.execute(
+            text("SELECT verbal_paradigm, nominal_derivatives, modern_cognates "
+                 "FROM efg_pie_explorer_data WHERE pie_root = :key"),
+            {"key": efg_key}
+        ).fetchone()
         if efg_row:
             verbal_paradigm = efg_row[0]
             nominal_derivatives = efg_row[1]
@@ -792,21 +790,30 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
                 except Exception:
                     pass
 
-        # Get EFG node for IPA and audio (95% fill)
-        efg_cursor.execute(
-            "SELECT id, pie_ipa, pie_audio_url FROM nodes "
-            "WHERE node_type = 'pie_root' AND label = ?",
-            pie_root
-        )
-        node_row = efg_cursor.fetchone()
+        # Get EFG node for IPA and audio from learning DB (nodes table ETL'd in Phase 0)
+        node_row = db.execute(
+            text("SELECT id, pie_ipa, pie_audio_url FROM nodes "
+                 "WHERE node_type = 'pie_root' AND label = :label"),
+            {"label": pie_root}
+        ).fetchone()
         if node_row:
             efg_node_id = node_row[0]
             efg_pie_ipa = node_row[1]
             efg_pie_audio_url = node_row[2]
 
-        efg_conn.close()
+        # scholarly_notes: empty until ingestion sprint
+        sn_rows = db.execute(
+            text("SELECT id, content, source, page_ref, created_at FROM scholarly_notes "
+                 "WHERE pie_root = :root ORDER BY created_at"),
+            {"root": pie_root}
+        ).fetchall()
+        scholarly_notes = [
+            {"id": r[0], "content": r[1], "source": r[2], "page_ref": r[3],
+             "created_at": r[4].isoformat() if r[4] else None}
+            for r in sn_rows
+        ]
     except Exception as e:
-        logger.warning(f"[pie-explorer] EFG merge failed for '{pie_root}': {e}")
+        logger.warning(f"[pie-explorer] EFG/scholarly_notes query failed for '{pie_root}': {e}")
 
     return {
         "pie_root": pie_root,
@@ -815,7 +822,7 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
         "pie_ipa": cards[0].pie_ipa if cards else None,
         "pie_audio_url": cards[0].pie_audio_url if cards else None,
         "branches": branches,
-        # BWTL03 additions
+        # EFG data now served from learning DB (REV2-BUILD-001 — no cross-DB calls)
         "verbal_paradigm": verbal_paradigm,
         "nominal_derivatives": nominal_derivatives,
         "modern_cognates": modern_cognates,
@@ -824,4 +831,6 @@ async def get_pie_root_data(pie_root: str, db: Session = Depends(get_db)):
         "efg_pie_audio_url": efg_pie_audio_url,
         "atomic_roots": atomic_roots,
         "language_paradigm": language_paradigm,
+        # scholarly_notes — empty until ingestion sprint; FE renders "no entries yet" placeholder
+        "scholarly_notes": scholarly_notes,
     }

@@ -359,8 +359,10 @@ class Bookmark(Base):
     __tablename__ = "bookmarks"
 
     id = Column(NVARCHAR(50), primary_key=True)
-    kind = Column(NVARCHAR(20), nullable=False)          # word|root|figure|thread|collection
-    ref_id = Column(NVARCHAR(100), nullable=False)
+    kind = Column(NVARCHAR(20), nullable=False)          # word|flashcard|root|figure|thread|collection
+    # REV-2: canonical FK columns per kind (replaces polymorphic ref_id)
+    flashcard_ref_id = Column(UNIQUEIDENTIFIER, nullable=True)   # non-null when kind in ('word','flashcard')
+    figure_ref_id = Column(Integer, nullable=True)               # non-null when kind = 'figure'
     ref_label = Column(NVARCHAR(200), nullable=True)
     owner_id = Column(NVARCHAR(50), nullable=False)
     collection_id = Column(NVARCHAR(50), ForeignKey("bookmark_collections.id"), nullable=True)

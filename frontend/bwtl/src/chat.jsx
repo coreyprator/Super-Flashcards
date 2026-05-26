@@ -57,8 +57,8 @@ function ChatDock({
     const text = draft.trim();
     setDraft('');
     setSending(true);
-    // Optimistically add user message
-    setMessages(prev => [...prev, { role: 'user', content: text, created_at: new Date().toISOString() }]);
+    // Optimistically add user message (BUG-056 fix: use canonical 'text' field)
+    setMessages(prev => [...prev, { role: 'user', text: text, created_at: new Date().toISOString() }]);
     try {
       let threadId = activeThreadId;
       if (!threadId || threadId === 'new') {
@@ -66,7 +66,7 @@ function ChatDock({
         threadId = t.id;
         onActivateThread(threadId);
       }
-      await window.BWTL.addMessage(threadId, { role: 'user', content: text });
+      await window.BWTL.addMessage(threadId, { role: 'user', text: text });
       // Fetch updated messages (includes AI response)
       const data = await window.BWTL.getMessages(threadId);
       setMessages(Array.isArray(data) ? data : (data.messages || data.items || []));
@@ -168,7 +168,7 @@ function ChatDock({
                     <div key={i} className={`msg ${m.role}`}>
                       <div className="avt">{m.role === 'user' || m.role === 'you' ? (window.BWTL.ROLES[role]?.initials || 'U') : 'AI'}</div>
                       <div className="bubble">
-                        <div>{m.content || m.text}</div>
+                        <div>{m.text}</div>
                         {/* Per-AI-turn context-snapshot expander (REV item 3) */}
                         {m.role === 'ai' && m.context_snapshot && (
                           <div style={{

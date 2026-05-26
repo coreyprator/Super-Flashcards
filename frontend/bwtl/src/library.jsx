@@ -326,8 +326,8 @@ function DccTab({ q, onNavigateWord }) {
 
   React.useEffect(() => {
     setLoading(true);
-    fetch('/api/v1/dcc/list')
-      .then(r => r.ok ? r.json() : [])
+    // BUG-055 fix: use _apiFetch instead of raw fetch()
+    window.BWTL._apiFetch('/api/v1/dcc/list')
       .then(data => {
         const list = Array.isArray(data) ? data : (data.words || data.nodes || []);
         window.BWTL.DCC_WORDS = list;
