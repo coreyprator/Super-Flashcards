@@ -160,7 +160,7 @@ function ThreadsIndexTab({ allThreads, onNavigateWord }) {
 }
 
 function ThreadDetailView({ thread, onNavigateWord }) {
-  const card = thread.card;
+  const card = thread.card || window.BWTL.FLASHCARDS[thread.anchor_value || thread.card_id] || null;
   return (
     <div className="card">
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line-soft)' }}>
@@ -169,13 +169,13 @@ function ThreadDetailView({ thread, onNavigateWord }) {
           <span className="mono" style={{ color: 'var(--fg-4)', fontSize: 11 }}>{thread.id}</span>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="pill accent" style={{ fontSize: 10 }}>
+          {card && <span className="pill accent" style={{ fontSize: 10 }}>
             <span className="mode-tag" style={{ background: 'rgba(0,0,0,.3)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--ff-mono)', fontSize: 9 }}>card</span>
             <span style={{ marginLeft: 5 }} className="greek">{card.word}</span>
-          </span>
-          {card.pie_root && <span className="pill pie" style={{ fontSize: 10 }}>{card.pie_root}</span>}
+          </span>}
+          {card?.pie_root && <span className="pill pie" style={{ fontSize: 10 }}>{card.pie_root}</span>}
           <span className="pill ghost" style={{ fontSize: 10 }}>{(thread.messages?.length ?? thread.message_count ?? 0)} messages · last {thread.when || thread.created_at}</span>
-          <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => onNavigateWord && onNavigateWord(card.id)}>
+          <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => onNavigateWord && card && onNavigateWord(card.id || thread.anchor_value)}>
             <Ic.chat /> Open in study
           </button>
         </div>
