@@ -26,7 +26,7 @@ from app.routers import flashcards, ai_generate, languages, users, import_flashc
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.2.0"
+APP_VERSION = "5.3.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
