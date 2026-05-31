@@ -70,6 +70,11 @@ async function fetchCards(params = {}) {
   cards.forEach(c => {
     const prev = window.BWTL.FLASHCARDS[c.id];
     if (prev?.bookmarked) c.bookmarked = true; // preserve bookmark annotation set by loadCards
+    // Normalize language name from LANGUAGES cache (same as fetchCard)
+    if (!c.language && c.language_id) {
+      const lang = (window.BWTL.LANGUAGES || []).find(l => l.id === c.language_id);
+      if (lang) c.language = lang.name;
+    }
     window.BWTL.FLASHCARDS[c.id] = c;
   });
   return cards;
