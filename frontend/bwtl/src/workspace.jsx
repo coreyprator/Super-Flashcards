@@ -89,10 +89,15 @@ function Workspace({
   const handleBookmark = () => {
     const wasBookmarked = card.bookmarked;
     setCard((c) => ({ ...c, bookmarked: !wasBookmarked }));
+    // Sync bookmark flag in global FLASHCARDS cache so Browse "Study set" chip filter sees it
+    if (window.BWTL.FLASHCARDS[card.id]) window.BWTL.FLASHCARDS[card.id].bookmarked = !wasBookmarked;
     if (wasBookmarked) {
       // find bookmark id in cache and delete (BUG-053 fix: match on flashcard_ref_id)
       const bm = (window.BWTL.BOOKMARKS || []).find(b => b.flashcard_ref_id === card.id);
-      if (bm) window.BWTL.deleteBookmark(bm.id).catch(() => setCard((c) => ({ ...c, bookmarked: true })));
+      if (bm) window.BWTL.deleteBookmark(bm.id).catch(() => {
+        setCard((c) => ({ ...c, bookmarked: true }));
+        if (window.BWTL.FLASHCARDS[card.id]) window.BWTL.FLASHCARDS[card.id].bookmarked = true;
+      });
     } else {
       // BUG-053 fix: send canonical BookmarkCreate shape matching learning DB schema
       window.BWTL.createBookmark({
@@ -102,7 +107,10 @@ function Workspace({
         owner_id: role,
       })
         .then(bm => { if (bm?.id) window.BWTL.BOOKMARKS.push(bm); })
-        .catch(() => setCard((c) => ({ ...c, bookmarked: false })));
+        .catch(() => {
+          setCard((c) => ({ ...c, bookmarked: false }));
+          if (window.BWTL.FLASHCARDS[card.id]) window.BWTL.FLASHCARDS[card.id].bookmarked = false;
+        });
     }
   };
 

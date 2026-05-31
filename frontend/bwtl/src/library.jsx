@@ -138,12 +138,18 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
     Promise.all([
       window.BWTL.fetchCards({ limit: 200 }),
       window.BWTL.fetchLanguages(),
-    ]).then(([cardData, langData]) => {
+      window.BWTL.getBookmarks('pl').catch(() => []),
+    ]).then(([cardData, langData, bookmarkData]) => {
       const langMap = {};
       (Array.isArray(langData) ? langData : []).forEach(l => { langMap[l.id] = l.name; });
       const rawCards = Array.isArray(cardData) ? cardData : (cardData.items || []);
+      // Build a set of bookmarked flashcard IDs
+      const bookmarks = Array.isArray(bookmarkData) ? bookmarkData : (bookmarkData?.items || []);
+      window.BWTL.BOOKMARKS = bookmarks;
+      const bookmarkedIds = new Set(bookmarks.map(b => b.flashcard_ref_id));
       rawCards.forEach(c => {
         if (!c.language && c.language_id) c.language = langMap[c.language_id] || null;
+        c.bookmarked = bookmarkedIds.has(c.id);
         window.BWTL.FLASHCARDS[c.id] = c; // update global cache for App's computeCardSpine
       });
       window.BWTL.LANGUAGES = Array.isArray(langData) ? langData : [];
