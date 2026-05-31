@@ -174,7 +174,7 @@ function ThreadDetailView({ thread, onNavigateWord }) {
             <span style={{ marginLeft: 5 }} className="greek">{card.word}</span>
           </span>
           {card.pie_root && <span className="pill pie" style={{ fontSize: 10 }}>{card.pie_root}</span>}
-          <span className="pill ghost" style={{ fontSize: 10 }}>{thread.messages.length} messages · last {thread.when}</span>
+          <span className="pill ghost" style={{ fontSize: 10 }}>{(thread.messages?.length ?? thread.message_count ?? 0)} messages · last {thread.when || thread.created_at}</span>
           <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => onNavigateWord && onNavigateWord(card.id)}>
             <Ic.chat /> Open in study
           </button>
