@@ -40,7 +40,7 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
   const [loadingRoot, setLoadingRoot] = React.useState(!root);
 
   React.useEffect(() => {
-    if (!pieRootKey) return;
+    if (!pieRootKey) { setLoadingRoot(false); return; }
     if (window.BWTL.PIE_ROOTS[pieRootKey]) { setRoot(window.BWTL.PIE_ROOTS[pieRootKey]); setLoadingRoot(false); return; }
     setLoadingRoot(true);
     window.BWTL.fetchPieRoot(pieRootKey)
