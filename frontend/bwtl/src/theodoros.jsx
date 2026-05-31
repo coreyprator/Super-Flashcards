@@ -185,7 +185,7 @@ function ThreadDetailView({ thread, onNavigateWord }) {
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line-soft)', background: 'var(--bg-2)', fontSize: 12 }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-4)', marginBottom: 5 }}>Context payload (editable in study view)</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-            {thread.context.fields.map(f => (
+            {(thread.context.fields || []).map(f => (
               <span key={f} className="pill ghost" style={{ fontSize: 9.5, fontFamily: 'var(--ff-mono)' }}>{f}</span>
             ))}
             {thread.context.efg_node && <span className="pill graph" style={{ fontSize: 9.5 }}><Ic.graph /> efg · {thread.context.efg_node}</span>}
@@ -201,7 +201,7 @@ function ThreadDetailView({ thread, onNavigateWord }) {
       )}
 
       <div style={{ padding: '14px 18px', display: 'grid', gap: 12 }}>
-        {thread.messages.map((m, i) => (
+        {(thread.messages || []).map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             <div className="avt">{m.role === 'you' ? 'PL' : 'AI'}</div>
             <div className="bubble">
