@@ -11,7 +11,7 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
 
   React.useEffect(() => {
     setLoading(true);
-    window.BWTL.getBookmarks('')
+    window.BWTL.getBookmarks('pl')
       .then(data => setBms(Array.isArray(data) ? data : (data.items || [])))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -21,7 +21,10 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
 
   const groups = React.useMemo(() => {
     const g = {};
-    filtered.forEach(b => { (g[b.when] = g[b.when] || []).push(b); });
+    filtered.forEach(b => {
+      const key = b.when || (b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : 'Saved');
+      (g[key] = g[key] || []).push(b);
+    });
     return g;
   }, [filtered]);
 
@@ -102,9 +105,9 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
                 </div>
                 <div style={{ padding: '14px 16px' }}>
                   <div style={{ fontFamily: b.kind === 'pie_root' ? 'var(--ff-display)' : 'var(--ff-sans)', fontSize: b.kind === 'pie_root' ? 22 : 17, fontWeight: 600, color: 'var(--fg)' }}>
-                    {b.label}
+                    {b.label || b.ref_label || b.flashcard_ref_id}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>{b.meta}</div>
+                  <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>{b.meta || b.kind}</div>
                 </div>
                 <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button className="btn xs ghost"><Ic.chat /></button>
