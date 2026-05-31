@@ -62,7 +62,7 @@ function ChatDock({
     try {
       let threadId = activeThreadId;
       if (!threadId || threadId === 'new') {
-        const t = await window.BWTL.createThread({ anchor_mode: 'flashcard_id', anchor_value: anchor.value });
+        const t = await window.BWTL.createThread({ anchor_mode: 'flashcard_id', anchor_value: anchor.value, owner_id: 'pl' });
         threadId = t.id;
         onActivateThread(threadId);
       }
