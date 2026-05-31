@@ -65,7 +65,11 @@ async function fetchCards(params = {}) {
   const qs = new URLSearchParams(params).toString();
   const data = await _apiFetch(`/api/flashcards/?${qs}`);
   const cards = data.items || data || [];
-  cards.forEach(c => { window.BWTL.FLASHCARDS[c.id] = c; });
+  cards.forEach(c => {
+    const prev = window.BWTL.FLASHCARDS[c.id];
+    if (prev?.bookmarked) c.bookmarked = true; // preserve bookmark annotation set by loadCards
+    window.BWTL.FLASHCARDS[c.id] = c;
+  });
   return cards;
 }
 
