@@ -109,7 +109,10 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
                 <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button className="btn xs ghost"><Ic.chat /></button>
                   <button className="btn xs ghost"><Ic.link /></button>
-                  <button className="btn xs ghost" style={{ marginLeft: 'auto' }}>Open <Ic.chevron_r /></button>
+                  <button className="btn xs ghost" style={{ marginLeft: 'auto' }} onClick={() => {
+                    if (b.kind === 'figure' && onOpenFigure) onOpenFigure(b.flashcard_ref_id);
+                    else if (b.flashcard_ref_id && onOpenCard) onOpenCard(b.flashcard_ref_id);
+                  }}>Open <Ic.chevron_r /></button>
                 </div>
               </div>
             ))}

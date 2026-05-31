@@ -244,6 +244,12 @@ function App() {
                 </div>
               )}
               {section === 'settings' && <SettingsView role={role} />}
+              {section === 'bookmarks' && window.BookmarksView && (
+                <window.BookmarksView
+                  go={(g) => { if (g.section) setSection(g.section); }}
+                  onOpenCard={(id) => { setSection('browse'); openCard(id); }}
+                  onOpenFigure={openFigure} />
+              )}
             </div>
           </>
         ) : (
@@ -364,7 +370,7 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
             <Ic.plus /> New card
           </button>
 
-          <button className="btn sm ghost" title="Bookmarks rail">
+          <button className="btn sm ghost" title="Bookmarks rail" onClick={() => setSection('bookmarks')}>
             <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{window.BWTL.BOOKMARKS.length}</span>
           </button>
 
