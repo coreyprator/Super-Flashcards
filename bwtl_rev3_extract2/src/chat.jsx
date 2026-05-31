@@ -27,7 +27,6 @@ function ChatDock({
   role,
 }) {
   const [draft, setDraft] = React.useState('');
-  const [sending, setSending] = React.useState(false);
   const [contextOpen, setContextOpen] = React.useState(false);
   const [snapOpen, setSnapOpen] = React.useState({});  // per-message-idx
   const messagesRef = React.useRef(null);
@@ -37,45 +36,6 @@ function ChatDock({
   }, [activeThreadId, expanded]);
 
   const active = threads.find(t => t.id === activeThreadId) || threads[0];
-
-  const [messages, setMessages] = React.useState([]); // live message list for active thread
-  const [loadingMsgs, setLoadingMsgs] = React.useState(false);
-
-  // Load messages whenever the active thread changes
-  React.useEffect(() => {
-    const tid = activeThreadId && activeThreadId !== 'new' ? activeThreadId : (threads[0]?.id);
-    if (!tid) { setMessages([]); return; }
-    setLoadingMsgs(true);
-    window.BWTL.getMessages(tid)
-      .then(data => setMessages(Array.isArray(data) ? data : (data.messages || data.items || [])))
-      .catch(() => setMessages([]))
-      .finally(() => setLoadingMsgs(false));
-  }, [activeThreadId, threads.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSend = async () => {
-    if (!draft.trim() || sending) return;
-    const text = draft.trim();
-    setDraft('');
-    setSending(true);
-    // Optimistically add user message (BUG-056 fix: use canonical 'text' field)
-    setMessages(prev => [...prev, { role: 'user', text: text, created_at: new Date().toISOString() }]);
-    try {
-      let threadId = activeThreadId;
-      if (!threadId || threadId === 'new') {
-        const t = await window.BWTL.createThread({ anchor_mode: 'flashcard_id', anchor_value: anchor.value });
-        threadId = t.id;
-        onActivateThread(threadId);
-      }
-      // REQ-036: call /generate which persists user msg + returns AI reply in one call
-      const ctxSnap = anchor.value ? JSON.stringify({ word_or_phrase: anchor.value }) : null;
-      const aiMsg = await window.BWTL._apiFetch(`/api/chat/threads/${threadId}/generate`, {
-        method: 'POST',
-        body: JSON.stringify({ user_text: text, context_snapshot: ctxSnap }),
-      });
-      setMessages(prev => [...prev, aiMsg]);
-    } catch(e) { console.error('[ChatDock] send error:', e); }
-    finally { setSending(false); }
-  };
 
   // group threads by month for the rail
   const grouped = React.useMemo(() => {
@@ -148,7 +108,7 @@ function ChatDock({
                         onClick={() => onActivateThread(t.id)}
                       >
                         <div className="lead" style={{ fontWeight: 600 }}>{t.title}</div>
-                        <div className="when">{t.when} · {t.message_count || (t.messages ? t.messages.length : 0)} msg</div>
+                        <div className="when">{t.when} · {t.messages.length} msg</div>
                       </div>
                     ))}
                   </React.Fragment>
@@ -166,10 +126,9 @@ function ChatDock({
                   <ContextPanel ctx={ctx} card={card} onClose={() => setContextOpen(false)} />
                 )}
                 <div className="chat-messages" ref={messagesRef}>
-                  {loadingMsgs && <div style={{ padding: 12, color: 'var(--fg-4)', fontSize: 11 }}>Loading messages…</div>}
-                  {messages.map((m, i) => (
+                  {active ? active.messages.map((m, i) => (
                     <div key={i} className={`msg ${m.role}`}>
-                      <div className="avt">{m.role === 'user' || m.role === 'you' ? (window.BWTL.ROLES[role]?.initials || 'U') : 'AI'}</div>
+                      <div className="avt">{m.role === 'you' ? (window.BWTL.ROLES[role]?.initials || 'U') : 'AI'}</div>
                       <div className="bubble">
                         <div>{m.text}</div>
                         {/* Per-AI-turn context-snapshot expander (REV item 3) */}
@@ -211,8 +170,7 @@ function ChatDock({
                         )}
                       </div>
                     </div>
-                  ))}
-                  {!loadingMsgs && messages.length === 0 && (
+                  )) : (
                     <div style={{ color: 'var(--fg-4)', fontSize: 13, padding: 12 }}>
                       Pick a thread on the left, or start a new one.
                     </div>
@@ -226,7 +184,6 @@ function ChatDock({
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder={`Ask about ${anchor.label || anchor.value} — anchored to this card.`}
                 />
                 <div className="chat-compose-prompt">
@@ -237,8 +194,8 @@ function ChatDock({
                   <span className="prompt-chip" onClick={() => setDraft('Which figures are linked to this word?')}>linked figures</span>
                 </div>
               </div>
-              <button className="btn primary" disabled={!draft.trim() || sending} onClick={handleSend}>
-                <Ic.send /> {sending ? 'Sending…' : 'Send'}
+              <button className="btn primary" disabled={!draft.trim()}>
+                <Ic.send /> Send
               </button>
             </div>
           </>
@@ -254,8 +211,8 @@ function ChatDock({
 // directive the user can edit live.
 function ContextPanel({ ctx, card, onClose }) {
   const allFields = [
-    'word_or_phrase','language','pos','ipa_pronunciation','definition',
-    'etymology','pie_root','pie_ipa','english_cognates','related_words','image_caption','efg_node_id',
+    'word_or_phrase','language','pos','ipa','definition',
+    'etymology_layered','pie_root','pie_ipa','cognates','fun_facts','image_caption','efg_node_id',
   ];
   const [fields, setFields] = React.useState(new Set(ctx?.fields || []));
   const [efg, setEfg] = React.useState(!!ctx?.efg_node);

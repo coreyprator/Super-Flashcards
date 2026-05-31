@@ -18,13 +18,6 @@
 
 function TheodorosView({ onAccept, onReject, onNavigateWord }) {
   const [tab, setTab] = React.useState('threads');
-  const [allThreads, setAllThreads] = React.useState([]);
-
-  React.useEffect(() => {
-    window.BWTL.getThreads()
-      .then(data => setAllThreads(Array.isArray(data) ? data : (data.items || [])))
-      .catch(console.error);
-  }, []);
 
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1500, margin: '0 auto' }}>
@@ -32,20 +25,25 @@ function TheodorosView({ onAccept, onReject, onNavigateWord }) {
         <div>
           <h1 className="display" style={{ fontSize: 34, margin: 0 }}>Chat</h1>
           <p style={{ color: 'var(--fg-3)', margin: '4px 0 0', fontSize: 13, maxWidth: '78ch' }}>
-            Your AI conversations across cards.
+            Cross-app index of every chat thread across your cards. Use this to navigate back to rabbit holes you've started, audit what you've accepted into cards, or kick off a new card / batch job.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn sm ghost"><Ic.filter /> Filter</button>
+          <button className="btn sm primary" onClick={() => window.dispatchEvent(new CustomEvent('bwtl:open-create'))}>
+            <Ic.plus /> New card
+          </button>
         </div>
       </div>
 
-      <ChatStatRow allThreads={allThreads} />
+      <ChatStatRow />
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--line)' }}>
         {[
-          ['threads',   'Threads',    allThreads.length],
-          ['audit',     'Audit log',  null],
+          ['threads',   'Threads',    Object.values(window.BWTL.CHAT_THREADS).reduce((a, x) => a + x.length, 0)],
+          ['audit',     'Audit log',  window.BWTL.CHAT_PROMOTIONS.length],
+          ['new_cards', 'New cards',  null],
+          ['batch',     'Batch jobs', null],
         ].map(([k, lab, n]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             appearance: 'none', border: 0, background: 'transparent', cursor: 'pointer',
@@ -59,17 +57,26 @@ function TheodorosView({ onAccept, onReject, onNavigateWord }) {
         ))}
       </div>
 
-      {tab === 'threads'   && <ThreadsIndexTab allThreads={allThreads} onNavigateWord={onNavigateWord} />}
+      {tab === 'threads'   && <ThreadsIndexTab onNavigateWord={onNavigateWord} />}
       {tab === 'audit'     && <AuditLogTab onNavigateWord={onNavigateWord} />}
+      {tab === 'new_cards' && <NewCardsTab />}
+      {tab === 'batch'     && <BatchJobsRedirectTab />}
     </div>
   );
 }
 
-function ChatStatRow({ allThreads }) {
+function ChatStatRow() {
+  const allThreads = Object.values(window.BWTL.CHAT_THREADS).flat();
+  const promotions = window.BWTL.CHAT_PROMOTIONS;
+  const cardsWithThreads = Object.keys(window.BWTL.CHAT_THREADS).length;
+  const lastAccept = promotions[0]?.when || '—';
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 18 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
       {[
-        { lab: 'Threads · all cards', n: allThreads.length, sub: `across multiple cards`, clr: 'var(--acc)' },
+        { lab: 'Threads · all cards',  n: allThreads.length, sub: `across ${cardsWithThreads} cards`, clr: 'var(--acc)' },
+        { lab: 'Accepts · this week',  n: promotions.length, sub: `last: ${lastAccept}`, clr: 'var(--ok)' },
+        { lab: 'Cards touched',        n: new Set(promotions.map(p => p.card)).size, sub: 'via chat-promoted writes', clr: 'var(--pie)' },
+        { lab: 'AI batch jobs',        n: 7, sub: '— see Batch jobs tab', clr: 'var(--graph)' },
       ].map(s => (
         <div key={s.lab} className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>{s.lab}</div>
@@ -82,22 +89,13 @@ function ChatStatRow({ allThreads }) {
 }
 
 // ── Threads · cross-app index ──────────────────────────────────────────────
-function ThreadsIndexTab({ allThreads, onNavigateWord }) {
-  const [activeId, setActiveId] = React.useState(allThreads[0]?.id || null);
-
-  if (!allThreads.length) return (
-    <div className="threads-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No chat threads yet. Start a conversation on any card to see threads here.</div>
-  );
-
-  // group by anchor_value (card id)
-  const grouped = {};
-  for (const t of allThreads) {
-    const key = t.anchor_value || t.card_id || t.id;
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(t);
-  }
+function ThreadsIndexTab({ onNavigateWord }) {
+  const grouped = window.BWTL.CHAT_THREADS;
   const cardIds = Object.keys(grouped);
-  const flat = allThreads;
+  const [activeId, setActiveId] = React.useState(grouped[cardIds[0]]?.[0]?.id);
+
+  // flat list with card metadata
+  const flat = cardIds.flatMap(cid => grouped[cid].map(t => ({ ...t, card: window.BWTL.FLASHCARDS[cid] })));
   const active = flat.find(t => t.id === activeId) || flat[0];
 
   return (
@@ -108,8 +106,7 @@ function ThreadsIndexTab({ allThreads, onNavigateWord }) {
         </div>
         <div style={{ overflowY: 'auto' }}>
           {cardIds.map(cid => {
-            const c = grouped[cid][0];
-            const cardMeta = window.BWTL.FLASHCARDS[cid] || {};
+            const c = window.BWTL.FLASHCARDS[cid];
             return (
               <div key={cid}>
                 <div
@@ -121,10 +118,10 @@ function ThreadsIndexTab({ allThreads, onNavigateWord }) {
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 10,
                   }}>
-                  <span className="greek" style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{cardMeta.word || cid}</span>
+                  <span className="greek" style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{c.word}</span>
                   <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>{cid}</span>
-                  <span className="pill ghost" style={{ fontSize: 9, marginLeft: 'auto' }}>{cardMeta.language}</span>
-                  {cardMeta.pie_root && <span className="pill pie" style={{ fontSize: 9 }}>{cardMeta.pie_root}</span>}
+                  <span className="pill ghost" style={{ fontSize: 9, marginLeft: 'auto' }}>{c.language}</span>
+                  {c.pie_root && <span className="pill pie" style={{ fontSize: 9 }}>{c.pie_root}</span>}
                 </div>
                 {grouped[cid].map(t => (
                   <div
@@ -139,7 +136,7 @@ function ThreadsIndexTab({ allThreads, onNavigateWord }) {
                     }}>
                     <div style={{ fontSize: 12.5, color: 'var(--fg)', fontWeight: 600 }}>{t.title}</div>
                     <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 3, display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="mono">{t.when || t.created_at}</span>
+                      <span className="mono">{t.when}</span>
                       <span>·</span>
                       <span>{t.messages.length} msg</span>
                       {t.context?.steering && <><span>·</span><span style={{ color: 'var(--acc-2)' }}>steered</span></>}

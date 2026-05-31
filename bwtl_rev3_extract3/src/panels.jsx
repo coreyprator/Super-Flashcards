@@ -36,44 +36,23 @@ function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, o
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, collapsed, onToggle, onClose, onPin, pinned }) {
-  const [root, setRoot] = React.useState(window.BWTL.PIE_ROOTS[pieRootKey] || null);
-  const [loadingRoot, setLoadingRoot] = React.useState(!root);
+  const root = window.BWTL.PIE_ROOTS[pieRootKey];
+  if (!root) return null;
 
-  React.useEffect(() => {
-    if (!pieRootKey) return;
-    if (window.BWTL.PIE_ROOTS[pieRootKey]) { setRoot(window.BWTL.PIE_ROOTS[pieRootKey]); setLoadingRoot(false); return; }
-    setLoadingRoot(true);
-    window.BWTL.fetchPieRoot(pieRootKey)
-      .then(r => { setRoot(r); setLoadingRoot(false); })
-      .catch(err => { console.error('[PiePanel] fetchPieRoot error:', err); setLoadingRoot(false); });
-  }, [pieRootKey]);
+  // Word strip = SF flashcards where flashcards.pie_root === this root.
+  const allCards = Object.values(window.BWTL.FLASHCARDS).filter(c => c.pie_root === pieRootKey);
+  // Plus EFG node siblings (word_* nodes pointing to this root).
+  const efgSiblings = Object.values(window.BWTL.NODES).filter(n => n.node_type === 'word' && n.pie_root === pieRootKey);
+
+  // Merge: prefer SF flashcard rendering when both exist (SF has richer data).
+  const seen = new Set();
+  const mergedWords = [];
+  allCards.forEach(c => { mergedWords.push({ kind: 'sf', label: c.word, gloss: c.definition.split('.')[0], lang: c.language, ref: c.id }); seen.add(c.word); });
+  efgSiblings.forEach(n => { if (!seen.has(n.label)) mergedWords.push({ kind: 'efg', label: n.label, gloss: '', lang: n.language, ref: n.id }); });
 
   const [showSrc, setShowSrc] = React.useState(true);
   const [expand, setExpand] = React.useState({ verbal: true, nominal: true, cognates: true });
   const toggle = (k) => setExpand(s => ({ ...s, [k]: !s[k] }));
-
-  if (loadingRoot) return (
-    <PanelShell variant="pie" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.spark /> PIE Explorer</>} meta="loading…">
-      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading PIE root data…</div>
-    </PanelShell>
-  );
-  if (!root) return (
-    <PanelShell variant="pie" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.spark /> PIE Explorer</>} meta="no root">
-      <div className="pie-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No PIE root recorded for this word.</div>
-    </PanelShell>
-  );
-
-  // Word strip = SF flashcards where flashcards.pie_root === this root.
-  const allCards = Object.values(window.BWTL.FLASHCARDS).filter(c => c.pie_root === pieRootKey);
-  const branches = root.branches || [];
-
-  // Merge: prefer SF flashcard rendering when both exist.
-  const seen = new Set();
-  const mergedWords = [];
-  allCards.forEach(c => { mergedWords.push({ kind: 'sf', label: c.word_or_phrase || c.word, gloss: (c.definition || '').split('.')[0], lang: c.language, ref: c.id }); seen.add(c.word_or_phrase || c.word); });
-  branches.forEach(b => { if (!seen.has(b.word)) mergedWords.push({ kind: 'efg', label: b.word, gloss: '', lang: b.language || '', ref: b.id }); });
 
   return (
     <PanelShell variant="pie" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
@@ -93,9 +72,7 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
         </div>
         <div style={{ flex: 1 }} />
         <div className="ipa">{root.ipa}</div>
-        <div className="pie-audio" title="Play PIE root audio · from EFG nodes (95% coverage)"
-          style={{ cursor: root.audio_url ? 'pointer' : 'default' }}
-          onClick={() => root.audio_url && new Audio(root.audio_url).play()}>
+        <div className="pie-audio" title="Play PIE root audio · from EFG nodes (95% coverage)">
           <Ic.play />
         </div>
       </div>
@@ -186,58 +163,7 @@ function ProseBlock({ title, body, source, showSrc, open, onToggle }) {
         </span>
         {showSrc && <span className="src">{source}</span>}
       </div>
-      <div className="body">
-        {(() => {
-          if (!body) return null;
-          if (typeof body !== 'string') return body;
-          try {
-            const parsed = JSON.parse(body);
-            const langs = Object.keys(parsed);
-            return (
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${langs.length}, minmax(0, 1fr))`, gap: 0, border: '1px solid var(--line-soft)', borderRadius: 4, overflow: 'hidden', fontSize: 11 }}>
-                {langs.map((lang, ci) => {
-                  const val = parsed[lang];
-                  return (
-                    <div key={lang} style={{ borderRight: ci < langs.length - 1 ? '1px solid var(--line-soft)' : 'none' }}>
-                      <div style={{ padding: '4px 8px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', background: 'var(--bg-2)', borderBottom: '1px solid var(--line-soft)' }}>{lang}</div>
-                      {Array.isArray(val)
-                        ? val.map((item, idx) => (
-                            <div key={idx} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4, borderBottom: '1px solid var(--line-soft)' }}>
-                              <span className="greek" style={{ fontWeight: 600 }}>{Array.isArray(item) ? item[0] : (item.form || '')}</span>
-                              <span style={{ color: 'var(--fg-3)', fontSize: 10 }}>{Array.isArray(item) ? item[1] : (item.gloss || item.gram || '')}</span>
-                            </div>
-                          ))
-                        : typeof val === 'object' && val !== null
-                          ? Object.entries(val).map(([k, v]) =>
-                              typeof v === 'object' && v !== null && !Array.isArray(v)
-                                ? (
-                                  <div key={k}>
-                                    <div style={{ padding: '2px 8px', fontSize: 9, fontWeight: 700, color: 'var(--fg-4)', background: 'var(--bg-1)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{k}</div>
-                                    {Object.entries(v).map(([person, form]) => (
-                                      <div key={person} style={{ padding: '2px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
-                                        <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{person}</span>
-                                        <span className="greek">{form}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )
-                                : (
-                                  <div key={k} style={{ padding: '3px 8px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 4 }}>
-                                    <span style={{ color: 'var(--fg-4)', fontSize: 10 }}>{k}</span>
-                                    <span className="greek">{Array.isArray(v) ? v.join(', ') : String(v ?? '')}</span>
-                                  </div>
-                                )
-                            )
-                          : <div style={{ padding: '3px 8px' }}><span className="greek">{String(val ?? '')}</span></div>
-                      }
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          } catch { return body; }
-        })()}
-      </div>
+      <div className="body">{body}</div>
     </div>
   );
 }
@@ -327,37 +253,13 @@ function LanguageParadigm({ langs, showSrc, onNavigate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClose, onPin, pinned, onOpenWord, onOpenRoot }) {
-  const [graphData, setGraphData] = React.useState(null);
-  const [loadingGraph, setLoadingGraph] = React.useState(true);
-
-  React.useEffect(() => {
-    if (!currentWordId && !pieRootKey) { setLoadingGraph(false); return; }
-    setLoadingGraph(true);
-    window.BWTL.fetchEfgGraph(currentWordId || pieRootKey)
-      .then(d => { setGraphData(d); setLoadingGraph(false); })
-      .catch(err => { console.error('[EfgPanel] fetchEfgGraph error:', err); setLoadingGraph(false); });
-  }, [currentWordId, pieRootKey]);
-
-  // Derive root and siblings from graph data or cached PIE_ROOTS
-  const rootData = (graphData && graphData.pie_root) ? graphData : window.BWTL.PIE_ROOTS[pieRootKey];
-  const siblings = graphData ? (graphData.nodes || []).filter(n => (n.type || n.node_type) === 'word') : [];
+  // Build a tiny radial graph of: root in center, words orbiting.
+  const root = window.BWTL.PIE_ROOTS[pieRootKey];
+  const siblings = Object.values(window.BWTL.NODES).filter(n => n.node_type === 'word' && n.pie_root === pieRootKey);
 
   // simple radial layout
   const W = 360, H = 200, cx = W/2, cy = H/2;
   const ring = 70;
-
-  if (loadingGraph) return (
-    <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.graph /> Etymology Graph</>} meta="loading…">
-      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading graph…</div>
-    </PanelShell>
-  );
-  if (!graphData && siblings.length === 0) return (
-    <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.graph /> Etymology Graph</>} meta="no data">
-      <div className="efg-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No graph data available for this word. The EFG service may be offline.</div>
-    </PanelShell>
-  );
 
   return (
     <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
@@ -375,7 +277,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
           })}
           {/* PIE root center */}
           <circle cx={cx} cy={cy} r="22" fill="var(--pie-bg)" stroke="var(--pie)" strokeWidth="1.5" />
-          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="var(--pie)" fontFamily="var(--ff-display)" fontSize="14" fontWeight="500">{(rootData?.root || pieRootKey || '').replace('*','')}</text>
+          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="var(--pie)" fontFamily="var(--ff-display)" fontSize="14" fontWeight="500">{root.root.replace('*','')}</text>
           {/* nodes */}
           {siblings.map((n, i) => {
             const a = (i / siblings.length) * Math.PI * 2 - Math.PI/2;
@@ -396,8 +298,8 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <span className="pill graph"><Ic.link /> {siblings.length} word nodes</span>
-        <span className="pill ghost">EFG graph data</span>
-        <button className="btn xs ghost" style={{ marginLeft: 'auto' }} onClick={() => window.open('https://efg.rentyourcio.com', '_blank', 'noopener')}><Ic.expand /> Open in full graph</button>
+        <span className="pill ghost">DCC rank: 412</span>
+        <button className="btn xs ghost" style={{ marginLeft: 'auto' }}><Ic.expand /> Open in full graph</button>
       </div>
     </PanelShell>
   );
@@ -408,30 +310,8 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, pinned }) {
-  const [f, setF] = React.useState(window.BWTL.FIGURES[figureId] || null);
-  const [loadingFig, setLoadingFig] = React.useState(!f);
-
-  React.useEffect(() => {
-    if (!figureId) return;
-    if (window.BWTL.FIGURES[figureId]) { setF(window.BWTL.FIGURES[figureId]); setLoadingFig(false); return; }
-    setLoadingFig(true);
-    window.BWTL.fetchFigure(figureId)
-      .then(data => { setF(data); setLoadingFig(false); })
-      .catch(err => { console.error('[EtymythonPanel] fetchFigure error:', err); setLoadingFig(false); });
-  }, [figureId]);
-
-  if (loadingFig) return (
-    <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.shield /> Etymython</>} meta="loading…">
-      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading figure data…</div>
-    </PanelShell>
-  );
-  if (!f) return (
-    <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.shield /> Etymython</>} meta="no figure">
-      <div className="myth-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No mythological figure linked to this card.</div>
-    </PanelShell>
-  );
+  const f = window.BWTL.FIGURES[figureId];
+  if (!f) return null;
 
   return (
     <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
@@ -495,37 +375,12 @@ function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, p
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinned }) {
-  const [e, setE] = React.useState(window.BWTL.RAG_ENTRIES[pieRootKey] || null);
-  const [loadingRag, setLoadingRag] = React.useState(!e);
-
-  React.useEffect(() => {
-    if (!pieRootKey) return;
-    if (window.BWTL.RAG_ENTRIES[pieRootKey]) { setE(window.BWTL.RAG_ENTRIES[pieRootKey]); setLoadingRag(false); return; }
-    setLoadingRag(true);
-    window.BWTL.searchRag(pieRootKey, 'etymology')
-      .then(results => {
-        const items = Array.isArray(results) ? results : (results.results || results.items || []);
-        if (items.length > 0) {
-          const entry = { headword: pieRootKey, excerpt: items[0].full_text || items[0].snippet || items[0].text || items[0].content || '', source: items[0].source || 'RAG · etymology', confidence: 'medium' };
-          window.BWTL.RAG_ENTRIES[pieRootKey] = entry;
-          setE(entry);
-        } else { setE(null); }
-        setLoadingRag(false);
-      })
-      .catch(err => { console.error('[RagPanel] searchRag error:', err); setLoadingRag(false); });
-  }, [pieRootKey]);
-
-  if (loadingRag) return (
-    <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.book /> Portfolio RAG</>} meta="loading…">
-      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading RAG data…</div>
-    </PanelShell>
-  );
+  const e = window.BWTL.RAG_ENTRIES[pieRootKey];
   if (!e) return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
       title={<><Ic.book /> Portfolio RAG</>} meta="no entry">
-      <div className="rag-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>
-        No Beekes entry found for this root. <a className="xlink" style={{ '--xc': 'var(--acc)' }}>Request ingestion</a>.
+      <div style={{ color: 'var(--fg-3)', fontSize: 13 }}>
+        No Beekes entry indexed for this root. <a className="xlink" style={{ '--xc': 'var(--acc)' }}>Request ingestion</a>.
       </div>
     </PanelShell>
   );
@@ -552,16 +407,12 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
 function ArtForgePanel({ card, figureId, glow, collapsed, onToggle, onClose, onPin, pinned }) {
   const [busy, setBusy] = React.useState(false);
   const [stage, setStage] = React.useState('idle'); // idle | queued | rendering | done
-  const [jobId, setJobId] = React.useState(null);
-  const [jobError, setJobError] = React.useState(null);
-
-  const handleGenerate = () => {
-    if (!card?.id) return;
-    setBusy(true); setStage('queued'); setJobError(null);
-    window.BWTL.generateVideo(card.id)
-      .then(data => { setJobId(data.job_id || data.id || null); setStage('rendering'); })
-      .catch(err => { console.error('[ArtForgePanel] generateVideo error:', err); setJobError(err.message); setBusy(false); setStage('idle'); });
-  };
+  React.useEffect(() => { if (busy) {
+    const seq = ['queued', 'rendering', 'done'];
+    let i = 0;
+    const tick = () => { setStage(seq[i]); i++; if (i < seq.length) setTimeout(tick, 1100); else setBusy(false); };
+    tick();
+  } }, [busy]);
 
   return (
     <PanelShell variant="forge" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
@@ -579,23 +430,20 @@ function ArtForgePanel({ card, figureId, glow, collapsed, onToggle, onClose, onP
         <div className="sb-tile">scene 03 · river of memory</div>
       </div>
 
-      {jobError && (
-        <div style={{ color: 'var(--err)', fontSize: 12, padding: '6px 0' }}>{jobError}</div>
-      )}
       {stage !== 'idle' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-2)', border: '1px solid var(--line)', fontSize: 12, marginBottom: 10 }}>
           <span className={`dot ${stage === 'done' ? 'ok' : 'warn'}`} />
           <span style={{ color: 'var(--fg-2)' }}>
             {stage === 'queued' && 'Queued on ArtForge…'}
-            {stage === 'rendering' && 'Rendering · model: veo-3 · est. 90s'}
-            {stage === 'done' && 'Done · ready'}
+            {stage === 'rendering' && 'Rendering 3 scenes · model: veo-3 · est. 90s'}
+            {stage === 'done' && 'Done · 12.4MB · ready'}
           </span>
-          {jobId && <span className="mono af-job-id" style={{ marginLeft: 'auto', color: 'var(--fg-4)', fontSize: 10 }}>{jobId}</span>}
+          <span className="mono" style={{ marginLeft: 'auto', color: 'var(--fg-4)', fontSize: 10 }}>job_47c0…b1a</span>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn sm" style={{ '--b-bg': 'var(--forge)', '--b-fg': '#0b0918', '--b-bd': 'var(--forge)' }} onClick={handleGenerate} disabled={busy}>
+        <button className="btn sm" style={{ '--b-bg': 'var(--forge)', '--b-fg': '#0b0918', '--b-bd': 'var(--forge)' }} onClick={() => { setBusy(true); setStage('queued'); }}>
           <Ic.spark /> Generate video for "{card?.word || 'word'}"
         </button>
         <button className="btn sm ghost"><Ic.pencil /> Scene editor</button>

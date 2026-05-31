@@ -608,3 +608,119 @@ function AiEditButton({ field, label, subtle, floating, card }) {
 
 window.Workspace = Workspace;
 window.AiEditButton = AiEditButton;
+
+// CardDetail — REV-3 unified card view with sticky nav header + mode tabs
+// Wraps Workspace (Study), PronunciationView, and ShadowingView.
+function CardDetail({
+  cardId, role, spine, mode, setMode, onBack, onNavByDelta, onOpenCard, onOpenFigure,
+  panelState, setPanelState, glowedPanel, triggerGlow,
+  expandedChat, setExpandedChat, activeThreadId, setActiveThreadId, onPromote,
+}) {
+  const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
+
+  React.useEffect(() => {
+    const cached = window.BWTL.FLASHCARDS[cardId];
+    if (cached && cached.word) { setCard(cached); return; }
+    window.BWTL.fetchCard(cardId)
+      .then(c => { setCard(c); if (c) window.BWTL.FLASHCARDS[c.id] = c; })
+      .catch(console.error);
+  }, [cardId]);
+
+  const word = card ? (card.word_or_phrase || card.word) : cardId;
+  const pos = (spine && spine.length) ? spine.indexOf(cardId) : -1;
+  const total = (spine && spine.length) ? spine.length : 0;
+  const [bookmarked, setBookmarked] = React.useState(card?.bookmarked || false);
+
+  React.useEffect(() => { setBookmarked(card?.bookmarked || false); }, [card]);
+
+  const handleBookmark = () => {
+    const wasBookmarked = bookmarked;
+    setBookmarked(!wasBookmarked);
+    if (wasBookmarked) {
+      const bm = (window.BWTL.BOOKMARKS || []).find(b => b.flashcard_ref_id === cardId);
+      if (bm) window.BWTL.deleteBookmark(bm.id).catch(() => setBookmarked(true));
+    } else {
+      window.BWTL.createBookmark({ kind: 'word', flashcard_ref_id: cardId, ref_label: word, owner_id: role })
+        .then(bm => { if (bm?.id) window.BWTL.BOOKMARKS.push(bm); })
+        .catch(() => setBookmarked(false));
+    }
+    if (window.BWTL.FLASHCARDS[cardId]) window.BWTL.FLASHCARDS[cardId].bookmarked = !wasBookmarked;
+  };
+
+  const MODES = [['study', 'Study'], ['pronunciation', 'Pronunciation'], ['shadowing', 'Shadowing']];
+
+  return (
+    <div>
+      {/* Sticky sub-header: back ← Browse, breadcrumb, bookmark, prev/next N/M */}
+      <div style={{
+        position: 'sticky', top: 'var(--topbar-h, 52px)', zIndex: 40,
+        background: 'color-mix(in oklch, var(--bg-0) 92%, transparent)',
+        backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--line-soft)',
+        padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <button className="btn sm ghost" onClick={onBack} style={{ gap: 6, display: 'inline-flex', alignItems: 'center' }}>
+          <Ic.arrow_left /> Browse
+        </button>
+        <span style={{ fontSize: 12, color: 'var(--fg-4)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          Browse
+          <span style={{ color: 'var(--fg-5)', margin: '0 2px' }}>/</span>
+          <span style={{ color: 'var(--fg-2)', fontWeight: 600 }}>{word}</span>
+        </span>
+        <div style={{ flex: 1 }} />
+        <button
+          className="btn xs ghost"
+          style={{ color: bookmarked ? 'var(--acc-2)' : 'var(--fg-3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          onClick={handleBookmark}
+          title={bookmarked ? 'Remove from study set' : 'Add to study set'}
+        >
+          {bookmarked ? <Ic.bookmark_filled /> : <Ic.bookmark />}
+          {bookmarked ? 'Saved' : 'Save'}
+        </button>
+        {total > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button className="btn xs ghost icon" onClick={() => onNavByDelta(-1)} disabled={pos <= 0} title="Previous card (Alt+↑)"><Ic.arrow_up /></button>
+            <span className="mono" style={{ fontSize: 10, color: 'var(--fg-3)', minWidth: 42, textAlign: 'center' }}>
+              {pos >= 0 ? pos + 1 : '?'} / {total}
+            </span>
+            <button className="btn xs ghost icon" onClick={() => onNavByDelta(1)} disabled={pos < 0 || pos >= total - 1} title="Next card (Alt+↓)"><Ic.arrow_down /></button>
+          </div>
+        )}
+      </div>
+
+      {/* Mode tab strip */}
+      <div style={{ display: 'flex', gap: 0, padding: '0 20px', borderBottom: '1px solid var(--line)' }}>
+        {MODES.map(([k, lab]) => (
+          <button key={k} onClick={() => setMode(k)} style={{
+            appearance: 'none', border: 0, background: 'transparent', cursor: 'pointer',
+            padding: '8px 16px', borderBottom: '2px solid ' + (mode === k ? 'var(--acc)' : 'transparent'),
+            marginBottom: -1, color: mode === k ? 'var(--fg)' : 'var(--fg-3)',
+            fontWeight: 600, fontSize: 13, fontFamily: 'inherit',
+          }}>{lab}</button>
+        ))}
+      </div>
+
+      {/* Mode content */}
+      {mode === 'study' && (
+        <Workspace
+          cardId={cardId}
+          role={role}
+          onNavigateWord={onOpenCard}
+          onOpenFigure={onOpenFigure}
+          panelState={panelState}
+          setPanelState={setPanelState}
+          glowedPanel={glowedPanel}
+          triggerGlow={triggerGlow}
+          expandedChat={expandedChat}
+          setExpandedChat={setExpandedChat}
+          activeThreadId={activeThreadId}
+          setActiveThreadId={setActiveThreadId}
+          onPromote={onPromote}
+        />
+      )}
+      {mode === 'pronunciation' && <PronunciationView card={card} />}
+      {mode === 'shadowing' && <ShadowingView card={card} />}
+    </div>
+  );
+}
+
+window.CardDetail = CardDetail;

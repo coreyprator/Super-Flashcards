@@ -235,7 +235,7 @@ async function fetchCognates(word) {
 
 // ─── EFG API ──────────────────────────────────────────────────────────────────
 async function fetchEfgGraph(nodeId) {
-  return _fetchExternal(`${_EFG_URL}/api/graph?node=${encodeURIComponent(nodeId)}`);
+  return _fetchExternal(`${_EFG_URL}/api/nodes/${encodeURIComponent(nodeId)}`);
 }
 
 async function fetchEfgRoots() {

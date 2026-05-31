@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Super Flashcards · BWTL</title>
+<title>Bring Words to Life — Unified App</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Noto+Sans:wght@400;500;600&family=Noto+Serif:wght@400;500;600&display=swap" rel="stylesheet">
@@ -94,8 +94,7 @@
   /* utility */
   .mono { font-family: var(--ff-mono); font-feature-settings: "ss01","ss02"; }
   .display { font-family: var(--ff-display); font-weight: 400; letter-spacing: -0.02em; }
-  /* BUG-046: long Greek phrases must not overflow their container */
-  .greek { font-family: var(--ff-greek); overflow-wrap: break-word; word-break: break-word; }
+  .greek { font-family: var(--ff-greek); }
 
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; letter-spacing: .02em; background: var(--bg-3); color: var(--fg-2); border: 1px solid var(--line); }
   .pill.accent { background: var(--acc-bg); color: var(--acc-2); border-color: var(--acc-ring); }
@@ -795,35 +794,6 @@
 
   /* Inline panel scrollbox */
   .scrollbox-y { max-height: 360px; overflow-y: auto; }
-
-  /* REQ-037 browse-thumb card grid */
-  .browse-card { cursor: pointer; }
-  .browse-card:hover { border-color: var(--acc-ring); }
-  .browse-thumb {
-    position: relative; height: 96px;
-    background: linear-gradient(135deg, var(--bg-3), var(--bg-2));
-    border-bottom: 1px solid var(--line-soft);
-    overflow: hidden; display: flex; align-items: flex-end; padding: 6px 8px;
-  }
-  .browse-thumb.figure { background: linear-gradient(135deg, var(--myth-bg), var(--bg-3)); }
-  .browse-thumb.no-pie { background: linear-gradient(135deg, var(--bg-2), var(--bg-1)); }
-  .browse-thumb .bt-word {
-    font-size: 22px; font-weight: 700; color: var(--fg); font-family: var(--ff-display);
-    text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height: 1;
-  }
-  .browse-thumb .bt-cap {
-    position: absolute; top: 5px; left: 8px;
-    font-size: 9px; color: var(--fg-5); font-family: var(--ff-mono);
-  }
-  .browse-thumb .bt-corner {
-    position: absolute; top: 5px; right: 6px; display: flex; gap: 3px;
-  }
-  .browse-thumb .bt-badge {
-    font-size: 9.5px; padding: 2px 5px; border-radius: 99px;
-    display: inline-flex; align-items: center; gap: 3px;
-  }
-  .browse-thumb .bt-badge.video { background: rgba(0,0,0,0.5); color: var(--fg); }
-  .browse-thumb .bt-badge.star  { background: var(--acc-bg); color: var(--acc-2); }
 </style>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -835,23 +805,21 @@
 
 <div id="root"></div>
 
-<script type="text/babel" src="/bwtl/src/icons.jsx"></script>
-<script type="text/babel" src="/bwtl/src/bwtl-api.js"></script>
-<script type="text/babel" src="/bwtl/src/etymology.jsx"></script>
-<script type="text/babel" src="/bwtl/src/tweaks-panel.jsx"></script>
-<script type="text/babel" src="/bwtl/src/panels.jsx"></script>
-<script type="text/babel" src="/bwtl/src/chat.jsx"></script>
-<script type="text/babel" src="/bwtl/src/workspace.jsx"></script>
-<script type="text/babel" src="/bwtl/src/study-extra.jsx"></script>
-<script type="text/babel" src="/bwtl/src/library.jsx"></script>
-<script type="text/babel" src="/bwtl/src/generate.jsx"></script>
-<script type="text/babel" src="/bwtl/src/theodoros.jsx"></script>
-<script type="text/babel" src="/bwtl/src/bookmarks.jsx"></script>
-<script type="text/babel" src="/bwtl/src/admin.jsx"></script>
-<script type="text/babel" src="/bwtl/src/spec.jsx"></script>
-<script type="text/babel" src="/bwtl/src/tweaks.jsx"></script>
-<script type="text/babel" src="/bwtl/src/app.jsx"></script>
+<script type="text/babel" src="src/icons.jsx"></script>
+<script type="text/babel" src="src/data.js"></script>
+<script type="text/babel" src="src/tweaks-panel.jsx"></script>
+<script type="text/babel" src="src/panels.jsx"></script>
+<script type="text/babel" src="src/chat.jsx"></script>
+<script type="text/babel" src="src/workspace.jsx"></script>
+<script type="text/babel" src="src/study-extra.jsx"></script>
+<script type="text/babel" src="src/library.jsx"></script>
+<script type="text/babel" src="src/generate.jsx"></script>
+<script type="text/babel" src="src/theodoros.jsx"></script>
+<script type="text/babel" src="src/bookmarks.jsx"></script>
+<script type="text/babel" src="src/admin.jsx"></script>
+<script type="text/babel" src="src/spec.jsx"></script>
+<script type="text/babel" src="src/tweaks.jsx"></script>
+<script type="text/babel" src="src/app.jsx"></script>
 
 </body>
 </html>
-
