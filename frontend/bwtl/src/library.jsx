@@ -1,33 +1,49 @@
-// LIBRARY — unified browse for the five entity types
+// BROWSE — unified browse for the five entity types (REV-3 rename from Library)
+// REV-3: BrowseView replaces LibraryView; search for cards persists via cardFilter in App (BUG-059 resolved structurally).
 // Tabs: Cards (SF) · PIE roots (EFG) · Figures (EM) · Beekes (RAG) · DCC
 
-function LibraryView({ onNavigateWord, onOpenFigure, role }) {
-  const [tab, setTab] = React.useState('cards');
-  const [q, setQ] = React.useState('');
-  const [langFilter, setLangFilter] = React.useState('all');
+function BrowseView({ onOpenCard, onOpenFigure, role, browseTab, setBrowseTab, cardFilter, setCardFilter, spine }) {
+  // localQ drives search for non-cards tabs (roots, figures, beekes, dcc)
+  // Cards tab search is cardFilter.q managed by App state — persists across CardDetail nav (BUG-059 resolved)
+  const [localQ, setLocalQ] = React.useState(window.BWTL._LIB_LOCAL_Q || '');
+  const tab = browseTab || 'cards';
+  const setTab = setBrowseTab || (() => {});
+  const q = tab === 'cards' ? (cardFilter?.q || '') : localQ;
+
+  const handleLocalQChange = (v) => {
+    setLocalQ(v);
+    window.BWTL._LIB_LOCAL_Q = v;
+  };
 
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1640, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 14, gap: 20 }}>
         <div>
-          <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Library</h1>
+          <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Browse</h1>
           <p style={{ color: 'var(--fg-3)', margin: '4px 0 0', fontSize: 13 }}>
-            Browse the five datasets the unified app pulls from.
+            Every word, root, figure and source the app draws from — filter to your study set, open any card to study it.
           </p>
         </div>
-        <div className="search" style={{ maxWidth: 360 }}>
-          <Ic.search />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${tab}…`} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {tab !== 'cards' && (
+            <div className="search" style={{ maxWidth: 300 }}>
+              <Ic.search />
+              <input value={localQ} onChange={(e) => handleLocalQChange(e.target.value)} placeholder={`Search ${tab}…`} />
+            </div>
+          )}
+          <button className="btn primary" onClick={() => window.dispatchEvent(new CustomEvent('bwtl:open-create'))}>
+            <Ic.plus /> New
+          </button>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--line)' }}>
         {[
           ['cards',   'Cards',     window.BWTL.FLASHCARDS && Object.keys(window.BWTL.FLASHCARDS).length, 'SF.flashcards'],
-          ['roots',   'PIE roots', Object.keys(window.BWTL.PIE_ROOTS).length,                            'EFG.nodes (pie_root)'],
-          ['figures', 'Figures',   Object.keys(window.BWTL.FIGURES).length,                              'EM.mythological_figures'],
-          ['beekes',  'Beekes',    window.BWTL.BEEKES_DOCS.length,                                       'RAG · etymology collection'],
-          ['dcc',     'DCC',       window.BWTL.DCC_WORDS.length,                                         'EFG · DCC dataset'],
+          ['roots',   'PIE roots', Object.keys(window.BWTL.PIE_ROOTS || {}).length,                       'EFG.nodes (pie_root)'],
+          ['figures', 'Figures',   Object.keys(window.BWTL.FIGURES || {}).length,                         'EM.mythological_figures'],
+          ['beekes',  'Beekes',    (window.BWTL.BEEKES_DOCS || []).length,                               'RAG · etymology collection'],
+          ['dcc',     'DCC',       (window.BWTL.DCC_WORDS || []).length,                                 'EFG · DCC dataset'],
         ].map(([k, lab, n, src]) => (
           <button
             key={k}
@@ -41,24 +57,81 @@ function LibraryView({ onNavigateWord, onOpenFigure, role }) {
             }}
             title={src}
           >
-            {lab} <span className="mono" style={{ fontSize: 10, color: 'var(--fg-5)' }}>{n}</span>
+            {lab} <span className="mono" style={{ fontSize: 10, color: 'var(--fg-5)' }}>{n || ''}</span>
           </button>
         ))}
       </div>
 
-      {tab === 'cards'   && <CardsTab q={q} onNavigateWord={onNavigateWord} langFilter={langFilter} setLangFilter={setLangFilter} />}
+      {tab === 'cards'   && <CardsTab cardFilter={cardFilter} setCardFilter={setCardFilter} spine={spine} onOpenCard={onOpenCard} />}
       {tab === 'roots'   && <RootsTab q={q} />}
       {tab === 'figures' && <FiguresTab q={q} onOpenFigure={onOpenFigure} />}
       {tab === 'beekes'  && <BeekesTab q={q} />}
-      {tab === 'dcc'     && <DccTab q={q} onNavigateWord={onNavigateWord} />}
+      {tab === 'dcc'     && <DccTab q={q} onOpenCard={onOpenCard} />}
     </div>
   );
 }
 
-function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
-  const [cards, setCards] = React.useState(Object.values(window.BWTL.FLASHCARDS));
-  const [langs, setLangs] = React.useState(window.BWTL.LANGUAGES || []);
-  const [loading, setLoading] = React.useState(!cards.length);
+// REV-3 CardFilterBar — drives the browse grid AND the App-level cardSpine (prev/next in CardDetail)
+function CardFilterBar({ cardFilter, setCardFilter, shown }) {
+  const langs = window.BWTL.LANGUAGE_FILTERS || [{ code: null, name: 'All languages' }];
+  const toggleChip = (c) => setCardFilter(f => ({
+    ...f, chips: f.chips.includes(c) ? f.chips.filter(x => x !== c) : [...f.chips, c],
+  }));
+  const chipBtn = (key, label, icon) => (
+    <button
+      key={key}
+      onClick={() => toggleChip(key)}
+      className="btn xs ghost"
+      style={{
+        background: cardFilter.chips.includes(key) ? 'var(--acc-bg)' : 'transparent',
+        borderColor: cardFilter.chips.includes(key) ? 'var(--acc-ring)' : 'var(--line)',
+        color: cardFilter.chips.includes(key) ? 'var(--acc-2)' : 'var(--fg-3)',
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+      }}
+    >{icon} {label}</button>
+  );
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, padding: 3, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8 }}>
+        {chipBtn('bookmarked', 'Study set', <Ic.bookmark_filled style={{ color: cardFilter.chips.includes('bookmarked') ? 'var(--acc-2)' : 'var(--fg-4)', width: 13, height: 13 }} />)}
+        {chipBtn('has_video', 'Has video', <Ic.play style={{ width: 13, height: 13 }} />)}
+        {chipBtn('missing_data', 'Missing data', <Ic.spark style={{ width: 13, height: 13 }} />)}
+      </div>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-3)' }}>
+        <Ic.globe />
+        <select
+          value={cardFilter.language || ''}
+          onChange={(e) => setCardFilter(f => ({ ...f, language: e.target.value || null }))}
+          style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--fg)', borderRadius: 6, padding: '5px 8px', font: 'inherit', fontSize: 12 }}
+        >
+          {langs.map(l => <option key={l.code || 'all'} value={l.code || ''}>{l.name}{l.count != null ? ` (${l.count})` : ''}</option>)}
+        </select>
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-3)' }}>
+        <span className="mono" style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--fg-4)' }}>sort</span>
+        <select
+          value={cardFilter.sort}
+          onChange={(e) => setCardFilter(f => ({ ...f, sort: e.target.value }))}
+          style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--fg)', borderRadius: 6, padding: '5px 8px', font: 'inherit', fontSize: 12 }}
+        >
+          <option value="modified">Last modified</option>
+          <option value="alpha">Alphabetical</option>
+          <option value="srs">SRS due</option>
+          <option value="freq">Frequency</option>
+        </select>
+      </label>
+      <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">
+        {shown} shown{cardFilter.chips.includes('bookmarked') ? ' · study set' : ''}{cardFilter.language ? ' · filtered' : ''}
+      </span>
+    </div>
+  );
+}
+
+// REQ-037: browse-thumb card grid
+function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
+  const [loading, setLoading] = React.useState(!Object.keys(window.BWTL.FLASHCARDS || {}).length);
+  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
   const loadCards = React.useCallback(() => {
     setLoading(true);
@@ -69,9 +142,20 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
       const langMap = {};
       (Array.isArray(langData) ? langData : []).forEach(l => { langMap[l.id] = l.name; });
       const rawCards = Array.isArray(cardData) ? cardData : (cardData.items || []);
-      rawCards.forEach(c => { if (!c.language && c.language_id) c.language = langMap[c.language_id] || null; });
-      setCards(rawCards);
-      setLangs(Array.isArray(langData) ? langData : []);
+      rawCards.forEach(c => {
+        if (!c.language && c.language_id) c.language = langMap[c.language_id] || null;
+        window.BWTL.FLASHCARDS[c.id] = c; // update global cache for App's computeCardSpine
+      });
+      window.BWTL.LANGUAGES = Array.isArray(langData) ? langData : [];
+      window.BWTL.LANGUAGE_FILTERS = [
+        { code: null, name: 'All languages', count: rawCards.length },
+        ...(Array.isArray(langData) ? langData.map(l => ({
+          code: l.code || l.name,
+          name: l.name,
+          count: rawCards.filter(c => c.language === l.name).length,
+        })) : []),
+      ];
+      forceUpdate();
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -82,57 +166,77 @@ function CardsTab({ q, onNavigateWord, langFilter, setLangFilter }) {
     return () => window.removeEventListener('bwtl:card-reload', loadCards);
   }, [loadCards]);
 
-  const filtered = cards.filter(c =>
-    (langFilter === 'all' || c.language === langFilter) &&
-    (!q || (c.word_or_phrase || c.word || '').toLowerCase().includes(q.toLowerCase()) || (c.definition || '').toLowerCase().includes(q.toLowerCase()))
-  );
+  // Use App-computed spine if available; otherwise filter FLASHCARDS locally
+  let cards;
+  if (spine && spine.length > 0) {
+    cards = spine.map(id => window.BWTL.FLASHCARDS[id]).filter(Boolean);
+  } else {
+    cards = Object.values(window.BWTL.FLASHCARDS || {});
+    const langName = cardFilter.language
+      ? (window.BWTL.LANGUAGE_FILTERS || []).find(l => l.code === cardFilter.language)?.name
+      : null;
+    if (langName) cards = cards.filter(c => c.language === langName);
+    if (cardFilter.chips.includes('bookmarked')) cards = cards.filter(c => c.bookmarked);
+    if (cardFilter.chips.includes('has_video')) cards = cards.filter(c => c.has_video);
+    if (cardFilter.chips.includes('missing_data')) cards = cards.filter(c => !c.pie_root && !(c.pie_roots && c.pie_roots.length));
+    if (cardFilter.q) {
+      const qLow = cardFilter.q.toLowerCase();
+      cards = cards.filter(c => ((c.word_or_phrase || c.word || '') + ' ' + (c.definition || '')).toLowerCase().includes(qLow));
+    }
+    if (cardFilter.sort === 'alpha') cards.sort((a, b) => (a.word_or_phrase || a.word || '').localeCompare(b.word_or_phrase || b.word || ''));
+  }
 
-  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading cards…</div>;
-  if (!cards.length) return <div className="cards-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No cards in library yet.</div>;
+  if (loading && !cards.length) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading cards…</div>;
+  if (!loading && !cards.length) return (
+    <div className="cards-empty" style={{ padding: '40px 0', textAlign: 'center', color: 'var(--fg-4)', fontSize: 13 }}>
+      No cards match this filter.{cardFilter.chips.includes('bookmarked') ? ' Your study set is empty — bookmark cards to add them.' : ''}
+    </div>
+  );
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        <Ic.globe style={{ color: 'var(--fg-3)' }} />
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-4)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Language</span>
-        <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8 }}>
-          <button onClick={() => setLangFilter('all')} className="btn xs ghost" style={{ background: langFilter === 'all' ? 'var(--bg-4)' : 'transparent' }}>All <span className="mono" style={{ color: 'var(--fg-5)' }}>2936</span></button>
-          {langs.map(l => (
-            <button key={l.code || l.name} onClick={() => setLangFilter(l.name || l)} className="btn xs ghost"
-              style={{ background: langFilter === (l.name || l) ? 'var(--bg-4)' : 'transparent' }}>
-              {l.name || l}
-            </button>
-          ))}
-        </div>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">
-          {filtered.length} shown · {cards.length} total
-        </span>
-      </div>
+      <CardFilterBar cardFilter={cardFilter} setCardFilter={setCardFilter} shown={cards.length} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-        {filtered.map(c => (
-          <div key={c.id} className="card" style={{ cursor: 'pointer' }} onClick={() => onNavigateWord(c.id)}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>{c.language} · {c.pos}</span>
-              {c.bookmarked && <Ic.bookmark_filled style={{ color: 'var(--acc-2)' }} />}
-            </div>
-            <div style={{ padding: '12px 14px' }}>
-              <div className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{c.word_or_phrase || c.word}</div>
-              <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>{c.ipa_pronunciation}</div>
-              <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.4 }}>{c.definition}</div>
-              <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {c.pie_root && <span className="pill pie" style={{ fontSize: 9.5 }}>{c.pie_root}</span>}
-                {c.figure_link && <span className="pill myth" style={{ fontSize: 9.5 }}>figure</span>}
-                {c.has_video && <span className="pill forge" style={{ fontSize: 9.5 }}>video</span>}
-                {c.english_cognates && <span className="pill ghost" style={{ fontSize: 9.5 }}>cog</span>}
+        {cards.map(c => {
+          const isFigure = !!c.figure_link;
+          const noPie = !c.pie_root && !(c.pie_roots && c.pie_roots.length);
+          const word = c.word_or_phrase || c.word;
+          return (
+            <div key={c.id} className="card browse-card" onClick={() => onOpenCard(c.id)}>
+              {/* REQ-037: thumbnail banner with word overlaid */}
+              <div
+                className={`browse-thumb${isFigure ? ' figure' : ''}${noPie ? ' no-pie' : ''}`}
+                style={c.image_url ? { backgroundImage: `url(${c.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+              >
+                {c.image_caption && <span className="bt-cap">{c.image_caption}</span>}
+                <div className="bt-corner">
+                  {c.has_video && <span className="bt-badge video"><Ic.play /> video</span>}
+                  {c.bookmarked && <span className="bt-badge star"><Ic.bookmark_filled /></span>}
+                </div>
+                <div className="bt-word">{word}</div>
+              </div>
+              <div style={{ padding: '10px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>{c.language} · {c.pos}</span>
+                  <span className="mono" style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>{c.ipa_pronunciation || c.ipa}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.45 }}>{c.definition}</div>
+                <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {isFigure && <span className="pill myth" style={{ fontSize: 9.5 }}>figure</span>}
+                  {(c.pie_roots && c.pie_roots.length > 1)
+                    ? <span className="pill pie" style={{ fontSize: 9.5 }}>{c.pie_roots.length} roots</span>
+                    : c.pie_root && <span className="pill pie" style={{ fontSize: 9.5 }}>{c.pie_root}</span>}
+                  {noPie && <span className="pill warn" style={{ fontSize: 9.5 }}>no PIE</span>}
+                  {(c.cognates || c.english_cognates) && <span className="pill ghost" style={{ fontSize: 9.5 }}>cog</span>}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
 }
-
 function RootsTab({ q }) {
   const [roots, setRoots] = React.useState(Object.values(window.BWTL.PIE_ROOTS));
   const [loading, setLoading] = React.useState(!roots.length);
@@ -313,7 +417,7 @@ function BeekesTab({ q }) {
   );
 }
 
-function DccTab({ q, onNavigateWord }) {
+function DccTab({ q, onOpenCard }) {
   const [words, setWords] = React.useState(window.BWTL.DCC_WORDS || []);
   const [loading, setLoading] = React.useState(!words.length);
   const [selectedEntry, setSelectedEntry] = React.useState(null); // REQ-031: DCC full content modal
@@ -399,7 +503,7 @@ function DccTab({ q, onNavigateWord }) {
             </div>
             {selectedEntry.notes && <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--fg-2)', lineHeight: 1.55 }}>{selectedEntry.notes}</div>}
             <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-              {selectedEntry.sf_card_id && <button className="btn sm primary" onClick={() => { setSelectedEntry(null); onNavigateWord(selectedEntry.sf_card_id); }}>Open SF card</button>}
+              {selectedEntry.sf_card_id && <button className="btn sm primary" onClick={() => { setSelectedEntry(null); onOpenCard(selectedEntry.sf_card_id); }}>Open SF card</button>}
               <button className="btn sm ghost" onClick={() => setSelectedEntry(null)}>Close</button>
             </div>
           </div>
@@ -410,4 +514,5 @@ function DccTab({ q, onNavigateWord }) {
   );
 }
 
-window.LibraryView = LibraryView;
+window.BrowseView = BrowseView;
+window.LibraryView = BrowseView; // REV-3 back-compat alias

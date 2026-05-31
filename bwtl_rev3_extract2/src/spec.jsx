@@ -21,14 +21,14 @@ function SpecDoc() {
         <strong style={{ color: 'var(--ok)' }}>Revision 1 — May 2026.</strong> This doc incorporates five changes from the design review: (1) <em>Chat anchor</em> inverted to <code>flashcard_id</code> primary; (2) <em>Latin</em> promoted to first-class structured column in PIE Explorer; (3) chat <em>context payload</em> made visible and editable; (4) chat <em>Accept</em> button + field dropdown replaces the review queue; (5) <em>Theodoros tab renamed to Chat</em> and the approval gate removed — Theodoros is now a permission tier, not a UI surface. Every change is reflected below; deltas are marked <span className="pill ok" style={{ fontSize: 9.5 }}>REV-1</span>.
       </div>
 
-      <div className="rationale" style={{ borderLeftColor: 'var(--acc)', background: 'linear-gradient(90deg, color-mix(in oklch, var(--acc) 8%, transparent), transparent 60%)' }}>
-        <strong style={{ color: 'var(--acc-2)' }}>Revision 3 — PTH R2BREV3.</strong> IA consolidation: <em>Browse</em> replaces Study and Library as the unified front door. Study sub-views (Queue, Pronunciation, Shadowing) move inside the card detail as mode tabs. Bookmarks section removed from top nav (bookmark action remains on individual cards). Chat (Theodoros) slimmed to Threads + Audit log — New Cards and Batch Jobs now live in Admin. Bundled bug fixes: BUG-059 (card filter search FTS), BUG-064 (EFG graph API path), BUG-065 (audio playback). New: REQ-036 (Chat AI backend), REQ-037 (browse-thumb card grid), REQ-038 (PIE root empty state). Deltas marked <span className="pill" style={{ fontSize: 9.5, background: 'var(--acc-bg)', color: 'var(--acc-2)', border: '1px solid var(--acc-ring)' }}>REV-3</span>.
+      <div className="rationale" style={{ borderLeftColor: 'var(--myth)', background: 'linear-gradient(90deg, color-mix(in oklch, var(--myth) 8%, transparent), transparent 60%)' }}>
+        <strong style={{ color: 'var(--myth)' }}>Revision 2 — May 2026 · Etymology Surface.</strong> Absorbs the standalone Etymython app into BWTL. New components added to the word card: <em>IPA + anglicized pronunciation pills</em>, <em>multi-root PIE display</em> (equation style, scales N=1..5+), <em>Scholarly Notes</em> citation stack (Beekes / Watkins / Kroonen / DCC / LSJ — one expanded by default, four collapsed), <em>Origin Story</em> narrative panel (figure cards only), and an inline <em>Family Tree</em> graph (figure cards only, hierarchical, click-to-drill). New topbar surfaces: full-text search across cards/figures/PIE roots and a language filter dropdown. Card prev/next nav (Alt+←/→). Deltas marked <span className="pill myth" style={{ fontSize: 9.5 }}>REV-2</span>.
       </div>
 
       {/* ─── IA TREE ──────────────────────────────────────────────────────── */}
       <h2>1 · Information architecture</h2>
       <p>
-        Six production apps collapse into one shell with five top-level destinations. <strong>Browse</strong> is the unified front door <span className="pill" style={{ fontSize: 9.5, background: 'var(--acc-bg)', color: 'var(--acc-2)', border: '1px solid var(--acc-ring)' }}>REV-3</span> — Study Queue and Library (tab “Cards”) merge here. Bookmarks, Study sub-views (Pronunciation, Shadowing), and the Study Queue are no longer top-level nav items.
+        Six production apps collapse into one shell with four top-level destinations. Super Flashcards becomes the front door (<strong>Study</strong>); the other five become panels, sidecars, or sub-routes.
       </p>
       <div className="ia-tree">
 {`<span class="node-app">BWTL — unified shell</span>
@@ -235,6 +235,74 @@ function SpecDoc() {
           <tr><td><code>figure</code></td><td><code>EM.mythological_figures.id</code></td><td>English name + Greek, myth tag</td></tr>
           <tr><td><code>thread</code></td><td><code>chat.threads.id</code></td><td>Thread title, chat tag</td></tr>
           <tr><td><code>collection</code></td><td><code>bookmarks.collection_id</code> (new)</td><td>Ordered set of any of the above; sharable</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.6 — Etymology surface <span className="pill myth" style={{ fontSize: 9.5 }}>REV-2</span></h3>
+      <p>
+        Absorbs Etymython's content surfaces into BWTL. Renders inside the word-card center column (not the right rail) so all etymology for a word reads top-to-bottom in one place. The five new sub-components are conditionally rendered.
+      </p>
+      <table>
+        <thead><tr><th>Sub-component</th><th>When shown</th><th>Source</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Pronunciation pills</td>
+            <td>Always (when at least one is present)</td>
+            <td><code>SF.flashcards.pie_ipa</code> + new <code>SF.flashcards.anglicized</code> column</td>
+            <td>Two pills side-by-side. <code>IPA</code> tag in mono · <code>English</code> tag for anglicized. Each has its own audio button.</td>
+          </tr>
+          <tr>
+            <td><strong>MultiRootPie</strong></td>
+            <td>When <code>card.pie_roots.length ≥ 1</code></td>
+            <td><code>SF.flashcards.pie_roots</code> (new array column; legacy <code>pie_root</code> still works as fallback)</td>
+            <td>Equation-style: large pills with "+" separators. N=1: solo pill. N≥2: pills joined by "+", auto-wrap. Each pill has audio, IPA, gloss, reflex count. Click drills to PIE Explorer panel. Compound caveat row below explains the construction.</td>
+          </tr>
+          <tr>
+            <td><strong>ScholarlyNotesStack</strong></td>
+            <td>When the root(s) have entries in <code>SCHOLARLY_NOTES</code></td>
+            <td>NEW: <code>scholarly_notes</code> table — keyed by PIE root, holds Beekes / Watkins / Kroonen / DCC / LSJ excerpts with page numbers and confidence scores</td>
+            <td>Citation-list format, dictionary-style. First entry expanded by default; remaining 4 collapsed. Per-entry kind badge (<span className="pill pie" style={{ fontSize: 9.5 }}>dict</span> <span className="pill" style={{ background: 'var(--acc-bg)', color: 'var(--acc-2)', fontSize: 9.5 }}>root</span> <span className="pill graph" style={{ fontSize: 9.5 }}>lex</span> <span className="pill myth" style={{ fontSize: 9.5 }}>freq</span>) + confidence %. Compound words render one column per root, side by side.</td>
+          </tr>
+          <tr>
+            <td><strong>OriginStoryPanel</strong></td>
+            <td>When <code>card.figure_link</code> is non-null</td>
+            <td><code>EM.mythological_figures.origin_story</code> + <code>.attestations</code></td>
+            <td>Reading view, Fraunces display type. Figure names auto-linkified. Bottom rail of attestation pills with source + era (Hesiod ~700 BC · Damascius ~530 AD · …).</td>
+          </tr>
+          <tr>
+            <td><strong>FamilyTreeGraph</strong></td>
+            <td>When <code>card.figure_link</code> is non-null and the figure has <code>relations</code></td>
+            <td><code>EM.figure_relationships</code></td>
+            <td>Hierarchical SVG. Three tiers: parents (top) · subject + consort + siblings + lateral (middle) · children (bottom). Lateral relations (<code>equivalent</code>, <code>inverse_of</code>, <code>distinct_from</code>, <code>often_confused_with</code>) sit on the wings with dashed connectors color-coded (red = distinct, teal = equivalent). Click any node to navigate to that figure. Inline, always visible — no modal.</td>
+          </tr>
+          <tr>
+            <td><strong>EmptyEtymologyState</strong></td>
+            <td>When <code>card.pie_roots</code> is empty</td>
+            <td>NEW: <code>SF.flashcards.non_pie_reason</code> column for the human-readable reason</td>
+            <td>Replaces all etymology sections with explicit empty-state cards. Each one ("PIE root", "Cognates", "Fun facts", "Scholarly notes") has its own "Ask AI to research" button. Surfaces the <code>non_pie_reason</code> if set. Demo card: <code>fc_le_bac</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="rationale" style={{ borderLeftColor: 'var(--myth)' }}>
+        <strong>Backend implication.</strong> Two new SF columns: <code>flashcards.pie_roots</code> (array; supersedes single <code>pie_root</code>) and <code>flashcards.anglicized</code> (text). One new SF column: <code>flashcards.non_pie_reason</code> (text, nullable). One new table: <code>scholarly_notes(pie_root, source, ref, headword, kind, excerpt, confidence)</code> — ingested from a separate one-time pass against the Portfolio RAG <code>etymology</code> collection, scoped to Beekes / Watkins / Kroonen / DCC / LSJ. Backfill via batch job.
+      </div>
+
+      <h3>4.7 — Topbar search + nav <span className="pill myth" style={{ fontSize: 9.5 }}>REV-2</span></h3>
+      <table>
+        <thead><tr><th>Surface</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>FTS search</td>
+            <td>Live filter as the user types. Matches across <code>flashcards.{`{word_or_phrase, definition, pie_root, anglicized, ipa}`}</code>, <code>mythological_figures.{`{english_name, greek_name, domain}`}</code>, and <code>pie_roots.{`{root, gloss}`}</code>. Results group by kind (card / figure / PIE) with type-pill prefixes; click a card to navigate.</td>
+          </tr>
+          <tr>
+            <td>Language filter</td>
+            <td>Embedded chip right of the search input. Reads <code>languages</code> table (9 options including "All"). Filter persists across navigation; affects the FTS scope AND the card prev/next nav scope.</td>
+          </tr>
+          <tr>
+            <td>Card prev/next</td>
+            <td>Compact <code>‹ N / M ›</code> control in the topbar right cluster, visible only on study/card view. Iterates the language-filtered card set. Keyboard: <span className="kbd">Alt+←</span> / <span className="kbd">Alt+→</span>.</td>
+          </tr>
         </tbody>
       </table>
 

@@ -2,25 +2,8 @@
 // Mirrors SF /api/study/*, /api/v1/pronunciation/*, /api/shadowing/*.
 
 function StudyQueueView({ onNavigateWord }) {
-  const [queue, setQueue] = React.useState(window.BWTL.STUDY_QUEUE || []);
-  const [loading, setLoading] = React.useState(!queue.length);
-  const reviewedCount = 0;
-
-  React.useEffect(() => {
-    setLoading(true);
-    window.BWTL.fetchStudyDue()
-      .then(data => setQueue(Array.isArray(data) ? data : (data.items || data.cards || [])))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading study queue…</div>;
-  if (!queue.length) return (
-    <div style={{ padding: '18px 20px 200px', maxWidth: 1300, margin: '0 auto' }}>
-      <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Today's queue</h1>
-      <div className="study-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14, marginTop: 24 }}>No cards due. Great job — check back tomorrow!</div>
-    </div>
-  );
+  const queue = window.BWTL.STUDY_QUEUE;
+  const reviewedCount = 2;
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1300, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 20 }}>
@@ -83,7 +66,7 @@ function StudyQueueView({ onNavigateWord }) {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span className="display" style={{ fontSize: 20 }}>{card.word}</span>
-                    <span className="mono" style={{ fontSize: 11, color: 'var(--fg-4)' }}>{card.ipa_pronunciation}</span>
+                    <span className="mono" style={{ fontSize: 11, color: 'var(--fg-4)' }}>{card.ipa}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 2 }}>{card.definition}</div>
                 </div>
@@ -106,29 +89,13 @@ function StudyQueueView({ onNavigateWord }) {
   );
 }
 
-function PronunciationView({ card }) {
-  const word = card ? (card.word_or_phrase || card.word) || 'μνήμη' : 'μνήμη';
-  const ipa = card ? (card.ipa_pronunciation || card.ipa) || '/ˈmni.mi/' : '/ˈmni.mi/';
-  const audioUrl = card ? card.audio_url || null : null;
+function PronunciationView() {
   const [recording, setRecording] = React.useState(false);
   const [score, setScore] = React.useState(null);
-
-  const playReference = () => {
-    if (audioUrl) {
-      // BUG-065: use card.audio_url if available
-      const a = new Audio(audioUrl);
-      a.play().catch(console.error);
-    } else if (word && window.speechSynthesis) {
-      // BUG-065: speechSynthesis fallback
-      const utt = new SpeechSynthesisUtterance(word);
-      utt.lang = card?.language_code || 'el-GR';
-      window.speechSynthesis.speak(utt);
-    }
-  };
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ marginBottom: 16 }}>
-        <h2 className="display" style={{ fontSize: 22, margin: 0 }}>Pronunciation — {word}</h2>
+        <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Pronunciation</h1>
         <p style={{ color: 'var(--fg-3)', margin: '4px 0 0', fontSize: 13 }}>
           Record yourself, get an alignment score against the reference IPA. <span className="mono" style={{ color: 'var(--acc-2)' }}>POST /api/v1/pronunciation/score</span>.
         </p>
@@ -136,11 +103,11 @@ function PronunciationView({ card }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
         <div className="card card-body" style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: 16 }}>Now practicing</div>
-          <div className="display" style={{ fontSize: 52, lineHeight: 1 }}>{word}</div>
-          <div className="mono" style={{ fontSize: 16, color: 'var(--fg-2)', marginTop: 8 }}>{ipa}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: 16 }}>Now practicing</div>
+          <div className="display" style={{ fontSize: 52, lineHeight: 1 }}>μνήμη</div>
+          <div className="mono" style={{ fontSize: 16, color: 'var(--fg-2)', marginTop: 8 }}>/ˈmni.mi/</div>
           <div style={{ marginTop: 10 }}>
-            <button className="btn sm ghost" onClick={playReference}><Ic.speaker /> Hear reference</button>
+            <button className="btn sm ghost"><Ic.speaker /> Hear reference (Eleni voice)</button>
           </div>
 
           <div style={{ margin: '24px auto 0', maxWidth: 400 }}>
@@ -201,12 +168,11 @@ function PronunciationView({ card }) {
   );
 }
 
-function ShadowingView({ card }) {
-  const word = card ? (card.word_or_phrase || card.word) || 'μνήμη' : 'μνήμη';
+function ShadowingView() {
   return (
     <div style={{ padding: '18px 20px 200px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ marginBottom: 16 }}>
-        <h2 className="display" style={{ fontSize: 22, margin: 0 }}>Shadowing — {word}</h2>
+        <h1 className="display" style={{ fontSize: 32, margin: 0 }}>Shadowing</h1>
         <p style={{ color: 'var(--fg-3)', margin: '4px 0 0', fontSize: 13 }}>
           Listen, speak alongside, replay. Sessions persist in <span className="mono" style={{ color: 'var(--acc-2)' }}>SF.shadowing_sessions</span>.
         </p>

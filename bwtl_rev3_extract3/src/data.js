@@ -418,6 +418,7 @@ const BOOKMARKS = [
   { id: 'bm4', kind: 'pie_root', ref: '*gʷem-',      label: '*gʷem-',    meta: 'to come', when: 'this week' },
   { id: 'bm5', kind: 'figure',   ref: 'mnemosyne',   label: 'Mnemosyne', meta: 'Titan · memory', when: 'this week' },
   { id: 'bm6', kind: 'thread',   ref: 'th_men_1',    label: 'Mnemosyne ↔ Lethe symmetry', meta: 'thread · 4 msgs', when: 'this week' },
+  { id: 'bm7', kind: 'collection', ref: 'cls_aor3',  label: 'Tuesday class — aorist drill',  meta: '12 cards · for Theo', when: 'last week' },
 ];
 
 // Chat promotions audit log (replaces review queue per revision item 4).

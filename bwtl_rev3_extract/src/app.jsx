@@ -15,36 +15,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "funfactDensity": "stacked"
 }/*EDITMODE-END*/;
 
-function computeCardSpine(cardFilter) {
-  let cards = Object.values(window.BWTL.FLASHCARDS || {});
-  if (cardFilter.chips.includes('bookmarked')) cards = cards.filter(c => c.bookmarked);
-  if (cardFilter.chips.includes('has_video')) cards = cards.filter(c => c.has_video);
-  if (cardFilter.chips.includes('missing_data')) cards = cards.filter(c => !c.pie_root && !(c.pie_roots && c.pie_roots.length));
-  if (cardFilter.language) {
-    const langName = (window.BWTL.LANGUAGE_FILTERS || []).find(l => l.code === cardFilter.language)?.name;
-    if (langName) cards = cards.filter(c => c.language === langName);
-  }
-  if (cardFilter.q) {
-    const q = cardFilter.q.toLowerCase();
-    cards = cards.filter(c => ((c.word_or_phrase || c.word || '') + ' ' + (c.definition || '')).toLowerCase().includes(q));
-  }
-  if (cardFilter.sort === 'alpha') {
-    cards.sort((a, b) => (a.word_or_phrase || a.word || '').localeCompare(b.word_or_phrase || b.word || ''));
-  }
-  return cards.map(c => c.id);
-}
-
-function buildTrail(section, detailCardId) {
-  if (section === 'browse') {
-    if (detailCardId) {
-      const c = window.BWTL.FLASHCARDS && window.BWTL.FLASHCARDS[detailCardId];
-      return [
-        { label: 'Browse', go: { section: 'browse', clearDetail: true } },
-        { label: c?.word_or_phrase || c?.word || detailCardId, here: true },
-      ];
-    }
-    return [{ label: 'Browse', here: true }];
-  }
+function buildTrail(section) {
+  if (section === 'browse')    return [];  // Browse renders its own header / detail breadcrumb
   if (section === 'generate')  return [{ label: 'Generate', here: true }];
   if (section === 'theodoros') return [{ label: 'Chat', here: true }];
   if (section === 'admin')     return [{ label: 'Admin', here: true }];
@@ -52,42 +24,59 @@ function buildTrail(section, detailCardId) {
   return [];
 }
 
+// REV-3 — compute the ordered, filtered card spine that drives both the Browse
+// grid AND the card-detail prev/next navigation. Single source of truth.
+function computeCardSpine(cardFilter) {
+  const langName = cardFilter.language
+    ? window.BWTL.LANGUAGES.find(l => l.code === cardFilter.language)?.name
+    : null;
+  let cards = Object.values(window.BWTL.FLASHCARDS);
+  // filters
+  if (langName) cards = cards.filter(c => c.language === langName);
+  if (cardFilter.chips.includes('bookmarked')) cards = cards.filter(c => c.bookmarked);
+  if (cardFilter.chips.includes('has_video')) cards = cards.filter(c => c.has_video);
+  if (cardFilter.chips.includes('missing_data')) cards = cards.filter(c => !c.pie_root && !(c.pie_roots && c.pie_roots.length));
+  if (cardFilter.q) {
+    const q = cardFilter.q.toLowerCase();
+    cards = cards.filter(c => (c.word + ' ' + c.definition).toLowerCase().includes(q));
+  }
+  // sort
+  const srsIndex = {};
+  window.BWTL.STUDY_QUEUE.forEach((s, i) => { srsIndex[s.card] = i; });
+  cards.sort((a, b) => {
+    if (cardFilter.sort === 'alpha') return a.word.localeCompare(b.word);
+    if (cardFilter.sort === 'srs') return (srsIndex[a.id] ?? 99) - (srsIndex[b.id] ?? 99);
+    if (cardFilter.sort === 'freq') return 0; // mock: keep order
+    return 0; // 'modified' — keep insertion order (mock proxy for updated_at desc)
+  });
+  return cards.map(c => c.id);
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [mode, setMode] = React.useState('proto'); // proto | spec
   const [role, setRole] = React.useState('pl');
-  const [section, setSection] = React.useState('browse');
-  const [browseTab, setBrowseTab] = React.useState('cards');
+  const [section, setSection] = React.useState('browse');   // REV-3 — Browse is home
+  const [browseTab, setBrowseTab] = React.useState('cards'); // cards|roots|figures|beekes|dcc
+
+  // REV-3 — card detail is an open-state of a Browse row, not a route.
   const [detailCardId, setDetailCardId] = React.useState(null);
-  const [detailMode, setDetailMode] = React.useState('study');
-  const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
+  const [detailMode, setDetailMode] = React.useState('study'); // study|pronunciation|shadowing
+
+  // REV-3 — unified card filter (absorbs REV-2 langFilter). Drives grid + spine.
+  const [cardFilter, setCardFilter] = React.useState({
+    chips: [],            // 'bookmarked' | 'has_video' | 'missing_data'
+    language: null,       // language code or null
+    sort: 'modified',     // modified|alpha|srs|freq
+    q: '',                // in-Browse search box
+  });
+
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter]);
-
-  // ── URL-based routing on mount ───────────────────────────────────────────
-  React.useEffect(() => {
-    const path = window.location.pathname;
-    const cardMatch = path.match(/^\/bwtl\/browse\/card\/([^/]+)/);
-    if (cardMatch) {
-      setSection('browse'); setDetailCardId(cardMatch[1]);
-    } else if (/^\/bwtl\/browse/.test(path)) {
-      setSection('browse');
-    } else if (/^\/bwtl\/generate/.test(path)) {
-      setSection('generate');
-    } else if (/^\/bwtl\/admin/.test(path)) {
-      setSection('admin');
-    } else if (/^\/bwtl\/theodoros/.test(path)) {
-      setSection('theodoros');
-    } else if (/^\/bwtl\/settings/.test(path)) {
-      setSection('settings');
-    }
-  }, []);
-
-  // ── prefetch cards on boot ─────────────────────────────────────────────
-  React.useEffect(() => {
-    window.BWTL.fetchCards && window.BWTL.fetchCards().catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // REV-2 — universal topbar search
+  const [searchQ, setSearchQ] = React.useState('');
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [langMenuOpen, setLangMenuOpen] = React.useState(false);
 
   // ── workspace UI state ───────────────────────────────────────────────────
   const [panelState, setPanelState] = React.useState({
@@ -109,39 +98,58 @@ function App() {
   React.useEffect(() => {
     document.documentElement.style.setProperty('--acc', t.accent);
     document.documentElement.style.setProperty('--acc-2', t.accent);
-    // Rail width
     const w = { narrow: 360, standard: 420, wide: 520 }[t.railWidth] || 420;
     document.documentElement.style.setProperty('--rail-w', w + 'px');
-    // density
     document.documentElement.style.setProperty('--ws-pad', t.density === 'compact' ? '12px' : t.density === 'comfy' ? '28px' : '18px');
   }, [t.accent, t.railWidth, t.density]);
 
-  // ── open card detail (REV-3) ──────────────────────────────────────────────
+  // REV-3 — the spine: ordered filtered card ids
+  const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter]);
+
+  // ── open a card into the detail view ─────────────────────────────────────
   const openCard = (cardId) => {
-    if (!cardId) return;
+    if (!cardId) cardId = 'fc_memoire';
+    if (!window.BWTL.FLASHCARDS[cardId]) return;
     setSection('browse');
     setDetailCardId(cardId);
     setDetailMode('study');
     setPanelState(p => ({ ...p, pie: 'open' }));
     setActiveThreadId(null);
+    setSearchOpen(false);
+    setSearchQ('');
   };
+  // navigateWord is the legacy name used by cognate/figure/search clicks → unify
+  const navigateWord = openCard;
 
   const backToBrowse = () => setDetailCardId(null);
 
+  // REV-3 — prev/next walks the active spine
   const navByDelta = (delta) => {
-    const idx = cardSpine.indexOf(detailCardId);
-    if (idx === -1) return;
-    const nxt = cardSpine[idx + delta];
-    if (nxt) openCard(nxt);
+    const list = cardSpine.length ? cardSpine : Object.keys(window.BWTL.FLASHCARDS);
+    let idx = list.indexOf(detailCardId);
+    if (idx === -1) idx = 0;
+    const next = list[(idx + delta + list.length) % list.length];
+    if (next) { setDetailCardId(next); setDetailMode('study'); setActiveThreadId(null); }
   };
+
+  // arrow-key card nav when a card detail is open (Alt+←/→)
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (!detailCardId || section !== 'browse') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowRight' && e.altKey) { e.preventDefault(); navByDelta(1); }
+      else if (e.key === 'ArrowLeft' && e.altKey) { e.preventDefault(); navByDelta(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   // ── open figure detail (drill from fun fact) ─────────────────────────────
   const openFigure = (figureId) => {
     setPanelState(p => ({ ...p, myth: 'open' }));
   };
 
-  // ── chat Accept → audit log (REV item 4 / 5) ────────────────────────────
-  // No review queue. Each Accept writes directly and appends an audit row.
+  // ── chat Accept → audit log (REV-1) ─────────────────────────────────────
   const onPromote = (payload) => {
     const fieldMeta = window.BWTL.PROMOTE_FIELDS.find(f => f.key === payload.field);
     showToast(`Accepted to ${window.BWTL.FLASHCARDS[payload.card]?.word || payload.card} · ${fieldMeta?.label || payload.field}`);
@@ -151,28 +159,22 @@ function App() {
   const [toast, setToast] = React.useState(null);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  // Global event hooks — StudyToolbar and AiEditButton dispatch these.
+  // Global event hooks
   React.useEffect(() => {
     const onCreate = () => setCreateOpen(true);
     const onToast = (e) => showToast(e.detail);
-    const onCardReload = (e) => {
-      if (e.detail) openCard(e.detail);
-    };
     window.addEventListener('bwtl:open-create', onCreate);
     window.addEventListener('bwtl:toast', onToast);
-    window.addEventListener('bwtl:card-reload', onCardReload);
     return () => {
       window.removeEventListener('bwtl:open-create', onCreate);
       window.removeEventListener('bwtl:toast', onToast);
-      window.removeEventListener('bwtl:card-reload', onCardReload);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  const trail = buildTrail(section, detailCardId);
+  const trail = buildTrail(section);
+  const inDetail = section === 'browse' && !!detailCardId;
 
-  // Role gates — Chat tab is visible to all roles (REV item 5).
-  // Theodoros power-user status is now permission-based (edit any card, run
-  // batch jobs, edit EFG nodes), not a separate UI surface.
+  // Role gates
   const canSeeAdmin = role === 'pl';
 
   return (
@@ -181,34 +183,35 @@ function App() {
         {mode === 'proto' ? (
           <>
             <TopBar
-              section={section} setSection={(s) => { setSection(s); if (s !== 'browse') setDetailCardId(null); }}
+              section={section} setSection={(s) => { setSection(s); if (s === 'browse') setDetailCardId(null); }}
               role={role} setRole={setRole}
               canSeeAdmin={canSeeAdmin}
               roleMenuOpen={roleMenuOpen} setRoleMenuOpen={setRoleMenuOpen}
-              cardFilter={cardFilter} setCardFilter={setCardFilter} />
-            {trail.length > 0 && <Crumbs trail={trail} go={(g) => { if (g.section) setSection(g.section); if (g.clearDetail) setDetailCardId(null); }} />}
+              onNavigateWord={navigateWord}
+              searchQ={searchQ} setSearchQ={setSearchQ}
+              searchOpen={searchOpen} setSearchOpen={setSearchOpen}
+              langFilter={cardFilter.language} setLangFilter={(code) => setCardFilter(f => ({ ...f, language: code }))}
+              langMenuOpen={langMenuOpen} setLangMenuOpen={setLangMenuOpen} />
+            {trail.length > 0 && <Crumbs trail={trail} go={(g) => { if (g.section) setSection(g.section); }} />}
             <div className="main-area">
-              {section === 'browse' && !detailCardId && (
+              {section === 'browse' && !inDetail && (
                 <BrowseView
                   onOpenCard={openCard}
                   onOpenFigure={openFigure}
                   role={role}
-                  browseTab={browseTab}
-                  setBrowseTab={setBrowseTab}
-                  cardFilter={cardFilter}
-                  setCardFilter={setCardFilter}
+                  browseTab={browseTab} setBrowseTab={setBrowseTab}
+                  cardFilter={cardFilter} setCardFilter={setCardFilter}
                   spine={cardSpine} />
               )}
-              {section === 'browse' && detailCardId && (
+              {section === 'browse' && inDetail && (
                 <CardDetail
                   cardId={detailCardId}
                   role={role}
                   spine={cardSpine}
-                  mode={detailMode}
-                  setMode={setDetailMode}
+                  mode={detailMode} setMode={setDetailMode}
                   onBack={backToBrowse}
                   onNavByDelta={navByDelta}
-                  onOpenCard={openCard}
+                  onNavigateWord={navigateWord}
                   onOpenFigure={openFigure}
                   panelState={panelState}
                   setPanelState={setPanelState}
@@ -225,7 +228,7 @@ function App() {
                 <TheodorosView
                   onAccept={(item) => showToast(`Accepted · ${item.field}`)}
                   onReject={(item) => showToast(`Rejected · ${item.id}`)}
-                  onNavigateWord={openCard} />
+                  onNavigateWord={navigateWord} />
               )}
               {section === 'admin' && canSeeAdmin && <AdminView role={role} />}
               {section === 'admin' && !canSeeAdmin && (
@@ -282,8 +285,40 @@ function App() {
 // Topbar — brand · primary nav · search · bookmark rail · role chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, cardFilter, setCardFilter }) {
+function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, onNavigateWord,
+  searchQ, setSearchQ, searchOpen, setSearchOpen, langFilter, setLangFilter, langMenuOpen, setLangMenuOpen }) {
   const r = window.BWTL.ROLES[role];
+  const curLang = window.BWTL.LANGUAGE_FILTERS?.find(l => l.code === langFilter) || { code: null, name: 'All languages' };
+
+  // FTS results — search across words, definitions, pie_roots, fun_facts, figure names
+  const results = React.useMemo(() => {
+    const q = (searchQ || '').trim().toLowerCase();
+    if (!q) return [];
+    const cards = Object.values(window.BWTL.FLASHCARDS);
+    const langCode = langFilter;
+    const matches = [];
+    cards.forEach(c => {
+      if (langCode && window.BWTL.LANGUAGES.find(l => l.name === c.language)?.code !== langCode) return;
+      const hay = [c.word, c.definition, c.pie_root, c.anglicized, c.ipa].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) matches.push({ kind: 'card', id: c.id, label: c.word, sub: `${c.language} · ${(c.definition||'').slice(0,60)}…`, pie: c.pie_root });
+    });
+    Object.values(window.BWTL.FIGURES).forEach(f => {
+      if ((f.english_name + ' ' + f.greek_name + ' ' + f.domain).toLowerCase().includes(q)) {
+        matches.push({ kind: 'figure', id: f.id, label: f.english_name, sub: `${f.figure_type} · ${f.domain}`, pie: f.pie_root });
+      }
+    });
+    Object.entries(window.BWTL.PIE_ROOTS).forEach(([k, p]) => {
+      if ((p.root + ' ' + p.gloss).toLowerCase().includes(q)) {
+        matches.push({ kind: 'pie_root', id: k, label: p.root, sub: `“${p.gloss}” · ${p.word_count} reflexes`, pie: k });
+      }
+    });
+    return matches.slice(0, 24);
+  }, [searchQ, langFilter]);
+
+  const handleResult = (m) => {
+    if (m.kind === 'card') onNavigateWord?.(m.id);
+    setSearchOpen(false);
+  };
   return (
     <div className="topbar">
       <div className="topbar-inner">
@@ -299,15 +334,16 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
           {/* primary nav */}
           <div style={{ display: 'inline-flex', gap: 2, padding: 4, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 10 }}>
             {[
-              ['browse',    'Browse',   <Ic.grid />,     null],
-              ['generate',  'Generate', <Ic.film />,     null],
-              ['theodoros', 'Chat',     <Ic.chat />,     Object.values(window.BWTL.CHAT_THREADS).reduce((a, x) => a + x.length, 0)],
+              ['browse',    'Browse',    <Ic.grid />,        null],
+              ['generate',  'Generate',  <Ic.film />,        null],
+              ['theodoros', 'Chat',      <Ic.chat />,        Object.values(window.BWTL.CHAT_THREADS).reduce((a, x) => a + x.length, 0)],
               canSeeAdmin ? ['admin', 'Admin', <Ic.spark />, null] : null,
-              ['settings',  'Settings', null,            null],
+              ['settings',  'Settings',  null,               null],
             ].filter(Boolean).map(([k, lab, icon, badge]) => (
               <button
                 key={k}
                 onClick={() => setSection(k)}
+                title={k === 'theodoros' ? 'Your AI conversations — threads across all cards + the audit log of accepted insights' : k === 'browse' ? 'Browse all words, PIE roots, figures, and sources · filter to your study set' : ''}
                 style={{
                   appearance: 'none', border: 0,
                   background: section === k ? 'linear-gradient(180deg, var(--bg-4), var(--bg-3))' : 'transparent',
@@ -333,15 +369,111 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
           </div>
         </div>
 
-        {/* FTS search — wired to cardFilter.q */}
-        <div className="search">
+        {/* universal search — FTS with language filter */}
+        <div className="search" style={{ position: 'relative' }}>
           <Ic.search />
           <input
-            placeholder="Search cards…"
-            value={cardFilter?.q || ''}
-            onChange={(e) => setCardFilter(f => ({ ...f, q: e.target.value }))}
+            value={searchQ}
+            onChange={(e) => { setSearchQ(e.target.value); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); } }}
+            placeholder={`Search ${curLang.code ? curLang.name : 'all words, PIE roots, figures, threads'}…`}
+            style={{ paddingRight: 130 }}
           />
-          <span className="kbd">⌘K</span>
+          {/* language filter chip embedded right-of-input */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setLangMenuOpen(o => !o); }}
+            title="Filter search by language"
+            style={{
+              position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+              appearance: 'none', cursor: 'pointer',
+              padding: '4px 8px 4px 8px',
+              background: langFilter ? 'var(--acc-bg)' : 'var(--bg-3)',
+              border: '1px solid ' + (langFilter ? 'var(--acc-ring)' : 'var(--line)'),
+              color: langFilter ? 'var(--acc-2)' : 'var(--fg-3)',
+              borderRadius: 6,
+              fontFamily: 'inherit', fontSize: 11, fontWeight: 600,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            <Ic.globe /> {curLang.code ? curLang.name : 'All'}
+            <Ic.caret_d style={{ color: 'currentColor' }} />
+          </button>
+          {langMenuOpen && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setLangMenuOpen(false)} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 91,
+                background: 'var(--bg-2)', border: '1px solid var(--line)',
+                borderRadius: 8, padding: 4, minWidth: 200,
+                boxShadow: '0 20px 50px -10px rgba(0,0,0,.6)',
+              }}>
+                {window.BWTL.LANGUAGE_FILTERS.map(l => (
+                  <div
+                    key={l.code || 'all'}
+                    onClick={() => { setLangFilter(l.code); setLangMenuOpen(false); }}
+                    style={{
+                      padding: '7px 10px', borderRadius: 5, cursor: 'pointer',
+                      background: langFilter === l.code ? 'var(--bg-3)' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                      fontSize: 12.5,
+                    }}>
+                    <span>{l.name}</span>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>
+                      {l.count != null ? l.count : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* FTS dropdown */}
+          {searchOpen && searchQ.trim().length > 0 && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 88 }} onClick={() => setSearchOpen(false)} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 89,
+                background: 'var(--bg-2)', border: '1px solid var(--line)',
+                borderRadius: 10, overflow: 'hidden', maxHeight: 440, overflowY: 'auto',
+                boxShadow: '0 20px 50px -10px rgba(0,0,0,.6)',
+              }}>
+                <div style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-4)', background: 'var(--bg-1)', borderBottom: '1px solid var(--line-soft)' }}>
+                  {results.length} match{results.length !== 1 ? 'es' : ''}
+                  {langFilter && <> · filtered to {curLang.name}</>}
+                </div>
+                {results.length === 0 && (
+                  <div style={{ padding: 16, color: 'var(--fg-3)', fontSize: 13 }}>
+                    No matches. Try a different word, PIE root, or clear the language filter.
+                  </div>
+                )}
+                {results.map((m, i) => (
+                  <div
+                    key={m.kind + m.id + i}
+                    onClick={() => handleResult(m)}
+                    style={{
+                      padding: '9px 12px',
+                      cursor: m.kind === 'card' ? 'pointer' : 'default',
+                      borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none',
+                      display: 'grid', gridTemplateColumns: '60px 1fr auto',
+                      gap: 10, alignItems: 'center',
+                    }}
+                    onMouseEnter={(e) => m.kind === 'card' && (e.currentTarget.style.background = 'var(--bg-3)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span className={`pill ${m.kind === 'card' ? 'accent' : m.kind === 'figure' ? 'myth' : 'pie'}`} style={{ fontSize: 9 }}>
+                      {m.kind === 'pie_root' ? 'PIE' : m.kind}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="greek" style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{m.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--fg-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.sub}</div>
+                    </div>
+                    {m.pie && <span className="pill pie" style={{ fontSize: 9 }}>{m.pie}</span>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* right cluster */}
@@ -352,10 +484,6 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
             onClick={() => window.dispatchEvent(new CustomEvent('bwtl:open-create'))}
           >
             <Ic.plus /> New card
-          </button>
-
-          <button className="btn sm ghost" title="Bookmarks rail">
-            <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{window.BWTL.BOOKMARKS.length}</span>
           </button>
 
           <div style={{ position: 'relative' }}>
@@ -515,59 +643,33 @@ function NewCardSheet({ role, onClose, onCreated }) {
   const [step, setStep] = React.useState(1);
   const [word, setWord] = React.useState('');
   const [lang, setLang] = React.useState('Greek');
-  const [aiStage, setAiStage] = React.useState('idle'); // idle | running | done | error
+  const [aiStage, setAiStage] = React.useState('idle'); // idle | running | done
   const [progress, setProgress] = React.useState([]);
-  const [createdCard, setCreatedCard] = React.useState(null); // set after AI generate succeeds
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  // Ensure LANGUAGES are loaded (real objects with .id)
-  React.useEffect(() => {
-    const langs = window.BWTL.LANGUAGES;
-    if (!Array.isArray(langs) || typeof langs[0] === 'string' || !langs[0]?.id) {
-      window.BWTL.fetchLanguages().catch(() => {});
-    }
-  }, []);
 
   const langs = window.BWTL.LANGUAGES;
 
-  // Resolve language UUID from current lang name
-  const _getLangId = () => {
-    const langsArr = window.BWTL.LANGUAGES;
-    if (Array.isArray(langsArr) && langsArr[0]?.id) {
-      const match = langsArr.find(l => l.name === lang || l.code === lang);
-      return match?.id || null;
-    }
-    return null;
-  };
-
-  const runAi = async () => {
+  const runAi = () => {
     setAiStage('running');
     setProgress([]);
-    const langId = _getLangId();
-    if (!langId) {
-      // If languages not loaded yet, try fetching and retry once
-      try {
-        await window.BWTL.fetchLanguages();
-      } catch (_) {}
-    }
-    const resolvedId = _getLangId();
-    if (!resolvedId) {
-      setAiStage('error');
-      return;
-    }
-    setProgress([{ lab: 'Generating card via AI (POST /api/ai/generate)', endpoint: 'POST /api/ai/generate', done: false }]);
-    try {
-      const card = await window.BWTL._apiFetch('/api/ai/generate', {
-        method: 'POST',
-        body: JSON.stringify({ word_or_phrase: word || 'souvenir', language_id: resolvedId }),
-      });
-      setProgress([{ lab: 'Card created by AI', endpoint: 'POST /api/ai/generate', done: true }]);
-      setCreatedCard(card);
-      setTimeout(() => setAiStage('done'), 200);
-    } catch (err) {
-      setProgress([{ lab: `AI generate failed: ${err.message}`, endpoint: 'POST /api/ai/generate', done: false }]);
-      setAiStage('error');
-    }
+    const steps = [
+      { lab: 'Looking up Beekes via Portfolio RAG', endpoint: 'GET rag/search/etymology', t: 700 },
+      { lab: 'Etymology + PIE root',                endpoint: 'POST /api/ai/generate',     t: 1500 },
+      { lab: 'IPA transcription',                   endpoint: 'POST /api/v1/pronunciation', t: 800 },
+      { lab: 'English cognates + cross-link',       endpoint: 'POST /api/ai/generate',     t: 1100 },
+      { lab: 'Fun facts (Etymython link check)',    endpoint: 'GET em/cognates/lookup',     t: 900 },
+      { lab: 'TTS audio',                           endpoint: 'POST /api/audio/tts',        t: 1000 },
+      { lab: 'Wire to EFG node',                    endpoint: 'POST efg /api/nodes',        t: 600 },
+    ];
+    let acc = 0;
+    steps.forEach((s, i) => {
+      acc += s.t;
+      setTimeout(() => {
+        setProgress(p => [...p, { ...s, done: true }]);
+        if (i === steps.length - 1) {
+          setTimeout(() => setAiStage('done'), 200);
+        }
+      }, acc);
+    });
   };
 
   return (
@@ -747,38 +849,8 @@ function NewCardSheet({ role, onClose, onCreated }) {
           <div style={{ flex: 1 }} />
           {step > 1 && <button className="btn ghost" onClick={() => setStep(s => s - 1)}>← Back</button>}
           {step === 1 && <button className="btn primary" disabled={!word.trim()} onClick={() => setStep(2)}>Next: AI fill →</button>}
-          {step === 2 && (aiStage === 'done' || aiStage === 'error') && <button className="btn primary" onClick={() => setStep(3)}>Next: Review →</button>}
-          {step === 3 && (
-            <button className="btn primary" disabled={isSubmitting} onClick={async () => {
-              const finalWord = word.trim() || 'souvenir';
-              if (createdCard) {
-                // Card was created by AI fill in Step 2 — dispatch reload + close
-                window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
-                onCreated(createdCard.word_or_phrase || finalWord, lang);
-              } else {
-                // Manual path: POST to /api/flashcards
-                setIsSubmitting(true);
-                try {
-                  const langId = _getLangId();
-                  if (!langId) {
-                    await window.BWTL.fetchLanguages().catch(() => {});
-                  }
-                  const resolvedId = _getLangId();
-                  if (!resolvedId) throw new Error('Language not found');
-                  await window.BWTL._apiFetch('/api/flashcards/', {
-                    method: 'POST',
-                    body: JSON.stringify({ word_or_phrase: finalWord, language_id: resolvedId }),
-                  });
-                  window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
-                  onCreated(finalWord, lang);
-                } catch (err) {
-                  // eslint-disable-next-line no-console
-                  console.error('[NewCardSheet] create failed:', err);
-                  setIsSubmitting(false);
-                }
-              }
-            }}><Ic.check /> {isSubmitting ? 'Saving…' : 'Create card'}</button>
-          )}
+          {step === 2 && aiStage === 'done' && <button className="btn primary" onClick={() => setStep(3)}>Next: Review →</button>}
+          {step === 3 && <button className="btn primary" onClick={() => onCreated(word || 'souvenir', lang)}><Ic.check /> Create card</button>}
         </div>
       </div>
     </>

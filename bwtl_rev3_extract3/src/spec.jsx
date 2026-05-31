@@ -21,14 +21,10 @@ function SpecDoc() {
         <strong style={{ color: 'var(--ok)' }}>Revision 1 — May 2026.</strong> This doc incorporates five changes from the design review: (1) <em>Chat anchor</em> inverted to <code>flashcard_id</code> primary; (2) <em>Latin</em> promoted to first-class structured column in PIE Explorer; (3) chat <em>context payload</em> made visible and editable; (4) chat <em>Accept</em> button + field dropdown replaces the review queue; (5) <em>Theodoros tab renamed to Chat</em> and the approval gate removed — Theodoros is now a permission tier, not a UI surface. Every change is reflected below; deltas are marked <span className="pill ok" style={{ fontSize: 9.5 }}>REV-1</span>.
       </div>
 
-      <div className="rationale" style={{ borderLeftColor: 'var(--acc)', background: 'linear-gradient(90deg, color-mix(in oklch, var(--acc) 8%, transparent), transparent 60%)' }}>
-        <strong style={{ color: 'var(--acc-2)' }}>Revision 3 — PTH R2BREV3.</strong> IA consolidation: <em>Browse</em> replaces Study and Library as the unified front door. Study sub-views (Queue, Pronunciation, Shadowing) move inside the card detail as mode tabs. Bookmarks section removed from top nav (bookmark action remains on individual cards). Chat (Theodoros) slimmed to Threads + Audit log — New Cards and Batch Jobs now live in Admin. Bundled bug fixes: BUG-059 (card filter search FTS), BUG-064 (EFG graph API path), BUG-065 (audio playback). New: REQ-036 (Chat AI backend), REQ-037 (browse-thumb card grid), REQ-038 (PIE root empty state). Deltas marked <span className="pill" style={{ fontSize: 9.5, background: 'var(--acc-bg)', color: 'var(--acc-2)', border: '1px solid var(--acc-ring)' }}>REV-3</span>.
-      </div>
-
       {/* ─── IA TREE ──────────────────────────────────────────────────────── */}
       <h2>1 · Information architecture</h2>
       <p>
-        Six production apps collapse into one shell with five top-level destinations. <strong>Browse</strong> is the unified front door <span className="pill" style={{ fontSize: 9.5, background: 'var(--acc-bg)', color: 'var(--acc-2)', border: '1px solid var(--acc-ring)' }}>REV-3</span> — Study Queue and Library (tab “Cards”) merge here. Bookmarks, Study sub-views (Pronunciation, Shadowing), and the Study Queue are no longer top-level nav items.
+        Six production apps collapse into one shell with four top-level destinations. Super Flashcards becomes the front door (<strong>Study</strong>); the other five become panels, sidecars, or sub-routes.
       </p>
       <div className="ia-tree">
 {`<span class="node-app">BWTL — unified shell</span>

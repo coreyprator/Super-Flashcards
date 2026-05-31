@@ -159,6 +159,109 @@ def list_messages(thread_id: str, db: Session = Depends(get_db)):
     return [_message_dict(m) for m in msgs]
 
 
+class GenerateRequest(BaseModel):
+    user_text: str
+    context_snapshot: Optional[str] = None  # JSON string — card fields etc.
+
+
+@router.post("/threads/{thread_id}/generate")
+def generate_ai_reply(
+    thread_id: str,
+    body: GenerateRequest,
+    db: Session = Depends(get_db),
+):
+    """REQ-036 — persist user message, call AI, persist AI reply, return AI message."""
+    from datetime import datetime, timezone
+    import os
+    import json
+
+    thread = db.query(models.ChatThread).filter(models.ChatThread.id == thread_id).first()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+
+    # 1. Persist user message
+    user_msg = models.ChatMessage(
+        id=f"msg_{uuid.uuid4().hex[:12]}",
+        thread_id=thread_id,
+        role="user",
+        text=body.user_text,
+        context_snapshot=body.context_snapshot,
+    )
+    db.add(user_msg)
+    thread.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user_msg)
+
+    # 2. Build message history for AI context (last 20 messages)
+    history = (
+        db.query(models.ChatMessage)
+        .filter(models.ChatMessage.thread_id == thread_id)
+        .order_by(models.ChatMessage.created_at)
+        .limit(20)
+        .all()
+    )
+
+    # 3. Call AI (OpenAI gpt-4o)
+    ai_text: str
+    try:
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not configured")
+        import httpx
+        from openai import OpenAI
+        http_client = httpx.Client(
+            timeout=60.0,
+            follow_redirects=True,
+            verify=False,
+        )
+        oai = OpenAI(api_key=api_key, http_client=http_client)
+
+        system_prompt = (
+            "You are Theodoros, an expert AI tutor specializing in Greek and Latin etymology, "
+            "Proto-Indo-European roots, and classical literature. "
+            "Provide clear, scholarly, yet approachable explanations. "
+            "Keep responses concise (1-3 paragraphs unless detail is requested). "
+            "When card context is provided, anchor your response to that specific word or concept."
+        )
+        if body.context_snapshot:
+            try:
+                ctx = json.loads(body.context_snapshot)
+                word = ctx.get("word") or ctx.get("word_or_phrase") or ""
+                if word:
+                    system_prompt += f"\n\nCurrent card: {word}."
+            except Exception:
+                pass
+
+        messages_for_ai = [{"role": "system", "content": system_prompt}]
+        for m in history[:-1]:  # exclude the just-added user message (already in history)
+            messages_for_ai.append({"role": m.role if m.role == "user" else "assistant", "content": m.text})
+        messages_for_ai.append({"role": "user", "content": body.user_text})
+
+        response = oai.chat.completions.create(
+            model="gpt-4o",
+            messages=messages_for_ai,
+            max_tokens=512,
+        )
+        ai_text = response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"[generate] AI call failed: {e}")
+        ai_text = f"[AI unavailable: {type(e).__name__}]"
+
+    # 4. Persist AI reply
+    ai_msg = models.ChatMessage(
+        id=f"msg_{uuid.uuid4().hex[:12]}",
+        thread_id=thread_id,
+        role="ai",
+        text=ai_text,
+    )
+    db.add(ai_msg)
+    thread.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(ai_msg)
+
+    return _message_dict(ai_msg)
+
+
 # ── Promotion endpoints ───────────────────────────────────────────────────────
 
 @router.post("/promotions")
