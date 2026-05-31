@@ -141,7 +141,7 @@ function ThreadsIndexTab({ allThreads, onNavigateWord }) {
                     <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 3, display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span className="mono">{t.when || t.created_at}</span>
                       <span>·</span>
-                      <span>{t.messages.length} msg</span>
+                      <span>{(t.messages?.length ?? t.message_count ?? 0)} msg</span>
                       {t.context?.steering && <><span>·</span><span style={{ color: 'var(--acc-2)' }}>steered</span></>}
                     </div>
                   </div>
