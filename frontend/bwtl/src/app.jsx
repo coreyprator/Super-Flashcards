@@ -91,9 +91,12 @@ function App() {
     }
   }, []);
 
-  // ── prefetch cards on boot ─────────────────────────────────────────────
+  // ── prefetch languages then cards on boot ─────────────────────────────
   React.useEffect(() => {
-    window.BWTL.fetchCards && window.BWTL.fetchCards().catch(() => {});
+    if (!window.BWTL.fetchCards) return;
+    (window.BWTL.fetchLanguages ? window.BWTL.fetchLanguages() : Promise.resolve([]))
+      .catch(() => [])
+      .then(() => window.BWTL.fetchCards().catch(() => {}));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── workspace UI state ───────────────────────────────────────────────────
