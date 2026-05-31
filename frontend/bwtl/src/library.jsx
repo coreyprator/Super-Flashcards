@@ -146,10 +146,10 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
       // Build a set of bookmarked flashcard IDs
       const bookmarks = Array.isArray(bookmarkData) ? bookmarkData : (bookmarkData?.items || []);
       window.BWTL.BOOKMARKS = bookmarks;
-      const bookmarkedIds = new Set(bookmarks.map(b => b.flashcard_ref_id));
+      const bookmarkedIds = new Set(bookmarks.map(b => (b.flashcard_ref_id || '').toLowerCase()));
       rawCards.forEach(c => {
         if (!c.language && c.language_id) c.language = langMap[c.language_id] || null;
-        c.bookmarked = bookmarkedIds.has(c.id);
+        c.bookmarked = bookmarkedIds.has((c.id || '').toLowerCase());
         window.BWTL.FLASHCARDS[c.id] = c; // update global cache for App's computeCardSpine
       });
       window.BWTL.LANGUAGES = Array.isArray(langData) ? langData : [];
