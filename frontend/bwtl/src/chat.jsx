@@ -81,7 +81,7 @@ function ChatDock({
   const grouped = React.useMemo(() => {
     const map = {};
     threads.forEach(t => {
-      const month = t.when.slice(0, 7);
+      const month = (t.when || t.created_at || '').slice(0, 7);
       (map[month] = map[month] || []).push(t);
     });
     return map;
@@ -103,7 +103,7 @@ function ChatDock({
           <div className="thread-info">
             {totalThreads > 0 ? (
               <>
-                <span className="thread-pill"><Ic.chat /> {totalThreads} thread{totalThreads !== 1 ? 's' : ''}<span className="count">· last: {threads[0]?.when}</span></span>
+                <span className="thread-pill"><Ic.chat /> {totalThreads} thread{totalThreads !== 1 ? 's' : ''}<span className="count">· last: {threads[0]?.when || threads[0]?.created_at}</span></span>
                 {!expanded && active && (
                   <span style={{ color: 'var(--fg-2)' }}>
                     “{active.title}”
@@ -148,7 +148,7 @@ function ChatDock({
                         onClick={() => onActivateThread(t.id)}
                       >
                         <div className="lead" style={{ fontWeight: 600 }}>{t.title}</div>
-                        <div className="when">{t.when} · {t.message_count || (t.messages ? t.messages.length : 0)} msg</div>
+                        <div className="when">{t.when || t.created_at} · {t.message_count || (t.messages?.length ?? 0)} msg</div>
                       </div>
                     ))}
                   </React.Fragment>
