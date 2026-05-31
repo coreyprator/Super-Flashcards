@@ -57,6 +57,8 @@ async function fetchCard(id) {
     const lang = (window.BWTL.LANGUAGES || []).find(l => l.id === card.language_id);
     if (lang) card.language = lang.name;
   }
+  const prev = window.BWTL.FLASHCARDS[id];
+  if (prev?.bookmarked) card.bookmarked = true; // preserve bookmark annotation
   window.BWTL.FLASHCARDS[id] = card;
   return card;
 }
