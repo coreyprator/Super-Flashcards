@@ -156,6 +156,7 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
         })) : []),
       ];
       forceUpdate();
+      window.dispatchEvent(new CustomEvent('bwtl:flashcards-loaded'));
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 

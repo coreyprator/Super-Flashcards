@@ -62,8 +62,15 @@ function App() {
   const [detailMode, setDetailMode] = React.useState('study');
   const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [flashcardsVersion, setFlashcardsVersion] = React.useState(0);
 
-  const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter]);
+  React.useEffect(() => {
+    const onLoaded = () => setFlashcardsVersion(v => v + 1);
+    window.addEventListener('bwtl:flashcards-loaded', onLoaded);
+    return () => window.removeEventListener('bwtl:flashcards-loaded', onLoaded);
+  }, []);
+
+  const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter, flashcardsVersion]);
 
   // ── URL-based routing on mount ───────────────────────────────────────────
   React.useEffect(() => {
