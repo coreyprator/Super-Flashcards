@@ -97,6 +97,8 @@ function CardFilterBar({ cardFilter, setCardFilter, shown }) {
         {chipBtn('bookmarked', 'Study set', <Ic.bookmark_filled style={{ color: cardFilter.chips.includes('bookmarked') ? 'var(--acc-2)' : 'var(--fg-4)', width: 13, height: 13 }} />)}
         {chipBtn('has_video', 'Has video', <Ic.play style={{ width: 13, height: 13 }} />)}
         {chipBtn('missing_data', 'Missing data', <Ic.spark style={{ width: 13, height: 13 }} />)}
+        {/* REQ-008: filter by etymology_layer */}
+        {chipBtn('has_ety_layer', 'Has layer', null)}
       </div>
       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-3)' }}>
         <Ic.globe />
@@ -124,6 +126,15 @@ function CardFilterBar({ cardFilter, setCardFilter, shown }) {
       <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">
         {shown} shown{cardFilter.chips.includes('bookmarked') ? ' · study set' : ''}{cardFilter.language ? ' · filtered' : ''}
       </span>
+      {/* REQ-041: reset filter button — visible only when any filter is active */}
+      {(cardFilter.chips.length > 0 || cardFilter.language || cardFilter.sort !== 'modified') && (
+        <button
+          className="btn xs ghost"
+          title="Reset all filters to defaults"
+          onClick={() => setCardFilter(f => ({ ...f, chips: [], language: null, sort: 'modified' }))}
+          style={{ fontSize: 11, color: 'var(--fg-3)' }}
+        >↺ Reset filters</button>
+      )}
     </div>
   );
 }
@@ -132,6 +143,9 @@ function CardFilterBar({ cardFilter, setCardFilter, shown }) {
 function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
   const [loading, setLoading] = React.useState(!Object.keys(window.BWTL.FLASHCARDS || {}).length);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  // REQ-040: multi-select delete state
+  const [selected, setSelected] = React.useState(new Set());
+  const [deleting, setDeleting] = React.useState(false);
 
   const loadCards = React.useCallback(() => {
     setLoading(true);
@@ -186,6 +200,8 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
     if (cardFilter.chips.includes('bookmarked')) cards = cards.filter(c => c.bookmarked);
     if (cardFilter.chips.includes('has_video')) cards = cards.filter(c => c.has_video);
     if (cardFilter.chips.includes('missing_data')) cards = cards.filter(c => !c.pie_root && !(c.pie_roots && c.pie_roots.length));
+    // REQ-008: filter by etymology_layer presence
+    if (cardFilter.chips.includes('has_ety_layer')) cards = cards.filter(c => !!c.etymology_layer);
     if (cardFilter.q) {
       const qLow = cardFilter.q.toLowerCase();
       cards = cards.filter(c => ((c.word_or_phrase || c.word || '') + ' ' + (c.definition || '')).toLowerCase().includes(qLow));
@@ -200,16 +216,52 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
     </div>
   );
 
+  // REQ-040: bulk delete handler
+  const handleDeleteSelected = async () => {
+    if (!selected.size) return;
+    if (!window.confirm(`Delete ${selected.size} card${selected.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await Promise.all([...selected].map(id => window.BWTL.deleteCard(id).then(() => { delete window.BWTL.FLASHCARDS[id]; })));
+      setSelected(new Set());
+      forceUpdate();
+    } catch (e) {
+      window.alert(`Delete failed: ${e?.message || e}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <CardFilterBar cardFilter={cardFilter} setCardFilter={setCardFilter} shown={cards.length} />
+      {/* REQ-040: action bar — visible when ≥1 card selected */}
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, padding: '8px 12px', background: 'rgba(229,85,85,0.08)', border: '1px solid rgba(229,85,85,0.25)', borderRadius: 8 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--fg-2)', fontWeight: 600 }}>{selected.size} selected</span>
+          <button className="btn xs ghost" onClick={() => setSelected(new Set())} style={{ fontSize: 11 }}>Clear selection</button>
+          <button
+            className="btn xs"
+            onClick={handleDeleteSelected}
+            disabled={deleting}
+            style={{ marginLeft: 'auto', background: 'var(--danger, #e55)', color: '#fff', border: 0, fontSize: 11 }}
+          >{deleting ? 'Deleting…' : `Delete selected (${selected.size})`}</button>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
         {cards.map(c => {
           const isFigure = !!c.figure_link;
           const noPie = !c.pie_root && !(c.pie_roots && c.pie_roots.length);
           const word = c.word_or_phrase || c.word;
+          const isChecked = selected.has(c.id);
           return (
-            <div key={c.id} className="card browse-card" onClick={() => onOpenCard(c.id)}>
+            <div key={c.id} className={`card browse-card${isChecked ? ' selected' : ''}`} style={{ position: 'relative' }}
+              onClick={(e) => { if (e.target.closest('[data-select-check]')) return; onOpenCard(c.id); }}>
+              {/* REQ-040: selection checkbox */}
+              <div data-select-check style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}
+                onClick={(e) => { e.stopPropagation(); setSelected(s => { const n = new Set(s); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; }); }}>
+                <input type="checkbox" checked={isChecked} readOnly style={{ cursor: 'pointer', width: 15, height: 15, accentColor: 'var(--acc)' }} />
+              </div>
               {/* REQ-037: thumbnail banner with word overlaid */}
               <div
                 className={`browse-thumb${isFigure ? ' figure' : ''}${noPie ? ' no-pie' : ''}`}
@@ -441,6 +493,21 @@ function DccTab({ q, onOpenCard }) {
     window.BWTL._apiFetch('/api/v1/dcc/list')
       .then(data => {
         const list = Array.isArray(data) ? data : (data.words || data.nodes || []);
+        // BUG-062: enrich sf_linked / sf_card_id from FLASHCARDS cache so the
+        // "linked" pill and "Open SF card" button in the detail modal actually work.
+        const fcMap = window.BWTL.FLASHCARDS || {};
+        const greekNorm = (s) => s ? s.normalize('NFC').toLowerCase().trim() : '';
+        const sfByGreek = {};
+        Object.values(fcMap).forEach(c => {
+          const w = (c.word_or_phrase || c.word || '').normalize('NFC').toLowerCase().trim();
+          if (w) sfByGreek[w] = c.id;
+        });
+        list.forEach(w => {
+          const label = greekNorm(w.label || w.word || '');
+          const matchId = sfByGreek[label];
+          if (matchId) { w.sf_linked = true; w.sf_card_id = matchId; }
+          else { w.sf_linked = false; w.sf_card_id = null; }
+        });
         window.BWTL.DCC_WORDS = list;
         setWords(list);
       })

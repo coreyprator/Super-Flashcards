@@ -28,6 +28,7 @@ function ChatDock({
 }) {
   const [draft, setDraft] = React.useState('');
   const [sending, setSending] = React.useState(false);
+  const [sendError, setSendError] = React.useState(null); // BUG-061: visible error state
   const [contextOpen, setContextOpen] = React.useState(false);
   const [snapOpen, setSnapOpen] = React.useState({});  // per-message-idx
   const messagesRef = React.useRef(null);
@@ -57,6 +58,7 @@ function ChatDock({
     const text = draft.trim();
     setDraft('');
     setSending(true);
+    setSendError(null); // BUG-061: clear previous error on new attempt
     // Optimistically add user message (BUG-056 fix: use canonical 'text' field)
     setMessages(prev => [...prev, { role: 'user', text: text, created_at: new Date().toISOString() }]);
     try {
@@ -73,7 +75,11 @@ function ChatDock({
         body: JSON.stringify({ user_text: text, context_snapshot: ctxSnap }),
       });
       setMessages(prev => [...prev, aiMsg]);
-    } catch(e) { console.error('[ChatDock] send error:', e); }
+    } catch(e) {
+      console.error('[ChatDock] send error:', e);
+      // BUG-061: surface error to user instead of silent failure
+      setSendError(e?.message || 'Failed to send — please try again.');
+    }
     finally { setSending(false); }
   };
 
@@ -229,6 +235,12 @@ function ChatDock({
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder={`Ask about ${anchor.label || anchor.value} — anchored to this card.`}
                 />
+                {/* BUG-061: inline error banner shown when send fails */}
+                {sendError && (
+                  <div style={{ fontSize: 11.5, color: 'var(--danger, #e55)', marginTop: 4, padding: '4px 6px', background: 'rgba(229,85,85,0.08)', borderRadius: 4 }}>
+                    {sendError}
+                  </div>
+                )}
                 <div className="chat-compose-prompt">
                   <span>Try:</span>
                   <span className="prompt-chip" onClick={() => setDraft('What\'s a striking fun-fact for this word?')}>fun fact?</span>
