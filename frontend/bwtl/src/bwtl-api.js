@@ -154,6 +154,11 @@ async function deleteBookmark(id) {
   return _apiFetch(`/api/bookmarks/${id}`, { method: 'DELETE' });
 }
 
+// REQ-039: delete a flashcard (PL-only)
+async function deleteCard(id) {
+  return _apiFetch(`/api/flashcards/${id}`, { method: 'DELETE' });
+}
+
 async function createCollection(body) {
   return _apiFetch('/api/bookmark_collections', { method: 'POST', body: JSON.stringify(body) });
 }
@@ -330,6 +335,7 @@ window.BWTL = {
   createBookmark,
   getBookmarks,
   deleteBookmark,
+  deleteCard,
   createCollection,
   getCollections,
   getCoverage,

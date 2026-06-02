@@ -1,5 +1,17 @@
 # 🎭 Playwright Testing Guide for Super-Flashcards
 
+## 🚦 Pre-Deploy Smoke Test (REQUIRED before gcloud builds submit)
+
+Run the 5-path preflight smoke before every deploy (target: ≤30s, catches regressions before they reach Cloud Build):
+
+```powershell
+pytest tests/test_preflight_smoke.py -x -q && gcloud builds submit --tag gcr.io/super-flashcards-475210/super-flashcards:latest --project super-flashcards-475210
+```
+
+Override URL for local testing: `$env:SF_BASE_URL = "http://localhost:8000"`
+
+---
+
 ## ✅ Setup Complete!
 
 Playwright is now installed and ready to use.

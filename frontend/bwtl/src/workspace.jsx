@@ -22,7 +22,8 @@ function Workspace({
   setExpandedChat,
   activeThreadId,
   setActiveThreadId,
-  onPromote
+  onPromote,
+  onCardDeleted,
 }) {
   const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
   // loadingCard is only true when we have a real cardId to fetch
@@ -126,6 +127,19 @@ function Workspace({
     if (next) onNavigateWord(next.card_id || next.id);
   };
 
+  // REQ-039: delete card (PL-only) — confirms, calls DELETE /api/flashcards/{id}, evicts cache
+  const handleDeleteCard = async () => {
+    if (!window.confirm(`Delete "${card.word_or_phrase || card.word}"? This cannot be undone.`)) return;
+    try {
+      await window.BWTL.deleteCard(card.id);
+      delete window.BWTL.FLASHCARDS[card.id];
+      window.BWTL.BOOKMARKS = (window.BWTL.BOOKMARKS || []).filter(b => b.flashcard_ref_id !== card.id);
+      if (onCardDeleted) onCardDeleted(card.id);
+    } catch (e) {
+      window.alert(`Failed to delete card: ${e?.message || e}`);
+    }
+  };
+
   const togglePanel = (k) => {
     setPanelState((p) => ({ ...p, [k]: p[k] === 'collapsed' ? 'open' : p[k] === 'open' ? 'collapsed' : 'open' }));
   };
@@ -146,6 +160,7 @@ function Workspace({
           onBookmark={handleBookmark}
           onChatAboutThis={handleChatAboutThis}
           onNextInStudy={handleNextInStudy}
+          onDelete={handleDeleteCard}
           onOpenImage={setImgModalSrc} />
         
       </div>
@@ -238,7 +253,7 @@ function Workspace({
 // WORD CARD — the centerpiece of the workspace
 // ─────────────────────────────────────────────────────────────────────────────
 
-function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrillForge, onDrillRag, onNavigateWord, onBookmark, onChatAboutThis, onNextInStudy, onOpenImage }) {
+function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrillForge, onDrillRag, onNavigateWord, onBookmark, onChatAboutThis, onNextInStudy, onDelete, onOpenImage }) {
   const canEdit = role === 'pl' || role === 'theo' || role === 'tutor';
   // BV-006: navigate to a cognate word card by searching the flashcards cache
   const handleCogClick = async (cogText) => {
@@ -281,6 +296,10 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
             <button className="btn sm ghost" onClick={onChatAboutThis}><Ic.chat /> Chat about this</button>
             <button className="btn sm ghost" onClick={onDrillForge}><Ic.film /> Generate video</button>
             <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={onNextInStudy}><Ic.shuffle /> Next in study</button>
+            {/* REQ-039: delete card — PL-only destructive action */}
+            {(role === 'pl') && (
+              <button className="btn sm ghost" title="Delete this card" style={{ color: 'var(--danger, #e55)' }} onClick={onDelete}>✕ Delete card</button>
+            )}
           </div>
         </div>
       </div>
@@ -304,6 +323,12 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12.5, color: 'var(--fg-3)' }}>
             <span className="pill pie" style={{ fontSize: 9.5 }}>{card.pie_root}</span>
             {card.pie_ipa && <span className="mono" style={{ fontSize: 11 }}>{card.pie_ipa}</span>}
+            {/* REQ-008: etymology_layer badge */}
+            {card.etymology_layer && (
+              <span className="pill ghost" style={{ fontSize: 9.5, textTransform: 'capitalize' }} title="Etymology layer: direct=borrowed directly; intermediate=via another language; distant=reconstructed cognate">
+                {card.etymology_layer}
+              </span>
+            )}
             {card.pie_audio_url && (
               <button className="btn xs ghost" style={{ padding: '2px 6px' }} title="Play PIE root audio"
                 onClick={() => new Audio(card.pie_audio_url).play()}>
@@ -622,7 +647,7 @@ window.AiEditButton = AiEditButton;
 function CardDetail({
   cardId, role, spine, mode, setMode, onBack, onNavByDelta, onOpenCard, onOpenFigure,
   panelState, setPanelState, glowedPanel, triggerGlow,
-  expandedChat, setExpandedChat, activeThreadId, setActiveThreadId, onPromote,
+  expandedChat, setExpandedChat, activeThreadId, setActiveThreadId, onPromote, onCardDeleted,
 }) {
   const [card, setCard] = React.useState(window.BWTL.FLASHCARDS[cardId] || null);
 
@@ -723,6 +748,7 @@ function CardDetail({
           activeThreadId={activeThreadId}
           setActiveThreadId={setActiveThreadId}
           onPromote={onPromote}
+          onCardDeleted={onCardDeleted}
         />
       )}
       {mode === 'pronunciation' && <PronunciationView card={card} />}

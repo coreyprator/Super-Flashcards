@@ -16,11 +16,15 @@ from app.default_user import get_default_user_id
 router = APIRouter(prefix="/voice-clone", tags=["voice-clone"])
 
 
+@router.get("")
 @router.get("/status")
 async def get_voice_clone_status(
     db: Session = Depends(get_db),
 ):
-    """Check if default PL user has a voice clone set up."""
+    """Check if default PL user has a voice clone set up.
+    BUG-054: root GET /voice-clone added as alias for /status so frontend
+    fetchVoiceClones() calling /api/v1/voice-clone does not 404.
+    """
     user_id = get_default_user_id()
     if not user_id:
         return {

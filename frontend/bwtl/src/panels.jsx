@@ -40,6 +40,9 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
   const [loadingRoot, setLoadingRoot] = React.useState(!root);
 
   React.useEffect(() => {
+    // BUG-045: clear stale root data before applying new key's data so old card's
+    // root never flashes while new root is loading or being set from cache.
+    setRoot(null);
     if (!pieRootKey) { setLoadingRoot(false); return; }
     if (window.BWTL.PIE_ROOTS[pieRootKey]) { setRoot(window.BWTL.PIE_ROOTS[pieRootKey]); setLoadingRoot(false); return; }
     setLoadingRoot(true);

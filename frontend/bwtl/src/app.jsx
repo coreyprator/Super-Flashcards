@@ -91,12 +91,11 @@ function App() {
     }
   }, []);
 
-  // ── prefetch languages then cards on boot ─────────────────────────────
+  // ── prefetch languages on boot; cards are loaded on-demand by CardsTab ──
+  // REQ-019: removed startup fetchCards() prefetch — cards load on-demand only
   React.useEffect(() => {
-    if (!window.BWTL.fetchCards) return;
-    (window.BWTL.fetchLanguages ? window.BWTL.fetchLanguages() : Promise.resolve([]))
-      .catch(() => [])
-      .then(() => window.BWTL.fetchCards().catch(() => {}));
+    if (!window.BWTL.fetchLanguages) return;
+    window.BWTL.fetchLanguages().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── workspace UI state ───────────────────────────────────────────────────
@@ -155,6 +154,14 @@ function App() {
   const onPromote = (payload) => {
     const fieldMeta = window.BWTL.PROMOTE_FIELDS.find(f => f.key === payload.field);
     showToast(`Accepted to ${window.BWTL.FLASHCARDS[payload.card]?.word || payload.card} · ${fieldMeta?.label || payload.field}`);
+  };
+
+  // REQ-039: card deleted — evict from spine and go back to browse
+  const onCardDeleted = (cardId) => {
+    setCardSpine(s => (s || []).filter(id => id !== cardId));
+    setDetailCardId(null);
+    setSection('browse');
+    showToast('Card deleted');
   };
 
   // ── toast (lightweight) ──────────────────────────────────────────────────
@@ -228,7 +235,8 @@ function App() {
                   setExpandedChat={setExpandedChat}
                   activeThreadId={activeThreadId}
                   setActiveThreadId={setActiveThreadId}
-                  onPromote={onPromote} />
+                  onPromote={onPromote}
+                  onCardDeleted={onCardDeleted} />
               )}
               {section === 'generate'  && <GenerateView cardId={detailCardId || 'fc_souvenir'} role={role} />}
               {section === 'theodoros' && (
@@ -357,6 +365,14 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
             value={cardFilter?.q || ''}
             onChange={(e) => setCardFilter(f => ({ ...f, q: e.target.value }))}
           />
+          {/* REQ-042: clear search button — visible only when search is non-empty */}
+          {cardFilter?.q && (
+            <button
+              title="Clear search"
+              onClick={() => setCardFilter(f => ({ ...f, q: '' }))}
+              style={{ appearance: 'none', background: 'transparent', border: 0, color: 'var(--fg-3)', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center', borderRadius: 4 }}
+            >✕</button>
+          )}
           <span className="kbd">⌘K</span>
         </div>
 

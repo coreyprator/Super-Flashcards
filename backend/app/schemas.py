@@ -58,6 +58,8 @@ class FlashcardBase(BaseModel):
     cognate_pie_roots: Optional[str] = None
     # EFG consolidation — ETY01H
     efg_node_id: Optional[str] = None
+    # REQ-008: etymology layer classification
+    etymology_layer: Optional[str] = None  # "direct", "intermediate", "distant", None
     # Sentence card fields (SF-SENT-001)
     card_type: Optional[str] = "word"  # word, sentence, paragraph
     source_book: Optional[str] = None
@@ -106,6 +108,8 @@ class FlashcardUpdate(BaseModel):
     chapter_number: Optional[int] = None
     sentence_order: Optional[int] = None
     translation: Optional[str] = None
+    # REQ-008: etymology layer classification
+    etymology_layer: Optional[str] = None
     # REQ-021: Compound PIE root accept flow
     compound_roots: Optional[List[CompoundRoot]] = None
     is_compound: Optional[bool] = False

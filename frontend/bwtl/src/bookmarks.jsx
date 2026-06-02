@@ -105,7 +105,8 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
                 </div>
                 <div style={{ padding: '14px 16px' }}>
                   <div style={{ fontFamily: b.kind === 'pie_root' ? 'var(--ff-display)' : 'var(--ff-sans)', fontSize: b.kind === 'pie_root' ? 22 : 17, fontWeight: 600, color: 'var(--fg)' }}>
-                    {b.label || b.ref_label || b.flashcard_ref_id}
+                    {/* BUG-060: use FLASHCARDS cache as fallback to prevent ghost rows showing only UUID */}
+                    {b.label || b.ref_label || (b.flashcard_ref_id && (window.BWTL.FLASHCARDS[b.flashcard_ref_id]?.word_or_phrase || window.BWTL.FLASHCARDS[b.flashcard_ref_id]?.word)) || b.flashcard_ref_id}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>{b.meta || b.kind}</div>
                 </div>

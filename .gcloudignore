@@ -37,3 +37,9 @@ pwd.bin
 
 # Stale OAuth credentials - Cloud Run uses env vars instead
 **/google_oauth_client.json
+
+# REV-3 prototype extract folders (large, dev-only)
+bwtl_rev3_extract/
+bwtl_rev3_extract2/
+bwtl_rev3_extract3/
+*.zip
