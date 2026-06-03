@@ -299,6 +299,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
     errors = 0
 
     # Flashcards whose word_or_phrase has no etymology entry (exact NOT IN).
+    # Exclude entries > 200 chars (French literary quotes, not dictionary headwords).
     # Sentinel stored as raw_headword so this exact check always terminates.
     batch_rows = db.execute(
         text(
@@ -306,6 +307,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
             "FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
             "  AND [word_or_phrase] != '' "
+            "  AND LEN([word_or_phrase]) <= 200 "
             "  AND [word_or_phrase] NOT IN ("
             "      SELECT [headword] FROM [dbo].[etymology_entries]"
             "  )"
@@ -391,14 +393,14 @@ async def _etl_etymology_batch(db: Session) -> dict:
             _insert_etymology_sentinel(db, raw_headword)
             skipped += 1
 
-    # Remaining: flashcards still without any etymology entry (exact NOT IN)
-    # Also fetch sample stuck words for diagnostic
+    # Remaining: flashcards still without any etymology entry (exact NOT IN, <= 200 chars)
     remaining_rows = db.execute(
         text(
             "SELECT TOP (10) [word_or_phrase] "
             "FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
             "  AND [word_or_phrase] != '' "
+            "  AND LEN([word_or_phrase]) <= 200 "
             "  AND [word_or_phrase] NOT IN ("
             "      SELECT [headword] FROM [dbo].[etymology_entries]"
             "  )"
@@ -409,6 +411,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
             "SELECT COUNT(*) FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
             "  AND [word_or_phrase] != '' "
+            "  AND LEN([word_or_phrase]) <= 200 "
             "  AND [word_or_phrase] NOT IN ("
             "      SELECT [headword] FROM [dbo].[etymology_entries]"
             "  )"
