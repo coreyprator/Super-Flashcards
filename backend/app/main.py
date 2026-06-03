@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 5.1.0 - BWTL09: Strip bypass auth middleware entirely (SF-16)
+# Version: 5.4.0 - SF-ETL-DICT-001: Dictionary ETL (etymology_entries, dcc_vocabulary) + search endpoints
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,7 +27,7 @@ from app.routers import efg_native  # BUG-070: SF-native EFG graph endpoint
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.3.0"
+APP_VERSION = "5.4.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
