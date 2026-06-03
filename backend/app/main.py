@@ -20,6 +20,7 @@ import secrets
 from app.database import engine, get_db
 from app import models, schemas, crud
 from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone, study
+from app.routers import efg_native  # BUG-070: SF-native EFG graph endpoint
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
@@ -166,6 +167,7 @@ app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcard
 app.include_router(ai_generate.router, prefix="/api/ai", tags=["ai-generate"])  # Sprint 2
 app.include_router(languages.router, prefix="/api/languages", tags=["languages"])  # Sprint 3
 app.include_router(users.router, prefix="/api/users", tags=["users"])  # User management
+app.include_router(efg_native.router)  # BUG-070: /api/efg/graph?node=X
 app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # Import functionality
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
@@ -222,6 +224,10 @@ from .routers import chat, bookmarks, admin_bwtl
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(bookmarks.router, prefix="/api", tags=["bookmarks"])
 app.include_router(admin_bwtl.router, prefix="/api", tags=["admin-bwtl"])
+
+# SF-ETL-DICT: Dictionary ETL + migration runner
+from .routers import admin_etl
+app.include_router(admin_etl.router, prefix="/api", tags=["admin-etl"])
 
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
