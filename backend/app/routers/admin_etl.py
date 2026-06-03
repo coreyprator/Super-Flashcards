@@ -204,6 +204,7 @@ async def etl_dictionary(db: Session = Depends(get_db)):
     skipped += ety_result["skipped"]
     errors += ety_result["errors"]
     ety_remaining = ety_result["remaining"]
+    ety_sample_stuck = ety_result.get("sample_stuck", [])
 
     total_remaining = dcc_remaining + ety_remaining
 
@@ -212,6 +213,8 @@ async def etl_dictionary(db: Session = Depends(get_db)):
         f"Etymology batched: {ety_result['processed']} new, {ety_result['skipped']} skip",
         f"Remaining: {total_remaining}",
     ]
+    if ety_sample_stuck:
+        detail_parts.append(f"Sample stuck: {ety_sample_stuck}")
 
     return EtlDictionaryResponse(
         processed=processed,
@@ -389,7 +392,19 @@ async def _etl_etymology_batch(db: Session) -> dict:
             skipped += 1
 
     # Remaining: flashcards still without any etymology entry (exact NOT IN)
-    remaining: int = db.execute(
+    # Also fetch sample stuck words for diagnostic
+    remaining_rows = db.execute(
+        text(
+            "SELECT TOP (10) [word_or_phrase] "
+            "FROM [dbo].[flashcards] "
+            "WHERE [word_or_phrase] IS NOT NULL "
+            "  AND [word_or_phrase] != '' "
+            "  AND [word_or_phrase] NOT IN ("
+            "      SELECT [headword] FROM [dbo].[etymology_entries]"
+            "  )"
+        )
+    ).fetchall()
+    remaining = len(remaining_rows) if len(remaining_rows) < 10 else db.execute(
         text(
             "SELECT COUNT(*) FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
@@ -399,12 +414,13 @@ async def _etl_etymology_batch(db: Session) -> dict:
             "  )"
         )
     ).scalar() or 0
+    sample_stuck = [repr((r[0] or "")[:30]) for r in remaining_rows[:5]]
 
     logger.info(
-        "Etymology ETL batch: processed=%d skipped=%d errors=%d remaining=%d",
-        processed, skipped, errors, remaining,
+        "Etymology ETL batch: processed=%d skipped=%d errors=%d remaining=%d sample=%s",
+        processed, skipped, errors, remaining, sample_stuck,
     )
-    return {"processed": processed, "skipped": skipped, "errors": errors, "remaining": remaining}
+    return {"processed": processed, "skipped": skipped, "errors": errors, "remaining": remaining, "sample_stuck": sample_stuck}
 
 
 async def _query_rag_etymology(headword: str) -> list:
