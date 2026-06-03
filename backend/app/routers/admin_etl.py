@@ -112,13 +112,21 @@ def apply_migration(req: ApplyMigrationRequest, db: Session = Depends(get_db)):
         logger.error("Cannot read migration file %s: %s", sql_path, exc)
         raise HTTPException(status_code=500, detail="Cannot read migration file.")
 
-    # Split on GO statements (SQL Server batch separator) and on semicolons,
-    # filtering out comment-only or blank statements.
+    # Split on GO statements (SQL Server batch separator), filtering out
+    # entirely blank/comment-only batches.
     raw_batches = re.split(r"(?im)^\s*GO\s*$", sql_content)
+    # If no GO separators, treat the whole file as one batch
+    if len(raw_batches) == 1:
+        raw_batches = [sql_content]
     executed = 0
     for batch in raw_batches:
         batch = batch.strip()
-        if not batch or batch.startswith("--"):
+        # Skip batches that are empty or contain only comment lines
+        non_comment = "\n".join(
+            line for line in batch.splitlines()
+            if line.strip() and not line.strip().startswith("--")
+        ).strip()
+        if not non_comment:
             continue
         try:
             db.execute(text(batch))
