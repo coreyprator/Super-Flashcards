@@ -229,6 +229,11 @@ app.include_router(admin_bwtl.router, prefix="/api", tags=["admin-bwtl"])
 from .routers import admin_etl
 app.include_router(admin_etl.router, prefix="/api", tags=["admin-etl"])
 
+# SF-ETL-DICT: Etymology + DCC search endpoints
+from .routers import etymology_search, dcc_search
+app.include_router(etymology_search.router, prefix="/api", tags=["etymology-search"])
+app.include_router(dcc_search.router, prefix="/api", tags=["dcc-search"])
+
 # Serve static files (frontend)
 frontend_path = os.path.join(os.path.dirname(__file__), "../../frontend")
 # For Cloud Run, serve from local directory if frontend is copied into image
