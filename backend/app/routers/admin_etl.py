@@ -295,16 +295,16 @@ async def _etl_etymology_batch(db: Session) -> dict:
     skipped = 0
     errors = 0
 
-    # Flashcards whose word_or_phrase has no etymology entries yet
-    # Use LTRIM/RTRIM on both sides to handle leading/trailing whitespace
+    # Flashcards whose word_or_phrase has no etymology entry (exact NOT IN).
+    # Sentinel stored as raw_headword so this exact check always terminates.
     batch_rows = db.execute(
         text(
             "SELECT TOP (:batch_size) [word_or_phrase] "
             "FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
-            "  AND LTRIM(RTRIM([word_or_phrase])) != '' "
-            "  AND LTRIM(RTRIM([word_or_phrase])) NOT IN ("
-            "      SELECT LTRIM(RTRIM([headword])) FROM [dbo].[etymology_entries]"
+            "  AND [word_or_phrase] != '' "
+            "  AND [word_or_phrase] NOT IN ("
+            "      SELECT [headword] FROM [dbo].[etymology_entries]"
             "  )"
         ),
         {"batch_size": _ETY_BATCH_SIZE},
@@ -316,7 +316,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
 
     for row in batch_rows:
         raw_headword = row[0] or ""
-        headword = raw_headword.strip()  # stripped version for RAG query and sentinel key
+        headword = raw_headword.strip()  # stripped version for RAG query only
         if not headword:
             continue
 
@@ -328,8 +328,8 @@ async def _etl_etymology_batch(db: Session) -> dict:
             continue
 
         if not rag_results:
-            # Insert sentinel with stripped headword (matches LTRIM/RTRIM NOT IN)
-            _insert_etymology_sentinel(db, headword)
+            # Sentinel stored as raw_headword (exact flashcard value) so NOT IN terminates
+            _insert_etymology_sentinel(db, raw_headword)
             skipped += 1
             continue
 
@@ -383,19 +383,19 @@ async def _etl_etymology_batch(db: Session) -> dict:
                 errors += 1
 
         # If RAG had results but every rag_source_id was already in the DB,
-        # the headword is still uncovered — insert a sentinel to prevent looping.
+        # insert sentinel with raw_headword so NOT IN exact match terminates.
         if headword_new == 0:
-            _insert_etymology_sentinel(db, headword)
+            _insert_etymology_sentinel(db, raw_headword)
             skipped += 1
 
-    # Remaining: flashcards still without any etymology entry
+    # Remaining: flashcards still without any etymology entry (exact NOT IN)
     remaining: int = db.execute(
         text(
             "SELECT COUNT(*) FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
-            "  AND LTRIM(RTRIM([word_or_phrase])) != '' "
-            "  AND LTRIM(RTRIM([word_or_phrase])) NOT IN ("
-            "      SELECT LTRIM(RTRIM([headword])) FROM [dbo].[etymology_entries]"
+            "  AND [word_or_phrase] != '' "
+            "  AND [word_or_phrase] NOT IN ("
+            "      SELECT [headword] FROM [dbo].[etymology_entries]"
             "  )"
         )
     ).scalar() or 0
