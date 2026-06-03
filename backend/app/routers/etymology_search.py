@@ -63,7 +63,7 @@ def etymology_search(
     ft_term = f'"{q}"'
 
     source_filter = ""
-    params: dict = {"ft_term": ft_term, "limit": limit}
+    params: dict = {"ft_term": ft_term, "limit": limit, "q_lower": q.lower()}
     if source:
         source_filter = " AND [source] = :source"
         params["source"] = source
@@ -76,14 +76,14 @@ def etymology_search(
                 "WHERE CONTAINS(([headword], [excerpt], [full_text]), :ft_term)"
                 + source_filter +
                 " AND [source] != '__no_match__'"
-                " ORDER BY [confidence] DESC"
+                " ORDER BY CASE WHEN LOWER([headword]) = :q_lower THEN 0 ELSE 1 END, [confidence] DESC"
             ),
             params,
         ).fetchall()
     except Exception:
         # Fallback: FT index may still be building — use LIKE
         like_term = f"%{q}%"
-        params_like: dict = {"like_term": like_term, "limit": limit}
+        params_like: dict = {"like_term": like_term, "limit": limit, "q_lower": q.lower()}
         if source:
             params_like["source"] = source
         rows = db.execute(
@@ -93,7 +93,7 @@ def etymology_search(
                 "WHERE ([headword] LIKE :like_term OR [excerpt] LIKE :like_term)"
                 + (" AND [source] = :source" if source else "") +
                 " AND [source] != '__no_match__'"
-                " ORDER BY [confidence] DESC"
+                " ORDER BY CASE WHEN LOWER([headword]) = :q_lower THEN 0 ELSE 1 END, [confidence] DESC"
             ),
             params_like,
         ).fetchall()
