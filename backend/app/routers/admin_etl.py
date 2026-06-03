@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin-etl"])
@@ -128,9 +128,20 @@ def apply_migration(req: ApplyMigrationRequest, db: Session = Depends(get_db)):
         ).strip()
         if not non_comment:
             continue
+
+        # SQL Server requires FULLTEXT DDL to run outside any transaction
+        needs_autocommit = any(
+            kw in non_comment.upper()
+            for kw in ("FULLTEXT CATALOG", "FULLTEXT INDEX")
+        )
+
         try:
-            db.execute(text(batch))
-            db.commit()
+            if needs_autocommit:
+                with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+                    conn.execute(text(batch))
+            else:
+                db.execute(text(batch))
+                db.commit()
             executed += 1
         except Exception as exc:
             db.rollback()
