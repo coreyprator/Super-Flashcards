@@ -310,7 +310,8 @@ async def _etl_etymology_batch(db: Session) -> dict:
     ).fetchall()
 
     for row in batch_rows:
-        headword = (row[0] or "").strip()
+        raw_headword = row[0] or ""
+        headword = raw_headword.strip()
         if not headword:
             continue
 
@@ -322,8 +323,8 @@ async def _etl_etymology_batch(db: Session) -> dict:
             continue
 
         if not rag_results:
-            # Insert a sentinel so this word is not re-queried every batch
-            _insert_etymology_sentinel(db, headword)
+            # Insert sentinel using raw DB value so NOT IN check matches exactly
+            _insert_etymology_sentinel(db, raw_headword)
             skipped += 1
             continue
 
@@ -379,7 +380,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
         # If RAG had results but every rag_source_id was already in the DB,
         # the headword is still uncovered — insert a sentinel to prevent looping.
         if headword_new == 0:
-            _insert_etymology_sentinel(db, headword)
+            _insert_etymology_sentinel(db, raw_headword)
             skipped += 1
 
     # Remaining: flashcards still without any etymology entry
