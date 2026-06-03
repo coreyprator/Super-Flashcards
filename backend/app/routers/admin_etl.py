@@ -296,22 +296,27 @@ async def _etl_etymology_batch(db: Session) -> dict:
     errors = 0
 
     # Flashcards whose word_or_phrase has no etymology entries yet
+    # Use LTRIM/RTRIM on both sides to handle leading/trailing whitespace
     batch_rows = db.execute(
         text(
             "SELECT TOP (:batch_size) [word_or_phrase] "
             "FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
-            "  AND [word_or_phrase] != '' "
-            "  AND [word_or_phrase] NOT IN ("
-            "      SELECT [headword] FROM [dbo].[etymology_entries]"
+            "  AND LTRIM(RTRIM([word_or_phrase])) != '' "
+            "  AND LTRIM(RTRIM([word_or_phrase])) NOT IN ("
+            "      SELECT LTRIM(RTRIM([headword])) FROM [dbo].[etymology_entries]"
             "  )"
         ),
         {"batch_size": _ETY_BATCH_SIZE},
     ).fetchall()
 
+    if batch_rows:
+        sample_repr = repr((batch_rows[0][0] or "")[:50])
+        logger.info("ETL batch sample headword: %s (total batch=%d)", sample_repr, len(batch_rows))
+
     for row in batch_rows:
         raw_headword = row[0] or ""
-        headword = raw_headword.strip()
+        headword = raw_headword.strip()  # stripped version for RAG query and sentinel key
         if not headword:
             continue
 
@@ -323,8 +328,8 @@ async def _etl_etymology_batch(db: Session) -> dict:
             continue
 
         if not rag_results:
-            # Insert sentinel using raw DB value so NOT IN check matches exactly
-            _insert_etymology_sentinel(db, raw_headword)
+            # Insert sentinel with stripped headword (matches LTRIM/RTRIM NOT IN)
+            _insert_etymology_sentinel(db, headword)
             skipped += 1
             continue
 
@@ -380,7 +385,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
         # If RAG had results but every rag_source_id was already in the DB,
         # the headword is still uncovered — insert a sentinel to prevent looping.
         if headword_new == 0:
-            _insert_etymology_sentinel(db, raw_headword)
+            _insert_etymology_sentinel(db, headword)
             skipped += 1
 
     # Remaining: flashcards still without any etymology entry
@@ -388,9 +393,9 @@ async def _etl_etymology_batch(db: Session) -> dict:
         text(
             "SELECT COUNT(*) FROM [dbo].[flashcards] "
             "WHERE [word_or_phrase] IS NOT NULL "
-            "  AND [word_or_phrase] != '' "
-            "  AND [word_or_phrase] NOT IN ("
-            "      SELECT [headword] FROM [dbo].[etymology_entries]"
+            "  AND LTRIM(RTRIM([word_or_phrase])) != '' "
+            "  AND LTRIM(RTRIM([word_or_phrase])) NOT IN ("
+            "      SELECT LTRIM(RTRIM([headword])) FROM [dbo].[etymology_entries]"
             "  )"
         )
     ).scalar() or 0
@@ -440,4 +445,4 @@ def _insert_etymology_sentinel(db: Session, headword: str) -> None:
         db.commit()
     except Exception as exc:
         db.rollback()
-        logger.debug("Sentinel insert skipped for '%s': %s", headword, exc)
+        logger.warning("Sentinel insert FAILED for '%s' (repr=%s): %s", headword, repr(headword[:30]), exc)
