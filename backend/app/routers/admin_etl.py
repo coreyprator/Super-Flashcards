@@ -187,14 +187,16 @@ async def etl_dictionary(db: Session = Depends(get_db)):
     # ── Step A: DCC vocabulary (all 519 in one pass) ─────────────────────────
     dcc_count: int = db.execute(text("SELECT COUNT(*) FROM [dbo].[dcc_vocabulary]")).scalar() or 0
 
-    if dcc_count < 519:
+    # Cap at 499 — 20 EFG words have no greek_word and will never be inserted
+    _DCC_EFG_MAX = 499
+    if dcc_count < _DCC_EFG_MAX:
         dcc_result = await _etl_dcc(db)
         processed += dcc_result["processed"]
         skipped += dcc_result["skipped"]
         errors += dcc_result["errors"]
         dcc_count = db.execute(text("SELECT COUNT(*) FROM [dbo].[dcc_vocabulary]")).scalar() or 0
 
-    dcc_remaining = max(0, 519 - dcc_count)
+    dcc_remaining = max(0, _DCC_EFG_MAX - dcc_count)
 
     # ── Step B: Etymology entries (batch of SF flashcard words) ──────────────
     ety_result = await _etl_etymology_batch(db)
@@ -325,6 +327,7 @@ async def _etl_etymology_batch(db: Session) -> dict:
             skipped += 1
             continue
 
+        headword_new = 0  # track inserts for this specific headword
         for result in rag_results:
             raw_source = result.get("source", "")
             full_text = (result.get("full_text") or result.get("snippet") or "").strip()
@@ -367,10 +370,17 @@ async def _etl_etymology_batch(db: Session) -> dict:
                 )
                 db.commit()
                 processed += 1
+                headword_new += 1
             except Exception as exc:
                 db.rollback()
                 logger.warning("Etymology insert failed for '%s': %s", headword, exc)
                 errors += 1
+
+        # If RAG had results but every rag_source_id was already in the DB,
+        # the headword is still uncovered — insert a sentinel to prevent looping.
+        if headword_new == 0:
+            _insert_etymology_sentinel(db, headword)
+            skipped += 1
 
     # Remaining: flashcards still without any etymology entry
     remaining: int = db.execute(
