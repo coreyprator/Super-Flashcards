@@ -40,12 +40,14 @@ def _get_efg_password():
 
 
 def _get_efg_connection():
-    """Open a pyodbc connection to EtymologyGraph DB using efg_user credentials."""
+    """Open a pyodbc connection to learning DB using efg_user credentials.
+    SF-RAG-NUKE Phase 3: repointed from EtymologyGraph → learning DB.
+    """
     password = _get_efg_password()
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
         "SERVER=35.224.242.223,1433;"
-        "DATABASE=EtymologyGraph;"
+        "DATABASE=learning;"
         "UID=efg_user;"
         f"PWD={password};"
         "Encrypt=yes;"
@@ -155,3 +157,52 @@ def get_efg_graph(
         "edges": edges,
         "truncated": truncated,
     }
+
+
+@router.get("/roots")
+def get_efg_roots():
+    """
+    SF-RAG-NUKE Phase 1 (M05): Return all PIE root nodes from learning.dbo.nodes.
+    Replaces external calls to efg.rentyourcio.com/api/roots.
+    Read-only reference data — no auth required.
+    """
+    try:
+        conn = _get_efg_connection()
+        cursor = conn.cursor()
+    except Exception as exc:
+        logger.error("[efg_native] /roots DB connection failed: %s", exc)
+        raise HTTPException(status_code=500, detail="EFG roots query failed")
+
+    try:
+        cursor.execute(
+            """
+            SELECT id, label, language, node_type, gloss, pie_root, pie_root_id,
+                   source, transliteration, pos, semantic_group
+            FROM nodes
+            ORDER BY label
+            """
+        )
+        rows = cursor.fetchall()
+    except Exception as exc:
+        logger.error("[efg_native] /roots query failed: %s", exc)
+        conn.close()
+        raise HTTPException(status_code=500, detail="EFG roots query failed")
+
+    nodes = [
+        {
+            "id": r.id,
+            "root": r.label or r.id,
+            "language": r.language,
+            "node_type": r.node_type,
+            "gloss": r.gloss,
+            "pie_root": r.pie_root,
+            "pie_root_id": r.pie_root_id,
+            "source": r.source,
+            "transliteration": r.transliteration,
+            "pos": r.pos,
+            "semantic_group": r.semantic_group,
+        }
+        for r in rows
+    ]
+    conn.close()
+    return nodes
