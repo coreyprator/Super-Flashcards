@@ -73,7 +73,7 @@ def etymology_search(
             text(
                 "SELECT TOP (:limit) [id], [headword], [language], [source], [excerpt], [confidence] "
                 "FROM [dbo].[etymology_entries] "
-                "WHERE CONTAINS(([headword], [excerpt], [full_text]), :ft_term)"
+                "WHERE CONTAINS(([headword], [excerpt], [full_text], [headword_latin], [headword_ascii]), :ft_term)"
                 + source_filter +
                 " AND [source] != '__no_match__'"
                 " ORDER BY CASE WHEN LOWER([headword]) = :q_lower THEN 0 ELSE 1 END, [confidence] DESC"
@@ -90,7 +90,8 @@ def etymology_search(
             text(
                 "SELECT TOP (:limit) [id], [headword], [language], [source], [excerpt], [confidence] "
                 "FROM [dbo].[etymology_entries] "
-                "WHERE ([headword] LIKE :like_term OR [excerpt] LIKE :like_term)"
+                "WHERE ([headword] LIKE :like_term OR [excerpt] LIKE :like_term"
+                " OR [headword_latin] LIKE :like_term OR [headword_ascii] LIKE :like_term)"
                 + (" AND [source] = :source" if source else "") +
                 " AND [source] != '__no_match__'"
                 " ORDER BY CASE WHEN LOWER([headword]) = :q_lower THEN 0 ELSE 1 END, [confidence] DESC"
