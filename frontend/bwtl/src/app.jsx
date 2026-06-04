@@ -204,7 +204,7 @@ function App() {
               roleMenuOpen={roleMenuOpen} setRoleMenuOpen={setRoleMenuOpen}
               cardFilter={cardFilter} setCardFilter={setCardFilter} />
             {trail.length > 0 && <Crumbs trail={trail} go={(g) => { if (g.section) setSection(g.section); if (g.clearDetail) setDetailCardId(null); }} />}
-            <div className="main-area">
+            <main className="main-area">
               {section === 'browse' && !detailCardId && (
                 <BrowseView
                   onOpenCard={openCard}
@@ -258,7 +258,7 @@ function App() {
                   onOpenCard={(id) => { setSection('browse'); openCard(id); }}
                   onOpenFigure={openFigure} />
               )}
-            </div>
+            </main>
           </>
         ) : (
           <SpecDoc />
@@ -476,6 +476,12 @@ function SettingsView({ role }) {
             <span className="pill ghost">Marcus · Latin restored</span>
           </div>
           <button className="btn sm ghost" style={{ marginTop: 10 }}>Manage voice clones</button>
+          {/* TSK-023: voice-trace diagnostics gate — only visible when BWTL_DEBUG_VOICE is set */}
+          {window.BWTL_DEBUG_VOICE && (
+            <div style={{ marginTop: 10, padding: 8, background: 'var(--bg-2)', border: '1px dashed var(--warn)', borderRadius: 6, fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--ff-mono)' }}>
+              [voice-trace] BWTL_DEBUG_VOICE active · clones: {Object.keys(window.BWTL.VOICE_CLONES || {}).length} · fetchVoiceClones available: {typeof window.BWTL.fetchVoiceClones === 'function' ? 'yes' : 'no'}
+            </div>
+          )}
         </SettingsRow>
 
         <SettingsRow title="Source apps · deep-link out">

@@ -105,6 +105,7 @@ function CardFilterBar({ cardFilter, setCardFilter, shown }) {
         <select
           value={cardFilter.language || ''}
           onChange={(e) => setCardFilter(f => ({ ...f, language: e.target.value || null }))}
+          aria-label="Language filter"
           style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--fg)', borderRadius: 6, padding: '5px 8px', font: 'inherit', fontSize: 12 }}
         >
           {langs.map(l => <option key={l.code || 'all'} value={l.code || ''}>{l.name}{l.count != null ? ` (${l.count})` : ''}</option>)}
@@ -260,7 +261,7 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
               {/* REQ-040: selection checkbox */}
               <div data-select-check style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}
                 onClick={(e) => { e.stopPropagation(); setSelected(s => { const n = new Set(s); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; }); }}>
-                <input type="checkbox" checked={isChecked} readOnly style={{ cursor: 'pointer', width: 15, height: 15, accentColor: 'var(--acc)' }} />
+                <input type="checkbox" checked={isChecked} readOnly aria-label={`Select card: ${word}`} style={{ cursor: 'pointer', width: 15, height: 15, accentColor: 'var(--acc)' }} />
               </div>
               {/* REQ-037: thumbnail banner with word overlaid */}
               <div
@@ -347,6 +348,7 @@ function FiguresTab({ q, onOpenFigure }) {
   const [figs, setFigs] = React.useState(Object.values(window.BWTL.FIGURES));
   const [loading, setLoading] = React.useState(!figs.length);
   const [iframeFig, setIframeFig] = React.useState(null); // BV-FIG-IFRAME-001: iFrame modal
+  const iframeRef = React.useRef(null); // BUG-069: defer postMessage until onLoad
 
   const _EM_URL = 'https://etymython.rentyourcio.com';
 
@@ -404,13 +406,22 @@ function FiguresTab({ q, onOpenFigure }) {
           <dialog open style={{ position: 'fixed', inset: '5vh 5vw', width: '90vw', height: '90vh', margin: 0, padding: 0, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--line-soft)', gap: 8 }}>
               <span className="pill myth" style={{ fontSize: 10.5 }}>{iframeFig.english_name || iframeFig.name}</span>
-              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)', flex: 1 }}>{_EM_URL}/figures/{iframeFig.id}</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)', flex: 1 }}>{_EM_URL} · figure {iframeFig.id}</span>
               <button className="btn xs ghost" onClick={() => setIframeFig(null)}>✕ Close</button>
             </div>
             <iframe
-              src={`${_EM_URL}/figures/${iframeFig.id}`}
+              ref={iframeRef}
+              src={`${_EM_URL}/`}
               title={`Etymython · ${iframeFig.english_name}`}
               style={{ flex: 1, border: 'none', width: '100%' }}
+              onLoad={() => {
+                if (iframeRef.current && iframeFig) {
+                  iframeRef.current.contentWindow.postMessage(
+                    { figure_id: iframeFig.id },
+                    'https://etymython.rentyourcio.com'
+                  );
+                }
+              }}
             />
           </dialog>
         </>

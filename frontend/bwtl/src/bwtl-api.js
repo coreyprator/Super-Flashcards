@@ -251,7 +251,8 @@ async function fetchCognates(word) {
 
 // ─── EFG API ──────────────────────────────────────────────────────────────────
 async function fetchEfgGraph(nodeId) {
-  return _fetchExternal(`${_EFG_URL}/api/nodes/${encodeURIComponent(nodeId)}`);
+  // BUG-070: switched from external EFG service to SF-native endpoint
+  return _apiFetch(`/api/efg/graph?node=${encodeURIComponent(nodeId)}`);
 }
 
 async function fetchEfgRoots() {
