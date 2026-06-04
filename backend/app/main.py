@@ -21,6 +21,7 @@ from app.database import engine, get_db
 from app import models, schemas, crud
 from app.routers import flashcards, ai_generate, languages, users, import_flashcards, batch_processing, audio, auth, pronunciation, voice_clone, study
 from app.routers import efg_native  # BUG-070: SF-native EFG graph endpoint
+from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Removed unused routes for faster startup: ipa, batch_ipa, tts_testing (development-only)
 # Kept: audio (production TTS functionality), pronunciation (Sprint 8 - Pronunciation practice)
 # Added: auth (Google OAuth + email/password authentication)
@@ -167,7 +168,8 @@ app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcard
 app.include_router(ai_generate.router, prefix="/api/ai", tags=["ai-generate"])  # Sprint 2
 app.include_router(languages.router, prefix="/api/languages", tags=["languages"])  # Sprint 3
 app.include_router(users.router, prefix="/api/users", tags=["users"])  # User management
-app.include_router(efg_native.router)  # BUG-070: /api/efg/graph?node=X
+app.include_router(efg_native.router)  # BUG-070: /api/efg/graph?node=X; SF-RAG-NUKE: /api/efg/roots
+app.include_router(figures.router)     # SF-RAG-NUKE Phase 2: /api/figures
 app.include_router(import_flashcards.router, prefix="/api", tags=["import"])  # Import functionality
 app.include_router(batch_processing.router, prefix="/api", tags=["batch_processing"])  # Batch processing functionality
 app.include_router(audio.router, prefix="/api/audio", tags=["audio"])  # Sprint 4 - TTS functionality
