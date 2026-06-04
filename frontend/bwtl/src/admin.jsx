@@ -26,7 +26,6 @@ function AdminView({ role }) {
           ['batch',   'Batch jobs'],
           ['import',  'Document import'],
           ['efg',     'EFG editor'],
-          ['rag',     'RAG console'],
         ].map(([k, lab]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             appearance: 'none', border: 0, background: 'transparent', cursor: 'pointer',
@@ -41,7 +40,6 @@ function AdminView({ role }) {
       {tab === 'batch'  && <BatchJobsTab />}
       {tab === 'import' && <DocumentImportTab />}
       {tab === 'efg'    && <EfgEditorTab isPL={isPL} />}
-      {tab === 'rag'    && <RagConsoleTab isPL={isPL} />}
     </div>
   );
 }
@@ -245,59 +243,6 @@ function EfgEditorTab({ isPL }) {
               <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)' }}>{r.who}</span>
             </div>
           ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-function RagConsoleTab({ isPL }) {
-  if (!isPL) return <div style={{ padding: 30, color: 'var(--fg-3)', textAlign: 'center', fontSize: 13 }}>RAG ingestion is PL-only.</div>;
-  const colls = window.BWTL.RAG_COLLECTIONS;
-  return (
-    <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        <Stat lab="Collections" v={colls.filter(c => c.status === 'healthy').length} sub={`+ ${colls.filter(c => c.status !== 'healthy').length} deprecated`} clr="var(--acc-2)" />
-        <Stat lab="Total docs" v={colls.reduce((a, c) => a + c.docs, 0)} sub="across all collections" clr="var(--graph)" />
-        <Stat lab="Last ingest" v="12m" sub="metapm · auto from GitHub" clr="var(--ok)" />
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="card-head">
-          <h3>Collections</h3>
-          <button className="btn sm ghost"><Ic.refresh /> Reingest all</button>
-        </div>
-        <div>
-          {colls.map(c => (
-            <div key={c.name} style={{ padding: '12px 16px', borderTop: '1px solid var(--line-soft)', display: 'grid', gridTemplateColumns: '160px 100px 100px 1fr 120px 200px', gap: 14, alignItems: 'center', fontSize: 12.5, opacity: c.status === 'deprecated' ? 0.5 : 1 }}>
-              <span className="mono" style={{ color: 'var(--acc-2)', fontWeight: 700 }}>{c.name}</span>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{c.docs.toLocaleString()} docs</span>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{c.size}</span>
-              <span style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>{c.consumer}</span>
-              <span className={`pill ${c.status === 'healthy' ? 'ok' : 'err'}`} style={{ fontSize: 9.5 }}>{c.status}</span>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: 11, color: 'var(--fg-4)' }}>{c.last_ingest}</span>
-                {c.status === 'healthy' && <button className="btn xs ghost"><Ic.refresh /></button>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-head"><h3>Test query</h3></div>
-        <div className="card-body">
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input placeholder="*men- semantic search" style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--fg)', font: 'inherit', fontSize: 13 }} />
-            <select style={{ padding: '8px 10px', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--fg)', font: 'inherit', fontSize: 12 }}>
-              <option>etymology</option>
-              <option>portfolio</option>
-              <option>dcc</option>
-              <option>metapm</option>
-            </select>
-            <button className="btn sm primary">Query</button>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--fg-4)', marginTop: 6 }} className="mono">POST /query · /semantic · /mcp</div>
         </div>
       </div>
     </>

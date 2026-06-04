@@ -4,7 +4,7 @@ from typing import Optional
 from app.database import get_db
 from app import crud, schemas
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 @router.get("/me", response_model=schemas.User)

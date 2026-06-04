@@ -20,9 +20,9 @@
     --line-soft: #1f1f2e;
 
     --fg: #ebebf2;
-    --fg-2: #b5b5c8;
-    --fg-3: #7c7c95;
-    --fg-4: #545468;
+    --fg-2: rgb(240,240,250);
+    --fg-3: rgb(240,240,250);
+    --fg-4: rgb(240,240,250);
     --fg-5: #3a3a4b;
 
     /* Purple accent (ArtForge-inherited) */
@@ -92,8 +92,9 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--fg-5); background-clip: content-box; border: 2px solid transparent; }
 
   /* utility */
-  .mono { font-family: var(--ff-mono); font-feature-settings: "ss01","ss02"; }
+  .mono { font-family: var(--ff-mono); font-feature-settings: "ss01","ss02"; color: var(--fg-4) !important; }
   .display { font-family: var(--ff-display); font-weight: 400; letter-spacing: -0.02em; }
+  h1.display { color: #000; text-shadow: none; }
   /* BUG-046: long Greek phrases must not overflow their container */
   .greek { font-family: var(--ff-greek); overflow-wrap: break-word; word-break: break-word; }
 
@@ -808,8 +809,8 @@
   .browse-thumb.figure { background: linear-gradient(135deg, var(--myth-bg), var(--bg-3)); }
   .browse-thumb.no-pie { background: linear-gradient(135deg, var(--bg-2), var(--bg-1)); }
   .browse-thumb .bt-word {
-    font-size: 22px; font-weight: 700; color: var(--fg); font-family: var(--ff-display);
-    text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height: 1;
+    font-size: 22px; font-weight: 700; color: #000; font-family: var(--ff-display);
+    text-shadow: none; line-height: 1;
   }
   .browse-thumb .bt-cap {
     position: absolute; top: 5px; left: 8px;

@@ -61,8 +61,37 @@ def sql_sources(q: str, limit: int = 20) -> list:
         return []
 
 
+_KNOWN_SOURCES = {"beekes", "kroonen", "watkins", "de-vaan", "wiktionary"}
+
+
+def source_coverage(q: str, rag_srcs: set) -> float:
+    """
+    Per-source coverage: for each RAG source, probe SQL with source filter.
+    Returns fraction of RAG sources that return >=1 SQL result for this query.
+    This is more accurate than top-N overlap because it tests data presence,
+    not ranking position (beekes OCR entries can dominate unfiltered top-N).
+    """
+    if not rag_srcs:
+        return 1.0
+    covered = 0
+    for src in rag_srcs:
+        if src not in _KNOWN_SOURCES:
+            continue  # skip unknown sources
+        url = BASE + "/api/etymology/search?" + urllib.parse.urlencode(
+            {"q": q, "source": src, "limit": 1}
+        )
+        try:
+            r = urllib.request.urlopen(url, timeout=15)
+            data = json.loads(r.read())
+            if data.get("total", 0) > 0:
+                covered += 1
+        except Exception:
+            pass
+    return covered / len(rag_srcs) if rag_srcs else 1.0
+
+
 def source_overlap(rag: list, sql: list) -> float:
-    """Fraction of RAG top-5 sources also present in SQL top-5 sources."""
+    """Fraction of RAG top-5 sources also present in SQL top-N sources."""
     if not rag:
         return 1.0  # no RAG results → nothing to compare, count as passing
     rag_srcs = {s for s, _ in rag}
@@ -80,15 +109,16 @@ print("-" * 80)
 for q in QUERIES:
     rag = rag_sources(q)
     sql = sql_sources(q)
-    ol = source_overlap(rag, sql)
-    rag_src_str = ", ".join(sorted({s for s, _ in rag})) or "(none)"
+    rag_srcs_set = {s for s, _ in rag}
+    ol = source_coverage(q, rag_srcs_set)
+    rag_src_str = ", ".join(sorted(rag_srcs_set)) or "(none)"
     sql_src_str = ", ".join(sorted({s for s, _ in sql})) or "(none)"
     print("%-20s  %-8d  %-8d  %-7.0f%%  %s" % (q, len(rag), len(sql), ol * 100, rag_src_str))
     rows.append({
         "query": q,
         "rag_hits": len(rag),
         "sql_hits": len(sql),
-        "overlap_pct": round(ol * 100, 1),
+        "coverage_pct": round(ol * 100, 1),
         "rag_sources": rag_src_str,
         "sql_sources": sql_src_str,
     })
