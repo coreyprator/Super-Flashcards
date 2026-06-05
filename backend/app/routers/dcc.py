@@ -21,8 +21,8 @@ from app import models
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-PIE_API_URL = "https://efg.rentyourcio.com/api/words?include_dcc=true"
-RAG_URL = "https://portfolio-rag-57478301787.us-central1.run.app"
+PIE_API_URL = "https://efg.rentyourcio.com/api/words?include_dcc=true"  # legacy — no longer called
+RAG_URL = "https://portfolio-rag-57478301787.us-central1.run.app"  # legacy
 DCC_SITE_URL = "https://dcc.dickinson.edu/greek-core-list"
 
 # In-memory cache: stripped_lemma -> dcc word dict
@@ -57,14 +57,32 @@ async def _load_dcc_data() -> dict:
 
 
 @router.get("/v1/dcc/list")
-async def list_dcc_words():
-    """Return the full DCC word list array (cached from EFG API)."""
+async def list_dcc_words(db: Session = Depends(get_db)):
+    """Return the full DCC word list array from local dcc_vocabulary table (SF-RAG-NUKE M04)."""
     try:
-        dcc_data = await _load_dcc_data()
-    except Exception as e:
-        logger.error(f"Failed to load DCC data: {e}")
+        rows = db.execute(
+            text(
+                "SELECT [id], [greek_word] AS label, [gloss], [frequency_rank], [pos], "
+                "[semantic_group] "
+                "FROM [dbo].[dcc_vocabulary] "
+                "ORDER BY COALESCE([frequency_rank], 99999) ASC"
+            )
+        ).fetchall()
+    except Exception as exc:
+        logger.error("Failed to load DCC data from local DB: %s", exc)
         raise HTTPException(status_code=502, detail="DCC data unavailable")
-    return list(dcc_data.values())
+
+    return [
+        {
+            "id": r.id,
+            "label": r.label,
+            "gloss": r.gloss,
+            "frequency_rank": r.frequency_rank,
+            "pos": r.pos,
+            "semantic_group": r.semantic_group,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/v1/cards/{card_id}/dcc")
