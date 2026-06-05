@@ -3,6 +3,7 @@
 SQLAlchemy model for pronunciation practice attempts
 """
 from sqlalchemy import Column, String, Float, DateTime, JSON, ForeignKey, Text
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -29,7 +30,7 @@ class PronunciationAttempt(Base):
     __tablename__ = "pronunciation_attempts"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    flashcard_id = Column(String(36), ForeignKey("flashcards.id"), nullable=False)
+    flashcard_id = Column(UNIQUEIDENTIFIER, ForeignKey("flashcards.id"), nullable=False)
     user_id = Column(String(36), nullable=False)  # Can be "anonymous" or user UUID
     audio_url = Column(String(500), nullable=False)  # GCS URL
     target_text = Column(Text, nullable=False)  # What they should say

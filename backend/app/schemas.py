@@ -58,8 +58,6 @@ class FlashcardBase(BaseModel):
     cognate_pie_roots: Optional[str] = None
     # EFG consolidation — ETY01H
     efg_node_id: Optional[str] = None
-    # REQ-008: etymology layer classification
-    etymology_layer: Optional[str] = None  # "direct", "intermediate", "distant", None
     # Sentence card fields (SF-SENT-001)
     card_type: Optional[str] = "word"  # word, sentence, paragraph
     source_book: Optional[str] = None

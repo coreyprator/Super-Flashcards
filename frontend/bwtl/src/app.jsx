@@ -63,11 +63,18 @@ function App() {
   const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [flashcardsVersion, setFlashcardsVersion] = React.useState(0);
+  const [bmCount, setBmCount] = React.useState(() => (window.BWTL.BOOKMARKS || []).length);
 
   React.useEffect(() => {
     const onLoaded = () => setFlashcardsVersion(v => v + 1);
     window.addEventListener('bwtl:flashcards-loaded', onLoaded);
     return () => window.removeEventListener('bwtl:flashcards-loaded', onLoaded);
+  }, []);
+
+  React.useEffect(() => {
+    const onBmChanged = () => setBmCount((window.BWTL.BOOKMARKS || []).length);
+    window.addEventListener('bwtl:bookmarks-changed', onBmChanged);
+    return () => window.removeEventListener('bwtl:bookmarks-changed', onBmChanged);
   }, []);
 
   const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter, flashcardsVersion]);
@@ -77,7 +84,7 @@ function App() {
     const path = window.location.pathname;
     const cardMatch = path.match(/^\/bwtl\/browse\/card\/([^/]+)/);
     if (cardMatch) {
-      setSection('browse'); setDetailCardId(cardMatch[1]);
+      openCard(cardMatch[1]);
     } else if (/^\/bwtl\/browse/.test(path)) {
       setSection('browse');
     } else if (/^\/bwtl\/generate/.test(path)) {
@@ -387,7 +394,7 @@ function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen,
           </button>
 
           <button className="btn sm ghost" title="Bookmarks rail" onClick={() => setSection('bookmarks')}>
-            <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{window.BWTL.BOOKMARKS.length}</span>
+            <Ic.bookmark /> <span style={{ color: 'var(--fg-3)' }}>{bmCount}</span>
           </button>
 
           <div style={{ position: 'relative' }}>
@@ -475,7 +482,8 @@ function SettingsView({ role }) {
             <span className="pill ghost">Eleni (your clone) · Greek</span>
             <span className="pill ghost">Marcus · Latin restored</span>
           </div>
-          <button className="btn sm ghost" style={{ marginTop: 10 }}>Manage voice clones</button>
+          {/* TODO: implement voice clones feature - see REQ-XXX (filed as SF-BUG-084 follow-on) */}
+          {/* <button className="btn sm ghost" style={{ marginTop: 10 }}>Manage voice clones</button> */}
           {/* TSK-023: voice-trace diagnostics gate — only visible when BWTL_DEBUG_VOICE is set */}
           {window.BWTL_DEBUG_VOICE && (
             <div style={{ marginTop: 10, padding: 8, background: 'var(--bg-2)', border: '1px dashed var(--warn)', borderRadius: 6, fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--ff-mono)' }}>

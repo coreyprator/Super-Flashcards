@@ -505,7 +505,7 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
     if (!pieRootKey) return;
     if (window.BWTL.RAG_ENTRIES[pieRootKey]) { setE(window.BWTL.RAG_ENTRIES[pieRootKey]); setLoadingRag(false); return; }
     setLoadingRag(true);
-    window.BWTL.searchRag(pieRootKey, 'etymology')
+    window.BWTL.searchEtymology(pieRootKey)
       .then(results => {
         const items = Array.isArray(results) ? results : (results.results || results.items || []);
         if (items.length > 0) {
@@ -515,7 +515,7 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
         } else { setE(null); }
         setLoadingRag(false);
       })
-      .catch(err => { console.error('[RagPanel] searchRag error:', err); setLoadingRag(false); });
+      .catch(err => { console.error('[RagPanel] searchEtymology error:', err); setLoadingRag(false); });
   }, [pieRootKey]);
 
   if (loadingRag) return (

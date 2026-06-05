@@ -13,6 +13,7 @@ function Workspace({
   cardId,
   role,
   onNavigateWord,
+  onNavByDelta,
   onOpenFigure,
   panelState,
   setPanelState,
@@ -123,8 +124,13 @@ function Workspace({
   const handleNextInStudy = () => {
     const queue = window.BWTL.STUDY_QUEUE || [];
     const idx = queue.findIndex(q => (q.card_id || q.id) === card.id);
-    const next = idx >= 0 && idx < queue.length - 1 ? queue[idx + 1] : queue[0];
-    if (next) onNavigateWord(next.card_id || next.id);
+    if (idx >= 0 && idx < queue.length - 1) {
+      onNavigateWord(queue[idx + 1].card_id || queue[idx + 1].id);
+    } else if (idx === 0 && queue.length > 0 && queue[0].card_id !== card.id) {
+      onNavigateWord(queue[0].card_id || queue[0].id);
+    } else if (onNavByDelta) {
+      onNavByDelta(1);
+    }
   };
 
   // REQ-039: delete card (PL-only) — confirms, calls DELETE /api/flashcards/{id}, evicts cache
@@ -738,6 +744,7 @@ function CardDetail({
           cardId={cardId}
           role={role}
           onNavigateWord={onOpenCard}
+          onNavByDelta={onNavByDelta}
           onOpenFigure={onOpenFigure}
           panelState={panelState}
           setPanelState={setPanelState}

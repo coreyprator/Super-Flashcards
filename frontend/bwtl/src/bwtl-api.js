@@ -192,7 +192,7 @@ const AF_JOBS      = [];
 const VOICE_CLONES = {};
 const DCC_WORDS    = [];
 const BEEKES_DOCS  = [];
-const EFG_STATS    = { node_count: 0, pie_root_count: 0, edge_count: 0, word_count: 0 };
+const EFG_STATS    = { node_count: 0, pie_root_count: 0, edge_count: 0, word_count: 0, total_nodes: 0, word_nodes: 0, pie_root_nodes: 0, total_edges: 0, sf_linked: 0, pie_explorer_data: 0 };
 const RAG_COLLECTIONS = [];
 const DOCUMENT_RUNS = [];
 
