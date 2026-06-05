@@ -63,18 +63,11 @@ function App() {
   const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [flashcardsVersion, setFlashcardsVersion] = React.useState(0);
-  const [bmCount, setBmCount] = React.useState(() => (window.BWTL.BOOKMARKS || []).length);
 
   React.useEffect(() => {
     const onLoaded = () => setFlashcardsVersion(v => v + 1);
     window.addEventListener('bwtl:flashcards-loaded', onLoaded);
     return () => window.removeEventListener('bwtl:flashcards-loaded', onLoaded);
-  }, []);
-
-  React.useEffect(() => {
-    const onBmChanged = () => setBmCount((window.BWTL.BOOKMARKS || []).length);
-    window.addEventListener('bwtl:bookmarks-changed', onBmChanged);
-    return () => window.removeEventListener('bwtl:bookmarks-changed', onBmChanged);
   }, []);
 
   const cardSpine = React.useMemo(() => computeCardSpine(cardFilter), [cardFilter, flashcardsVersion]);
@@ -315,6 +308,12 @@ function App() {
 
 function TopBar({ section, setSection, role, setRole, canSeeAdmin, roleMenuOpen, setRoleMenuOpen, cardFilter, setCardFilter }) {
   const r = window.BWTL.ROLES[role];
+  const [bmCount, setBmCount] = React.useState(() => (window.BWTL.BOOKMARKS || []).length);
+  React.useEffect(() => {
+    const onBmChanged = () => setBmCount((window.BWTL.BOOKMARKS || []).length);
+    window.addEventListener('bwtl:bookmarks-changed', onBmChanged);
+    return () => window.removeEventListener('bwtl:bookmarks-changed', onBmChanged);
+  }, []);
   return (
     <div className="topbar">
       <div className="topbar-inner">
