@@ -2,61 +2,23 @@
 # SF-RAG-NUKE Phase 2 (M06): /api/figures endpoint.
 # Queries learning.dbo.mythological_figures (migrated from Etymython DB).
 # Replaces cross-origin calls to etymython.rentyourcio.com/api/v1/figures.
+# Uses main SQLAlchemy get_db session (flashcards_user / LanguageLearning).
 import logging
-import os
-import pyodbc
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.database import get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["figures"])
 
-_figures_pw_cache = None
-
-
-def _get_figures_password():
-    """Get efg_user password from env var or Secret Manager (same secret as efg_native)."""
-    global _figures_pw_cache
-    if _figures_pw_cache:
-        return _figures_pw_cache
-    password = os.getenv("EFG_DB_PASSWORD", "")
-    if password:
-        _figures_pw_cache = password
-        return password
-    try:
-        from google.cloud import secretmanager
-        client = secretmanager.SecretManagerServiceClient()
-        name = "projects/super-flashcards-475210/secrets/efg-db-password/versions/latest"
-        response = client.access_secret_version(request={"name": name})
-        password = response.payload.data.decode("UTF-8").strip()
-        _figures_pw_cache = password
-        return password
-    except Exception as exc:
-        logger.error("[figures] failed to fetch DB password: %s", exc)
-        return ""
-
-
-def _get_learning_connection():
-    """Open a pyodbc connection to Etymython DB using efg_user credentials.
-    mythological_figures table resides in Etymython.
-    """
-    password = _get_figures_password()
-    conn_str = (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=35.224.242.223,1433;"
-        "DATABASE=Etymython;"
-        "UID=efg_user;"
-        f"PWD={password};"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
-        "Connection Timeout=30;"
-    )
-    return pyodbc.connect(conn_str)
-
 
 @router.get("/figures")
 def get_figures(
     limit: int = Query(500, ge=1, le=1000),
+    db: Session = Depends(get_db),
 ):
     """
     SF-RAG-NUKE Phase 2 (M06): Return mythological figures from learning DB.
@@ -64,28 +26,22 @@ def get_figures(
     Returns a plain JSON array compatible with window.BWTL.fetchFigures().
     """
     try:
-        conn = _get_learning_connection()
-        cursor = conn.cursor()
-    except Exception as exc:
-        logger.error("[figures] DB connection failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Figures query failed")
-
-    try:
-        cursor.execute(
-            """
-            SELECT TOP (?) id, greek_name, latin_name, english_name, figure_type,
-                           domain, image_url, role, description, symbols,
-                           ipa_transcription, pronunciation_guide, mythology_source,
-                           equivalent_figure_id
-            FROM mythological_figures
-            ORDER BY english_name
-            """,
-            (limit,),
+        result = db.execute(
+            text(
+                """
+                SELECT TOP (:limit) id, greek_name, latin_name, english_name, figure_type,
+                               domain, image_url, role, description, symbols,
+                               ipa_transcription, pronunciation_guide, mythology_source,
+                               equivalent_figure_id
+                FROM mythological_figures
+                ORDER BY english_name
+                """
+            ),
+            {"limit": limit},
         )
-        rows = cursor.fetchall()
+        rows = result.fetchall()
     except Exception as exc:
         logger.error("[figures] query failed: %s", exc)
-        conn.close()
         raise HTTPException(status_code=500, detail="Figures query failed")
 
     figures = [
@@ -108,5 +64,4 @@ def get_figures(
         }
         for r in rows
     ]
-    conn.close()
     return figures
