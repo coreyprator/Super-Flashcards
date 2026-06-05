@@ -37,12 +37,14 @@ def _get_figures_password():
 
 
 def _get_learning_connection():
-    """Open a pyodbc connection to learning DB using efg_user credentials."""
+    """Open a pyodbc connection to Etymython DB using efg_user credentials.
+    mythological_figures table resides in Etymython.
+    """
     password = _get_figures_password()
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
         "SERVER=35.224.242.223,1433;"
-        "DATABASE=learning;"
+        "DATABASE=Etymython;"
         "UID=efg_user;"
         f"PWD={password};"
         "Encrypt=yes;"

@@ -40,14 +40,14 @@ def _get_efg_password():
 
 
 def _get_efg_connection():
-    """Open a pyodbc connection to learning DB using efg_user credentials.
-    SF-RAG-NUKE Phase 3: repointed from EtymologyGraph → learning DB.
+    """Open a pyodbc connection to EtymologyGraph DB using efg_user credentials.
+    nodes and edges tables reside in EtymologyGraph (not learning).
     """
     password = _get_efg_password()
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
         "SERVER=35.224.242.223,1433;"
-        "DATABASE=learning;"
+        "DATABASE=EtymologyGraph;"
         "UID=efg_user;"
         f"PWD={password};"
         "Encrypt=yes;"

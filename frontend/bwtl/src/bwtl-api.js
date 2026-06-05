@@ -196,10 +196,7 @@ const EFG_STATS    = { node_count: 0, pie_root_count: 0, edge_count: 0, word_cou
 const RAG_COLLECTIONS = [];
 const DOCUMENT_RUNS = [];
 
-// ─── Cross-app service base URLs ─────────────────────────────────────────────
-const _EM_URL  = 'https://etymython.rentyourcio.com';
-const _EFG_URL = 'https://efg.rentyourcio.com';
-const _RAG_URL = 'https://portfolio-rag-57478301787.us-central1.run.app';
+// ─── Cross-app service base URLs removed — all endpoints now SF-native ──────
 
 async function _fetchExternal(url) {
   const res = await fetch(url);
@@ -229,24 +226,25 @@ async function fetchStudyStats() {
 
 // ─── EM (Etymython) API ───────────────────────────────────────────────────────
 async function fetchFigures(limit = 20) {
-  const data = await _fetchExternal(`${_EM_URL}/api/v1/figures?limit=${limit}`);
+  // M06: switched from external Etymython service → SF-native /api/figures
+  const data = await _apiFetch(`/api/figures?limit=${limit}`);
   const figures = Array.isArray(data) ? data : (data.items || []);
   figures.forEach(f => { window.BWTL.FIGURES[f.id] = f; });
   return figures;
 }
 
 async function fetchFigure(id) {
-  const data = await _fetchExternal(`${_EM_URL}/api/v1/figures/${id}/mythology-data`);
+  const data = await _apiFetch(`/api/figures/${id}`);
   window.BWTL.FIGURES[id] = data;
   return data;
 }
 
 async function fetchFigureStory(id) {
-  return _fetchExternal(`${_EM_URL}/api/v1/figures/${id}/artforge-story`);
+  return _apiFetch(`/api/bwtl/figures/${id}/story`);
 }
 
 async function fetchCognates(word) {
-  return _fetchExternal(`${_EM_URL}/api/v1/cognates/lookup?word=${encodeURIComponent(word)}`);
+  return _apiFetch(`/api/v1/cognates/lookup?word=${encodeURIComponent(word)}`);
 }
 
 // ─── EFG API ──────────────────────────────────────────────────────────────────
@@ -256,16 +254,14 @@ async function fetchEfgGraph(nodeId) {
 }
 
 async function fetchEfgRoots() {
-  const data = await _fetchExternal(`${_EFG_URL}/api/roots`);
+  // M05: switched from external EFG service → SF-native /api/efg/roots
+  const data = await _apiFetch('/api/efg/roots');
   return Array.isArray(data) ? data : (data.roots || []);
 }
 
-// ─── RAG API ──────────────────────────────────────────────────────────────────
-async function searchRag(q, collection) {
-  const path = collection === 'etymology'
-    ? `/search/etymology?q=${encodeURIComponent(q)}`
-    : `/search?collection=${encodeURIComponent(collection || 'etymology')}&q=${encodeURIComponent(q)}`;
-  return _fetchExternal(`${_RAG_URL}${path}`);
+// ─── Etymology search (M03: replaces Portfolio RAG) ─────────────────────────
+async function searchEtymology(q) {
+  return _apiFetch(`/api/etymology/search?q=${encodeURIComponent(q)}&limit=50`);
 }
 
 // ─── ArtForge API (via SF proxy) ──────────────────────────────────────────────
@@ -352,7 +348,7 @@ window.BWTL = {
   fetchCognates,
   fetchEfgGraph,
   fetchEfgRoots,
-  searchRag,
+  searchEtymology,
   fetchAfJobs,
   generateVideo,
   fetchAfJobStatus,
