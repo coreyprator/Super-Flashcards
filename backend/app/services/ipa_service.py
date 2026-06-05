@@ -199,23 +199,27 @@ class IPAService:
         try:
             # Language-specific examples to reduce bias
             examples = {
+                'English': '/həˈloʊ/ for "hello", /wɜːrd/ for "word"',
                 'French': '/ɛksɑ̃pl/ for "exemple", /vi/ for "vie", /vis/ for "vis"',
                 'Spanish': '/ejemplo/ for "ejemplo", /βiða/ for "vida"',
                 'German': '/baɪʃpiːl/ for "Beispiel", /leːbən/ for "Leben"',
-                'Italian': '/ezempio/ for "esempio", /vita/ for "vita"'
+                'Italian': '/ezempio/ for "esempio", /vita/ for "vita"',
+                'Ancient Greek': '/an.tʰroː.pos/ for "ἄνθρωπος", /lo.gos/ for "λόγος"',
+                'Latin': '/aː.mor/ for "amor", /mens/ for "mens"',
+                'Sanskrit': '/dʱər.mə/ for "dharma"',
             }
             
-            language_example = examples.get(language, '/ɛksɑ̃pl/ for "example"')
+            language_example = examples.get(language, f'/example/ for a {language} word')
             
             prompt = f"""You are a linguistics expert. Provide the correct International Phonetic Alphabet (IPA) pronunciation for the {language} word "{word}".
 
-IMPORTANT: This is a {language} word, not English. Use {language} phonology and pronunciation rules.
+IMPORTANT: Use {language} phonology and pronunciation rules only.
 
 Examples of {language} IPA: {language_example}
 
 Return ONLY the IPA transcription without forward slashes, like: vis
 
-Do not include English pronunciation, explanations, or other formatting."""
+Do not include pronunciation for other languages, explanations, or other formatting."""
             
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",

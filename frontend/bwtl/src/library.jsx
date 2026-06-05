@@ -161,6 +161,7 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
       // Build a set of bookmarked flashcard IDs
       const bookmarks = Array.isArray(bookmarkData) ? bookmarkData : (bookmarkData?.items || []);
       window.BWTL.BOOKMARKS = bookmarks;
+      window.dispatchEvent(new CustomEvent('bwtl:bookmarks-changed'));
       const bookmarkedIds = new Set(bookmarks.map(b => (b.flashcard_ref_id || '').toLowerCase()));
       rawCards.forEach(c => {
         if (!c.language && c.language_id) c.language = langMap[c.language_id] || null;
