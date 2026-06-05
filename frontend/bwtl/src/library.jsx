@@ -347,10 +347,7 @@ function RootsTab({ q }) {
 function FiguresTab({ q, onOpenFigure }) {
   const [figs, setFigs] = React.useState(Object.values(window.BWTL.FIGURES));
   const [loading, setLoading] = React.useState(!figs.length);
-  const [iframeFig, setIframeFig] = React.useState(null); // BV-FIG-IFRAME-001: iFrame modal
-  const iframeRef = React.useRef(null); // BUG-069: defer postMessage until onLoad
-
-  const _EM_URL = 'https://etymython.rentyourcio.com';
+  const [selectedFig, setSelectedFig] = React.useState(null); // detail modal
 
   React.useEffect(() => {
     setLoading(true);
@@ -363,7 +360,7 @@ function FiguresTab({ q, onOpenFigure }) {
   const filtered = figs.filter(f => !q || (f.english_name || '').toLowerCase().includes(q.toLowerCase()) || (f.greek_name || '').includes(q) || (f.latin_name || '').toLowerCase().includes(q.toLowerCase()));
 
   if (loading) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading figures…</div>;
-  if (!figs.length) return <div className="figures-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No mythology figures loaded. The Etymython service may be offline.</div>;
+  if (!figs.length) return <div className="figures-empty" style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>No mythology figures loaded.</div>;
 
   return (
     <>
@@ -373,7 +370,7 @@ function FiguresTab({ q, onOpenFigure }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
         {filtered.map(f => (
-          <div key={f.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setIframeFig(f)}>
+          <div key={f.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelectedFig(f)}>
             <div style={{
               aspectRatio: '16/10',
               background: 'linear-gradient(135deg, var(--myth-bg), var(--bg-3))',
@@ -399,30 +396,30 @@ function FiguresTab({ q, onOpenFigure }) {
         ))}
       </div>
 
-      {/* BV-FIG-IFRAME-001: iFrame modal for Etymython figure page */}
-      {iframeFig && (
+      {/* BV-FIG-IFRAME-001: figure detail modal (SF-native, no external iframe) */}
+      {selectedFig && (
         <>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 998 }} onClick={() => setIframeFig(null)} />
-          <dialog open style={{ position: 'fixed', inset: '5vh 5vw', width: '90vw', height: '90vh', margin: 0, padding: 0, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 998 }} onClick={() => setSelectedFig(null)} />
+          <dialog open style={{ position: 'fixed', inset: '10vh 10vw', width: '80vw', maxHeight: '80vh', margin: 0, padding: 0, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)', zIndex: 999, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--line-soft)', gap: 8 }}>
-              <span className="pill myth" style={{ fontSize: 10.5 }}>{iframeFig.english_name || iframeFig.name}</span>
-              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)', flex: 1 }}>{_EM_URL} · figure {iframeFig.id}</span>
-              <button className="btn xs ghost" onClick={() => setIframeFig(null)}>✕ Close</button>
+              <span className="pill myth" style={{ fontSize: 10.5 }}>{selectedFig.english_name || selectedFig.name}</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--fg-4)', flex: 1 }}>figure {selectedFig.id}</span>
+              <button className="btn xs ghost" onClick={() => setSelectedFig(null)}>✕ Close</button>
             </div>
-            <iframe
-              ref={iframeRef}
-              src={`${_EM_URL}/`}
-              title={`Etymython · ${iframeFig.english_name}`}
-              style={{ flex: 1, border: 'none', width: '100%' }}
-              onLoad={() => {
-                if (iframeRef.current && iframeFig) {
-                  iframeRef.current.contentWindow.postMessage(
-                    { figure_id: iframeFig.id },
-                    'https://etymython.rentyourcio.com'
-                  );
-                }
-              }}
-            />
+            <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+              {selectedFig.image_url && <img src={selectedFig.image_url} alt={selectedFig.english_name} style={{ maxHeight: 200, borderRadius: 8, marginBottom: 14, display: 'block' }} />}
+              <div className="display" style={{ fontSize: 26, color: 'var(--myth)', marginBottom: 4 }}>{selectedFig.english_name || selectedFig.name}</div>
+              <div className="greek" style={{ fontSize: 16, color: 'var(--fg-2)', marginBottom: 12 }}>{selectedFig.greek_name} {selectedFig.latin_name && `· ${selectedFig.latin_name}`}</div>
+              {selectedFig.description && <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6, marginBottom: 14 }}>{selectedFig.description}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12 }}>
+                {[['Type', selectedFig.figure_type], ['Domain', selectedFig.domain], ['Role', selectedFig.role], ['Symbols', selectedFig.symbols], ['PIE root', selectedFig.pie_root], ['Source', selectedFig.mythology_source]].filter(([,v]) => v).map(([k, v]) => (
+                  <div key={k} style={{ background: 'var(--bg-2)', padding: '8px 10px', borderRadius: 6 }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: 3 }}>{k}</div>
+                    <div style={{ color: 'var(--fg)' }}>{String(v)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </dialog>
         </>
       )}
@@ -440,7 +437,7 @@ function BeekesTab({ q }) {
     if (term === lastQ.current) return;
     lastQ.current = term;
     setLoading(true);
-    window.BWTL.searchRag(term, 'etymology')
+    window.BWTL._apiFetch('/api/etymology/search?q=' + encodeURIComponent(term) + '&limit=50')
       .then(data => {
         const items = Array.isArray(data) ? data : (data.results || data.items || []);
         setDocs(items.map((d, i) => ({
@@ -449,7 +446,7 @@ function BeekesTab({ q }) {
           excerpt: d.text || d.content || d.excerpt || '',
           source: d.source || 'etymology',
           confidence: (d.score || 0) > 0.8 ? 'high' : 'medium',
-          page: d.page || '',
+          page: d.page || d.page_ref || '',
         })));
       })
       .catch(console.error)
@@ -466,7 +463,7 @@ function BeekesTab({ q }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="pill accent" style={{ fontSize: 10.5 }}>Portfolio RAG · etymology collection</span>
+        <span className="pill accent" style={{ fontSize: 10.5 }}>Beekes · etymology</span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fg-4)' }} className="mono">{docs.length} results</span>
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
