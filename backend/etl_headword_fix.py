@@ -12,19 +12,27 @@ Run from g:\My Drive\Code\Python or Super-Flashcards directory.
 """
 
 import re
+import sys
 import pyodbc
 
 # Direct connection to learning DB (same server MetaPM MCP uses)
-LEARNING_CS = (
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=35.224.242.223,1433;"
-    "DATABASE=learning;"
-    "UID=sqlserver;"
-    "PWD=R2B1Admin#2025;"
-    "Encrypt=yes;"
-    "TrustServerCertificate=yes;"
-    "Connection Timeout=30;"
-)
+def _get_pw() -> str:
+    """Read password from env or command line argument."""
+    import os
+    return os.environ.get("LEARNING_DB_PW", "")
+
+
+def _make_cs(pw: str) -> str:
+    return (
+        "DRIVER={ODBC Driver 17 for SQL Server};"
+        "SERVER=35.224.242.223,1433;"
+        "DATABASE=learning;"
+        "UID=sqlserver;"
+        f"PWD={pw};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
+        "Connection Timeout=30;"
+    )
 
 
 def extract_de_vaan(excerpt: str) -> str:
@@ -173,8 +181,13 @@ def verify_sample(conn, source: str, n: int = 5):
 
 
 def main():
+    if len(sys.argv) < 2:
+        print("Usage: python etl_headword_fix.py <db_password>")
+        sys.exit(1)
+    pw = sys.argv[1]
+    cs = _make_cs(pw)
     print("SF-ETL-FIX-002: Connecting to learning DB...")
-    conn = pyodbc.connect(LEARNING_CS, autocommit=False)
+    conn = pyodbc.connect(cs, autocommit=False)
     print("Connected OK")
 
     results = {}
