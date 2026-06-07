@@ -12,7 +12,8 @@ from typing import Optional
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -57,8 +58,22 @@ async def _load_dcc_data() -> dict:
 
 
 @router.get("/v1/dcc/list")
-async def list_dcc_words(db: Session = Depends(get_db)):
-    """Return the full DCC word list array from local dcc_vocabulary table (SF-RAG-NUKE M04)."""
+async def list_dcc_words(language_id: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Return the full DCC word list array from local dcc_vocabulary table (SF-RAG-NUKE M04).
+
+    BUG-063: language_id filter now honoured. DCC is exclusively Greek content;
+    if language_id is provided and does not match the Greek language, return [].
+    """
+    if language_id:
+        try:
+            lang_row = db.execute(
+                text("SELECT [name] FROM [dbo].[languages] WHERE LOWER(CAST([id] AS nvarchar(36))) = LOWER(:lid)"),
+                {"lid": str(language_id)}
+            ).fetchone()
+            if not lang_row or lang_row.name.lower() != "greek":
+                return []
+        except Exception as exc:
+            logger.warning("DCC language_id lookup failed (%s); returning full list", exc)
     try:
         rows = db.execute(
             text(

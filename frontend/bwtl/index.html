@@ -94,7 +94,7 @@
   /* utility */
   .mono { font-family: var(--ff-mono); font-feature-settings: "ss01","ss02"; color: var(--fg-4) !important; }
   .display { font-family: var(--ff-display); font-weight: 400; letter-spacing: -0.02em; }
-  h1.display { color: #000; text-shadow: none; }
+  h1.display { color: var(--fg); text-shadow: none; }  /* BUG-098: was #000 (black-on-black in dark theme) */
   /* BUG-046: long Greek phrases must not overflow their container */
   .greek { font-family: var(--ff-greek); overflow-wrap: break-word; word-break: break-word; }
 

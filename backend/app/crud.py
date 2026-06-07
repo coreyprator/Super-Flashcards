@@ -156,9 +156,13 @@ def get_or_create_default_user(db: Session):
     """Get or create the default user (Phase 1: single user)"""
     user = db.query(models.User).filter(models.User.username == "default_user").first()
     if not user:
+        # BUG-072: email column is NOT NULL; provide a default so INSERT succeeds
         user = models.User(
             username="default_user",
-            preferred_instruction_language="en"
+            email="default@localhost",
+            auth_provider="email",
+            preferred_instruction_language="en",
+            is_active=True,
         )
         db.add(user)
         db.commit()

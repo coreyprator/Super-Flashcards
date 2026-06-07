@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 5.4.0 - SF-ETL-DICT-001: Dictionary ETL (etymology_entries, dcc_vocabulary) + search endpoints
+# Version: 5.5.0 - BWTL-GOLIVE-FIX-001: BUG-072/051/063/067/073/088/098 fixes
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +28,7 @@ from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.4.0"
+APP_VERSION = "5.5.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")

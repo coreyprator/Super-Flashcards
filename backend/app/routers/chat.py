@@ -18,7 +18,7 @@ router = APIRouter()
 class ThreadCreate(BaseModel):
     anchor_mode: str = "flashcard_id"
     anchor_value: str
-    owner_id: str
+    owner_id: str = "pl"  # BUG-051: default so writes succeed without auth context
     title: Optional[str] = None
 
 

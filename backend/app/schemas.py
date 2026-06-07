@@ -14,7 +14,7 @@ class LanguageCreate(LanguageBase):
 
 class Language(LanguageBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None  # BUG-072: newly inserted Latin row has NULL created_at
     
     @field_serializer('id')
     def serialize_id(self, value):
@@ -227,8 +227,8 @@ class User(UserBase):
     is_active: bool
     is_verified: bool
     is_admin: bool = False  # SF17 REQ-022
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # BUG-072: default user row may have NULL timestamps
+    updated_at: Optional[datetime] = None  # BUG-072: default user row may have NULL timestamps
     last_login: Optional[datetime] = None
     
     @field_serializer('id')
