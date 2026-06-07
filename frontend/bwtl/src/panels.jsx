@@ -399,8 +399,8 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
         <span className="pill graph"><Ic.link /> {siblings.length} word nodes</span>
-        <span className="pill ghost">EFG graph data</span>
-        <button className="btn xs ghost" style={{ marginLeft: 'auto' }} onClick={() => window.open('https://efg.rentyourcio.com', '_blank', 'noopener')}><Ic.expand /> Open in full graph</button>
+        <span className="pill ghost">SF-native EFG graph</span>
+        {/* BUG-073: external efg.rentyourcio.com link removed — service sunsetting */}
       </div>
     </PanelShell>
   );

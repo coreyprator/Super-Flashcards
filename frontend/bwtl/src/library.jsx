@@ -66,7 +66,13 @@ function BrowseView({ onOpenCard, onOpenFigure, role, browseTab, setBrowseTab, c
       {tab === 'roots'   && <RootsTab q={q} />}
       {tab === 'figures' && <FiguresTab q={q} onOpenFigure={onOpenFigure} />}
       {tab === 'beekes'  && <BeekesTab q={q} />}
-      {tab === 'dcc'     && <DccTab q={q} onOpenCard={onOpenCard} />}
+      {tab === 'dcc'     && (() => {
+        // BUG-063: resolve language UUID from cardFilter.language so DCC backend can filter
+        const _langObj = cardFilter?.language
+          ? (window.BWTL.LANGUAGES || []).find(l => (l.code || l.name) === cardFilter.language)
+          : null;
+        return <DccTab q={q} onOpenCard={onOpenCard} languageId={_langObj?.id || null} />;
+      })()}
     </div>
   );
 }
@@ -485,7 +491,7 @@ function BeekesTab({ q }) {
   );
 }
 
-function DccTab({ q, onOpenCard }) {
+function DccTab({ q, onOpenCard, languageId }) {
   const [words, setWords] = React.useState(window.BWTL.DCC_WORDS || []);
   const [loading, setLoading] = React.useState(!words.length);
   const [selectedEntry, setSelectedEntry] = React.useState(null); // REQ-031: DCC full content modal
@@ -498,8 +504,9 @@ function DccTab({ q, onOpenCard }) {
 
   React.useEffect(() => {
     setLoading(true);
-    // BUG-055 fix: use _apiFetch instead of raw fetch()
-    window.BWTL._apiFetch('/api/v1/dcc/list')
+    // BUG-063: pass language_id so backend filters (DCC is Greek-only)
+    const url = languageId ? `/api/v1/dcc/list?language_id=${encodeURIComponent(languageId)}` : '/api/v1/dcc/list';
+    window.BWTL._apiFetch(url)
       .then(data => {
         const list = Array.isArray(data) ? data : (data.words || data.nodes || []);
         // BUG-062: enrich sf_linked / sf_card_id from FLASHCARDS cache so the
@@ -522,7 +529,7 @@ function DccTab({ q, onOpenCard }) {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [languageId]);
 
   const filtered = words.filter(w => !q || (w.label || w.word || '').includes(q) || (w.gloss || w.definition || '').toLowerCase().includes(q.toLowerCase()));
   const sorted = sortBy ? [...filtered].sort((a, b) => {
