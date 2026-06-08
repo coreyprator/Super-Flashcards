@@ -1,11 +1,79 @@
 steps:
+  # Build Docker image (tagged with COMMIT_SHA for traceability)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--no-cache'
+      - '--build-arg'
+      - 'COMMIT_SHA=$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:$COMMIT_SHA'
       - '-t'
       - 'gcr.io/super-flashcards-475210/super-flashcards:latest'
       - '-f'
       - 'backend/Dockerfile'
       - '.'
+    id: 'build'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:$COMMIT_SHA'
+    id: 'push'
+    waitFor: ['build']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:latest'
+    waitFor: ['build']
+
+  # MP113 M11: Deploy with GIT_SHA env var so staleness checks key on the correct SHA.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'super-flashcards'
+      - '--image'
+      - 'gcr.io/super-flashcards-475210/super-flashcards:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GIT_SHA=$COMMIT_SHA'
+    id: 'deploy'
+    waitFor: ['push']
+
+  # MP113 M11: Warm-on-deploy ingest — mirrors MetaPM pattern, generalized to SF.
+  # Fails the build loudly if ingest fails (set -e), ensuring stale mirror is caught at deploy.
+  - name: 'python:3.11-slim'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        pip install -q pymssql
+        python ingest_code.py --app super-flashcards --repo-root . --sha $COMMIT_SHA --trigger-src cloudbuild
+        echo "MP113: ingest completed for super-flashcards sha=$COMMIT_SHA"
+    env:
+      - 'DB_HOST=35.224.242.223'
+    secretEnv: ['DB_PASSWORD']
+    id: 'ingest'
+    waitFor: ['deploy']
+
+availableSecrets:
+  secretManager:
+  - versionName: projects/super-flashcards-475210/secrets/db-password/versions/latest
+    env: 'DB_PASSWORD'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 images:
+  - 'gcr.io/super-flashcards-475210/super-flashcards:$COMMIT_SHA'
   - 'gcr.io/super-flashcards-475210/super-flashcards:latest'
+
+timeout: '1200s'
