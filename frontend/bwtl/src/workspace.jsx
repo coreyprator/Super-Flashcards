@@ -391,11 +391,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
         </div>
       </div>
 
-      {/* REV-2: Scholarly notes stack — per-root citations */}
-      {window.Etymology && <window.Etymology.ScholarlyNotesStack
-        pieRoots={card.pie_roots || (card.pie_root ? [card.pie_root] : [])}
-        currentCard={card}
-      />}
+      {/* REV-2: Scholarly notes stack — removed BUG-110: scholarly_notes table is empty migration artifact; no data to show */}
 
       {/* REV-2: Empty etymology placeholder for cards with no PIE root */}
       {window.Etymology && !card.pie_root && !card.etymology && (
@@ -430,7 +426,7 @@ function WordCard({ card, role, onDrillPie, onDrillFigure, onDrillGraph, onDrill
         <Ic.book />
         <span style={{ fontSize: 13, color: 'var(--fg-2)' }}>
           Scholarly entry available in <a className="xlink rag" style={{ '--xc': 'var(--acc)' }} onClick={onDrillRag}>
-            <span className="x-tag">RAG</span>Beekes EDPIE
+            <span className="x-tag">RAG</span>Beekes EDPIE / Dictionary content
           </a> — 1 match for this root.
         </span>
       </div>

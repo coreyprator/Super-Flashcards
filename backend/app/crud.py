@@ -110,11 +110,18 @@ def update_flashcard(db: Session, flashcard_id: str, flashcard: schemas.Flashcar
     return db_flashcard
 
 def delete_flashcard(db: Session, flashcard_id: str):
+    # BUG-103: clear this card's own flashcard_pie_roots rows before deleting the card.
+    # Only rows for this flashcard_id are removed; shared PIE roots and their nodes are preserved.
+    db.execute(
+        text("DELETE FROM flashcard_pie_roots WHERE flashcard_id = :card_id"),
+        {"card_id": flashcard_id},
+    )
     db_flashcard = get_flashcard(db, flashcard_id)
     if db_flashcard:
         db.delete(db_flashcard)
         db.commit()
         return True
+    db.commit()
     return False
 
 def increment_review_count(db: Session, flashcard_id: str):

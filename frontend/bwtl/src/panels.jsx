@@ -6,7 +6,7 @@
 // The glow prop is the integration cue: when a user clicks a cross-app link
 // in the word card, the corresponding panel briefly glows in its accent color.
 
-function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, onClose, onPin, pinned, children, headRight }) {
+function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, onClose, onPin, pinned, children, headRight, onExpand }) {
   return (
     <div className={`panel ${variant} ${glow ? 'glow' : ''} ${collapsed ? 'collapsed' : ''}`}>
       <div className="panel-head" onClick={onToggle}>
@@ -17,6 +17,9 @@ function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, o
         <div className="ctrls" onClick={(e) => e.stopPropagation()}>
           {meta && <span className="meta">{meta}</span>}
           {headRight}
+          {onExpand && (
+            <button title="Full view" onClick={onExpand}><Ic.expand /></button>
+          )}
           {onPin && (
             <button title={pinned ? 'Unpin' : 'Pin to rail'} onClick={onPin}>
               {pinned ? <Ic.pin_filled /> : <Ic.pin />}
@@ -38,6 +41,7 @@ function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, o
 function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, collapsed, onToggle, onClose, onPin, pinned }) {
   const [root, setRoot] = React.useState(window.BWTL.PIE_ROOTS[pieRootKey] || null);
   const [loadingRoot, setLoadingRoot] = React.useState(!root);
+  const [expanded, setExpanded] = React.useState(false);
 
   React.useEffect(() => {
     // BUG-045: clear stale root data before applying new key's data so old card's
@@ -80,6 +84,7 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
 
   return (
     <PanelShell variant="pie" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
+      onExpand={() => setExpanded(e => !e)}
       title={<><Ic.spark /> PIE Explorer</>}
       meta={<>SF · EFG merged</>}
       headRight={
@@ -327,11 +332,13 @@ function LanguageParadigm({ langs, showSrc, onNavigate }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EFG GRAPH PANEL — mini node-graph render of related nodes
+// BUG-100: reads from flashcard_pie_roots (via FLASHCARDS cache) + EFG nodes/edges
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClose, onPin, pinned, onOpenWord, onOpenRoot }) {
   const [graphData, setGraphData] = React.useState(null);
   const [loadingGraph, setLoadingGraph] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
 
   React.useEffect(() => {
     if (!currentWordId && !pieRootKey) { setLoadingGraph(false); return; }
@@ -341,9 +348,17 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
       .catch(err => { console.error('[EfgPanel] fetchEfgGraph error:', err); setLoadingGraph(false); });
   }, [currentWordId, pieRootKey]);
 
-  // Derive root and siblings from graph data or cached PIE_ROOTS
+  // BUG-100: merge SF flashcards sharing this PIE root from flashcard_pie_roots (via FLASHCARDS cache)
+  const sfSiblings = pieRootKey ? Object.values(window.BWTL.FLASHCARDS || {})
+    .filter(c => c.pie_root === pieRootKey || (Array.isArray(c.pie_roots) && c.pie_roots.includes(pieRootKey)))
+    .map(c => ({ id: c.id, label: c.word_or_phrase || c.word, node_type: 'word', language: c.language, sf: true })) : [];
+
+  // Derive root and siblings from graph data, merged with SF cards
   const rootData = (graphData && graphData.pie_root) ? graphData : window.BWTL.PIE_ROOTS[pieRootKey];
-  const siblings = graphData ? (graphData.nodes || []).filter(n => (n.type || n.node_type) === 'word') : [];
+  const efgSiblings = graphData ? (graphData.nodes || []).filter(n => (n.type || n.node_type) === 'word') : [];
+  const efgLabels = new Set(efgSiblings.map(s => s.label));
+  // Merge: EFG nodes first, then SF-only cards not already in EFG
+  const siblings = [...efgSiblings, ...sfSiblings.filter(s => !efgLabels.has(s.label))];
 
   // simple radial layout
   const W = 360, H = 200, cx = W/2, cy = H/2;
@@ -357,6 +372,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
   );
   if (!graphData && siblings.length === 0) return (
     <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
+      onExpand={() => setExpanded(e => !e)}
       title={<><Ic.graph /> Etymology Graph</>} meta="no data">
       <div className="efg-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No graph data available for this word. The EFG service may be offline.</div>
     </PanelShell>
@@ -364,6 +380,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
 
   return (
     <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
+      onExpand={() => setExpanded(e => !e)}
       title={<><Ic.graph /> Etymology Graph</>}
       meta={<>{siblings.length} nodes · {Math.floor(siblings.length * 1.4)} edges</>}
     >
@@ -388,8 +405,8 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
             return (
               <g key={n.id} style={{ cursor: 'pointer' }} onClick={() => onOpenWord && onOpenWord(n.id)}>
                 <circle cx={x} cy={y} r={isCur ? 14 : 11}
-                  fill={isCur ? 'var(--acc-bg)' : 'var(--bg-3)'}
-                  stroke={isCur ? 'var(--acc)' : 'var(--graph)'}
+                  fill={n.sf ? 'color-mix(in oklch, var(--acc) 12%, var(--bg-3))' : (isCur ? 'var(--acc-bg)' : 'var(--bg-3)')}
+                  stroke={isCur ? 'var(--acc)' : (n.sf ? 'var(--acc-ring)' : 'var(--graph)')}
                   strokeWidth={isCur ? 1.5 : 1} />
                 <text x={x} y={y + 22} textAnchor="middle" fill={isCur ? 'var(--fg)' : 'var(--fg-2)'} fontSize="9.5" fontFamily="var(--ff-sans)">{n.label}</text>
               </g>
@@ -494,12 +511,14 @@ function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, p
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PORTFOLIO RAG PANEL — dictionary lookup
+// DICTIONARY CONTENT PANEL (formerly Portfolio RAG) — dictionary lookup
+// BUG-108/SF-REQ-044: renamed from 'Portfolio RAG' to 'Dictionary content'
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinned }) {
   const [e, setE] = React.useState(window.BWTL.RAG_ENTRIES[pieRootKey] || null);
   const [loadingRag, setLoadingRag] = React.useState(!e);
+  const [expanded, setExpanded] = React.useState(false);
 
   React.useEffect(() => {
     if (!pieRootKey) return;
@@ -520,13 +539,13 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
 
   if (loadingRag) return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.book /> Portfolio RAG</>} meta="loading…">
-      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading RAG data…</div>
+      title={<><Ic.book /> Dictionary content</>} meta="loading…">
+      <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading dictionary data…</div>
     </PanelShell>
   );
   if (!e) return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      title={<><Ic.book /> Portfolio RAG</>} meta="no entry">
+      title={<><Ic.book /> Dictionary content</>} meta="no entry">
       <div className="rag-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>
         No Beekes entry found for this root. <a className="xlink" style={{ '--xc': 'var(--acc)' }}>Request ingestion</a>.
       </div>
@@ -535,7 +554,8 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
 
   return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
-      title={<><Ic.book /> Portfolio RAG</>}
+      onExpand={() => setExpanded(ex => !ex)}
+      title={<><Ic.book /> Dictionary content</>}
       meta={<>{e.source}</>}
     >
       <div style={{ fontFamily: 'var(--ff-display)', fontSize: 18, color: 'var(--acc-2)', marginBottom: 6 }}>{e.headword}</div>

@@ -553,17 +553,23 @@ function HealthRow({ label, filled, target, pill, sub }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NEW CARD SHEET — surfaces SF /api/flashcards + /api/ai/ai_generate
-// 3-step flow: type word + pick language → AI fills everything → review/save
+// BUG-101: One-click AI add — no multi-step setup dialog before card.
+// BUG-108: Inline validation on empty/invalid required input.
+// BV-09: Manual Entry path creates card from typed fields.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function NewCardSheet({ role, onClose, onCreated }) {
-  const [step, setStep] = React.useState(1);
+  // step: 'input' | 'generating' | 'manual'
+  const [step, setStep] = React.useState('input');
   const [word, setWord] = React.useState('');
+  const [wordError, setWordError] = React.useState(''); // BUG-108: inline validation
   const [lang, setLang] = React.useState('Greek');
-  const [aiStage, setAiStage] = React.useState('idle'); // idle | running | done | error
-  const [progress, setProgress] = React.useState([]);
-  const [createdCard, setCreatedCard] = React.useState(null); // set after AI generate succeeds
+  const [aiError, setAiError] = React.useState('');
+  const [createdCard, setCreatedCard] = React.useState(null);
+  // Manual entry state
+  const [manualDef, setManualDef] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [manualError, setManualError] = React.useState('');
 
   // Ensure LANGUAGES are loaded (real objects with .id)
   React.useEffect(() => {
@@ -585,33 +591,64 @@ function NewCardSheet({ role, onClose, onCreated }) {
     return null;
   };
 
-  const runAi = async () => {
-    setAiStage('running');
-    setProgress([]);
+  // BUG-101: Start AI immediately when user confirms word + language
+  const startAi = async () => {
+    const trimmed = word.trim();
+    if (!trimmed) {
+      setWordError('Word or phrase is required.'); // BUG-108: inline validation
+      return;
+    }
+    setWordError('');
+    setAiError('');
+    setStep('generating');
     const langId = _getLangId();
     if (!langId) {
-      // If languages not loaded yet, try fetching and retry once
-      try {
-        await window.BWTL.fetchLanguages();
-      } catch (_) {}
+      try { await window.BWTL.fetchLanguages(); } catch (_) {}
     }
     const resolvedId = _getLangId();
     if (!resolvedId) {
-      setAiStage('error');
+      setAiError('Language not found. Please try again.');
+      setStep('input');
       return;
     }
-    setProgress([{ lab: 'Generating card via AI (POST /api/ai/generate)', endpoint: 'POST /api/ai/generate', done: false }]);
     try {
       const card = await window.BWTL._apiFetch('/api/ai/generate', {
         method: 'POST',
-        body: JSON.stringify({ word_or_phrase: word || 'souvenir', language_id: resolvedId }),
+        body: JSON.stringify({ word_or_phrase: trimmed, language_id: resolvedId }),
       });
-      setProgress([{ lab: 'Card created by AI', endpoint: 'POST /api/ai/generate', done: true }]);
       setCreatedCard(card);
-      setTimeout(() => setAiStage('done'), 200);
+      window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
+      onCreated(card.word_or_phrase || trimmed, lang);
     } catch (err) {
-      setProgress([{ lab: `AI generate failed: ${err.message}`, endpoint: 'POST /api/ai/generate', done: false }]);
-      setAiStage('error');
+      setAiError(`AI generation failed: ${err.message}. You can try Manual Entry instead.`);
+      setStep('input');
+    }
+  };
+
+  // BV-09: Manual entry — POST minimal card from typed fields
+  const submitManual = async () => {
+    const trimmed = word.trim();
+    if (!trimmed) { setManualError('Word or phrase is required.'); return; }
+    setManualError('');
+    setIsSubmitting(true);
+    try {
+      const langId = _getLangId();
+      if (!langId) { await window.BWTL.fetchLanguages().catch(() => {}); }
+      const resolvedId = _getLangId();
+      if (!resolvedId) throw new Error('Language not found');
+      await window.BWTL._apiFetch('/api/flashcards/', {
+        method: 'POST',
+        body: JSON.stringify({
+          word_or_phrase: trimmed,
+          definition: manualDef.trim() || undefined,
+          language_id: resolvedId,
+        }),
+      });
+      window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
+      onCreated(trimmed, lang);
+    } catch (err) {
+      setManualError(`Save failed: ${err.message}`);
+      setIsSubmitting(false);
     }
   };
 
@@ -619,216 +656,118 @@ function NewCardSheet({ role, onClose, onCreated }) {
     <>
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" style={{
-        top: '8vh', bottom: '8vh', left: '50%', transform: 'translateX(-50%)',
-        width: 'min(720px, calc(100vw - 40px))',
+        top: '8vh', bottom: 'auto', left: '50%', transform: 'translateX(-50%)',
+        width: 'min(600px, calc(100vw - 40px))',
         display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: 'var(--ff-display)', fontSize: 22, fontWeight: 500 }}>New flashcard</div>
-            <div style={{ fontSize: 11.5, color: 'var(--fg-3)', marginTop: 2 }}>
-              <span className="mono">POST /api/flashcards</span> + <span className="mono">POST /api/ai/ai_generate</span>
-            </div>
+          <div style={{ fontFamily: 'var(--ff-display)', fontSize: 20, fontWeight: 500 }}>
+            {step === 'manual' ? 'Manual entry' : 'New flashcard'}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fg-3)' }}>
-            {[1, 2, 3].map(n => (
-              <React.Fragment key={n}>
-                <span style={{
-                  width: 22, height: 22, borderRadius: 99,
-                  background: step >= n ? 'var(--acc-bg)' : 'var(--bg-3)',
-                  border: '1px solid ' + (step >= n ? 'var(--acc-ring)' : 'var(--line)'),
-                  color: step >= n ? 'var(--acc-2)' : 'var(--fg-4)',
-                  display: 'inline-grid', placeItems: 'center',
-                  fontFamily: 'var(--ff-mono)', fontSize: 11, fontWeight: 700,
-                }}>{n}</span>
-                {n < 3 && <span style={{ width: 24, height: 1, background: step > n ? 'var(--acc-ring)' : 'var(--line)' }} />}
-              </React.Fragment>
-            ))}
-            <button onClick={onClose} style={{ marginLeft: 12, appearance: 'none', background: 'transparent', border: 0, color: 'var(--fg-3)', cursor: 'pointer' }}><Ic.x /></button>
-          </div>
+          <button onClick={onClose} style={{ appearance: 'none', background: 'transparent', border: 0, color: 'var(--fg-3)', cursor: 'pointer' }}><Ic.x /></button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
-          {step === 1 && (
-            <div style={{ display: 'grid', gap: 18 }}>
+        <div style={{ padding: '20px 22px' }}>
+          {/* Input step — word + language picker */}
+          {(step === 'input') && (
+            <div style={{ display: 'grid', gap: 16 }}>
               <div>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', display: 'block', marginBottom: 8 }}>Word or phrase</label>
                 <input
                   autoFocus
                   value={word}
-                  onChange={(e) => setWord(e.target.value)}
+                  onChange={(e) => { setWord(e.target.value); if (wordError) setWordError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') startAi(); }}
                   placeholder={lang === 'Greek' ? 'e.g. ἀναμιμνῄσκω' : lang === 'French' ? 'e.g. souvenir' : 'e.g. memory'}
                   style={{
-                    width: '100%', padding: '14px 16px',
-                    background: 'var(--bg-1)', border: '1px solid var(--line)',
+                    width: '100%', padding: '12px 16px', boxSizing: 'border-box',
+                    background: wordError ? 'color-mix(in oklch, var(--err) 5%, var(--bg-1))' : 'var(--bg-1)',
+                    border: '1px solid ' + (wordError ? 'var(--err)' : 'var(--line)'),
                     borderRadius: 'var(--r)',
                     color: 'var(--fg)', font: 'inherit',
-                    fontFamily: 'var(--ff-display)', fontSize: 24, letterSpacing: '-0.01em',
+                    fontFamily: 'var(--ff-display)', fontSize: 22,
                   }}
                 />
-                <div style={{ fontSize: 11.5, color: 'var(--fg-4)', marginTop: 6 }}>
-                  Goes into <span className="mono" style={{ color: 'var(--acc-2)' }}>SF.flashcards.word_or_phrase</span>
-                </div>
+                {/* BUG-108: inline validation feedback */}
+                {wordError && (
+                  <div style={{ fontSize: 12, color: 'var(--err)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Ic.spark style={{ width: 12, height: 12 }} /> {wordError}
+                  </div>
+                )}
+                {aiError && (
+                  <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 5 }}>{aiError}</div>
+                )}
               </div>
 
               <div>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', display: 'block', marginBottom: 8 }}>Language</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
                   {langs.map(l => (
-                    <button
-                      key={l.code}
-                      onClick={() => setLang(l.name)}
-                      style={{
-                        appearance: 'none', cursor: 'pointer',
-                        border: '1px solid ' + (lang === l.name ? 'var(--acc-ring)' : 'var(--line)'),
-                        background: lang === l.name ? 'var(--acc-bg)' : 'var(--bg-1)',
-                        color: lang === l.name ? 'var(--fg)' : 'var(--fg-2)',
-                        padding: '10px 12px', borderRadius: 8,
-                        fontFamily: 'inherit', textAlign: 'left',
-                      }}
-                    >
+                    <button key={l.code} onClick={() => setLang(l.name)} style={{
+                      appearance: 'none', cursor: 'pointer',
+                      border: '1px solid ' + (lang === l.name ? 'var(--acc-ring)' : 'var(--line)'),
+                      background: lang === l.name ? 'var(--acc-bg)' : 'var(--bg-1)',
+                      color: lang === l.name ? 'var(--fg)' : 'var(--fg-2)',
+                      padding: '8px 10px', borderRadius: 8, fontFamily: 'inherit', textAlign: 'left',
+                    }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{l.name}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--fg-4)', marginTop: 2 }} className="mono">{l.total} cards</div>
                     </button>
                   ))}
                 </div>
               </div>
 
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button className="btn ghost" onClick={onClose}>Cancel</button>
+                <button className="btn ghost" onClick={() => { if (!word.trim()) { setWordError('Word or phrase is required.'); return; } setWordError(''); setStep('manual'); }}>Manual entry</button>
+                <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={startAi}>
+                  <Ic.spark /> Add with AI
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Generating — brief notice while AI runs */}
+          {step === 'generating' && (
+            <div style={{ textAlign: 'center', padding: '32px 0', display: 'grid', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', display: 'block', marginBottom: 8 }}>Card type</label>
-                <div style={{ display: 'inline-flex', gap: 4, padding: 4, background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 8 }}>
-                  {[['word', 'Word'], ['sentence', 'Sentence (250 in library)']].map(([k, lab]) => (
-                    <button key={k} className="btn xs ghost" style={{ background: k === 'word' ? 'var(--bg-4)' : 'transparent', color: k === 'word' ? 'var(--fg)' : 'var(--fg-3)' }}>{lab}</button>
-                  ))}
-                </div>
+                <div className="display" style={{ fontSize: 32, color: 'var(--fg)' }}>{word}</div>
+                <div style={{ fontSize: 13, color: 'var(--fg-3)', marginTop: 4 }}>{lang}</div>
               </div>
-
-              <div style={{ background: 'var(--bg-1)', border: '1px dashed var(--line)', borderRadius: 8, padding: 14, fontSize: 12, color: 'var(--fg-3)', lineHeight: 1.55 }}>
-                <strong style={{ color: 'var(--fg-2)' }}>Or bulk import →</strong> <span className="mono" style={{ color: 'var(--acc-2)' }}>POST /api/document/parse</span> · paste a Greek text or upload a PDF; the document parser extracts vocabulary and you approve in batch.
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, color: 'var(--fg-2)' }}>
+                <span className="dot warn" /> Using AI generation…
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--fg-4)' }}>
+                Generating etymology, PIE root, IPA, cognates and wiring to EFG. This takes ~10s.
               </div>
             </div>
           )}
 
-          {step === 2 && (
-            <div style={{ display: 'grid', gap: 16 }}>
-              <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                <div className="display" style={{ fontSize: 36 }}>{word || 'souvenir'}</div>
-                <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>{lang}</div>
-              </div>
-              <div style={{ background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 8, padding: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Ic.spark style={{ color: 'var(--acc)' }} /> AI fill pipeline
-                  {aiStage === 'running' && <span className="dot warn" style={{ marginLeft: 'auto' }} />}
-                  {aiStage === 'done' && <span className="pill ok" style={{ fontSize: 9.5, marginLeft: 'auto' }}><span className="dot ok" /> all done</span>}
-                </div>
-                <div style={{ display: 'grid', gap: 5 }}>
-                  {[
-                    'Looking up Beekes via Portfolio RAG',
-                    'Etymology + PIE root',
-                    'IPA transcription',
-                    'English cognates + cross-link',
-                    'Fun facts (Etymython link check)',
-                    'TTS audio',
-                    'Wire to EFG node',
-                  ].map((lab, i) => {
-                    const done = progress[i]?.done;
-                    return (
-                      <div key={lab} style={{
-                        display: 'grid', gridTemplateColumns: '18px 1fr auto',
-                        alignItems: 'center', gap: 10,
-                        padding: '6px 10px', borderRadius: 5,
-                        background: done ? 'color-mix(in oklch, var(--ok) 5%, transparent)' : 'transparent',
-                        fontSize: 12,
-                        color: done ? 'var(--fg-2)' : 'var(--fg-4)',
-                      }}>
-                        {done ? <Ic.check style={{ color: 'var(--ok)' }} /> : aiStage === 'running' && i === progress.length ? <span className="dot warn" /> : <span style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--fg-5)' }} />}
-                        <span>{lab}</span>
-                        <span className="mono" style={{ fontSize: 9.5, color: 'var(--fg-5)' }}>{progress[i]?.endpoint || ''}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {aiStage === 'idle' && (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button className="btn ghost"><Ic.edit /> Fill manually instead</button>
-                  <button className="btn primary" onClick={runAi}><Ic.spark /> Run AI fill</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === 3 && (
+          {/* Manual entry form — BV-09 */}
+          {step === 'manual' && (
             <div style={{ display: 'grid', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 14, alignItems: 'flex-start' }}>
-                <div style={{
-                  aspectRatio: '1/1', borderRadius: 'var(--r)',
-                  background: 'linear-gradient(135deg, var(--myth-bg), var(--pie-bg))',
-                  border: '1px dashed var(--line)',
-                  display: 'flex', alignItems: 'flex-end', padding: 6,
-                  fontFamily: 'var(--ff-mono)', fontSize: 9, color: 'var(--fg-4)',
-                }}>placeholder · awaiting upload</div>
-                <div>
-                  <div className="display" style={{ fontSize: 32 }}>{word || 'souvenir'}</div>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--fg-2)' }}>/su.və.niʁ/</div>
-                  <div style={{ fontSize: 13, color: 'var(--fg-2)', marginTop: 6 }}>A memory; a keepsake.</div>
-                  <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <span className="pill pie" style={{ fontSize: 9.5 }}>*gʷem-</span>
-                    <span className="pill graph" style={{ fontSize: 9.5 }}>5 cognates</span>
-                    <span className="pill myth" style={{ fontSize: 9.5 }}>1 fun fact</span>
-                  </div>
-                </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', display: 'block', marginBottom: 6 }}>Word or phrase</label>
+                <input value={word} onChange={(e) => { setWord(e.target.value); if (manualError) setManualError(''); }}
+                  placeholder="Enter word or phrase" style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--fg)', font: 'inherit', fontSize: 18 }} />
               </div>
-              <div style={{ background: 'var(--bg-1)', border: '1px solid color-mix(in oklch, var(--ok) 30%, var(--line))', borderRadius: 8, padding: 12, fontSize: 12, color: 'var(--fg-2)', lineHeight: 1.6 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ok)', marginBottom: 6 }}>Review before save</div>
-                Every field has a spark <Ic.spark style={{ verticalAlign: '-2px', color: 'var(--acc)' }} /> next to it on the card — you can re-roll any field individually after save, or send it to Theodoros for approval if you're not in admin role.
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-3)', display: 'block', marginBottom: 6 }}>Definition (optional)</label>
+                <textarea value={manualDef} onChange={(e) => setManualDef(e.target.value)} rows={3}
+                  placeholder="Enter definition" style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--fg)', font: 'inherit', fontSize: 14, resize: 'vertical' }} />
+              </div>
+              {manualError && <div style={{ fontSize: 12, color: 'var(--err)' }}>{manualError}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn ghost" onClick={() => { setStep('input'); setManualError(''); }}>← Back</button>
+                <button className="btn primary" style={{ marginLeft: 'auto' }} disabled={isSubmitting} onClick={submitManual}>
+                  <Ic.check /> {isSubmitting ? 'Saving…' : 'Create card'}
+                </button>
               </div>
             </div>
-          )}
-        </div>
-
-        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn ghost" onClick={onClose}>Cancel</button>
-          <div style={{ flex: 1 }} />
-          {step > 1 && <button className="btn ghost" onClick={() => setStep(s => s - 1)}>← Back</button>}
-          {step === 1 && <button className="btn primary" disabled={!word.trim()} onClick={() => setStep(2)}>Next: AI fill →</button>}
-          {step === 2 && (aiStage === 'done' || aiStage === 'error') && <button className="btn primary" onClick={() => setStep(3)}>Next: Review →</button>}
-          {step === 3 && (
-            <button className="btn primary" disabled={isSubmitting} onClick={async () => {
-              const finalWord = word.trim() || 'souvenir';
-              if (createdCard) {
-                // Card was created by AI fill in Step 2 — dispatch reload + close
-                window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
-                onCreated(createdCard.word_or_phrase || finalWord, lang);
-              } else {
-                // Manual path: POST to /api/flashcards
-                setIsSubmitting(true);
-                try {
-                  const langId = _getLangId();
-                  if (!langId) {
-                    await window.BWTL.fetchLanguages().catch(() => {});
-                  }
-                  const resolvedId = _getLangId();
-                  if (!resolvedId) throw new Error('Language not found');
-                  await window.BWTL._apiFetch('/api/flashcards/', {
-                    method: 'POST',
-                    body: JSON.stringify({ word_or_phrase: finalWord, language_id: resolvedId }),
-                  });
-                  window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
-                  onCreated(finalWord, lang);
-                } catch (err) {
-                  // eslint-disable-next-line no-console
-                  console.error('[NewCardSheet] create failed:', err);
-                  setIsSubmitting(false);
-                }
-              }
-            }}><Ic.check /> {isSubmitting ? 'Saving…' : 'Create card'}</button>
           )}
         </div>
       </div>
     </>
   );
 }
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);

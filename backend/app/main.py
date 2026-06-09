@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 5.5.0 - BWTL-GOLIVE-FIX-001: BUG-072/051/063/067/073/088/098 fixes
+# Version: 5.6.0 - BWTL-GOLIVE-BUNDLE-001: BV-01..18 go-live fixes
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +28,7 @@ from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.5.0"
+APP_VERSION = "5.6.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -253,8 +253,23 @@ if os.path.exists(bwtl_path):
     @app.get("/bwtl", include_in_schema=False)
     @app.get("/bwtl/", include_in_schema=False)
     async def serve_bwtl():
-        from fastapi.responses import FileResponse
-        return FileResponse(os.path.join(bwtl_path, "index.html"), media_type="text/html")
+        import re as _re
+        bwtl_index = os.path.join(bwtl_path, "index.html")
+        with open(bwtl_index, "r", encoding="utf-8") as _f:
+            html = _f.read()
+        # BUG-111: inject APP_VERSION as cache-busting query param on every JS source tag
+        html = _re.sub(
+            r'(src="/bwtl/src/[^"]+)(?:\?v=[\d.]+)?(")',
+            lambda m: m.group(1) + f"?v={APP_VERSION}" + m.group(2),
+            html,
+        )
+        # Inject window.APP_VERSION for JS-side version checks
+        if "window.APP_VERSION" in html:
+            html = _re.sub(r"window\.APP_VERSION = '[^']*'", f"window.APP_VERSION = '{APP_VERSION}'", html)
+        else:
+            html = html.replace("</head>", f"<script>window.APP_VERSION='{APP_VERSION}';</script></head>", 1)
+        from fastapi.responses import HTMLResponse as _HTMLResponse
+        return _HTMLResponse(content=html, media_type="text/html")
 
     # BWTL03-FIX: SPA catch-all so /bwtl/* sub-routes serve index.html for client-side routing
     @app.get("/bwtl/{path:path}", include_in_schema=False)

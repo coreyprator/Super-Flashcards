@@ -153,11 +153,33 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
   // REQ-040: multi-select delete state
   const [selected, setSelected] = React.useState(new Set());
   const [deleting, setDeleting] = React.useState(false);
+  // BUG-099/109: server-side search state — null = not searching, Set = active search results
+  const [serverSearchIds, setServerSearchIds] = React.useState(null);
+  const [searchLoading, setSearchLoading] = React.useState(false);
+
+  // BUG-099: server search when q is set
+  React.useEffect(() => {
+    const q = cardFilter.q;
+    if (!q || !q.trim()) { setServerSearchIds(null); return; }
+    setSearchLoading(true);
+    window.BWTL._apiFetch('/api/search/flashcards?q=' + encodeURIComponent(q) + '&limit=500')
+      .then(data => {
+        const results = data.results || [];
+        results.forEach(r => {
+          if (!window.BWTL.FLASHCARDS[r.id]) {
+            window.BWTL.FLASHCARDS[r.id] = { id: r.id, word: r.word, word_or_phrase: r.word, definition: r.translation, language_id: r.language_id, language: r.language_name };
+          }
+        });
+        setServerSearchIds(new Set(results.map(r => r.id)));
+      })
+      .catch(() => setServerSearchIds(null))
+      .finally(() => setSearchLoading(false));
+  }, [cardFilter.q]);
 
   const loadCards = React.useCallback(() => {
     setLoading(true);
     Promise.all([
-      window.BWTL.fetchCards({ limit: 200 }),
+      window.BWTL.fetchCards({ limit: 5000 }), // BUG-109: removed hardcoded 200 cap
       window.BWTL.fetchLanguages(),
       window.BWTL.getBookmarks('pl').catch(() => []),
     ]).then(([cardData, langData, bookmarkData]) => {
@@ -195,9 +217,13 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
     return () => window.removeEventListener('bwtl:card-reload', loadCards);
   }, [loadCards]);
 
-  // Use App-computed spine if available; otherwise filter FLASHCARDS locally
+  // Compute card list: server search > spine > local filter
   let cards;
-  if (spine && spine.length > 0) {
+  if (serverSearchIds !== null) {
+    // BUG-099: server search is active — skip client-side filter entirely
+    cards = [...serverSearchIds].map(id => window.BWTL.FLASHCARDS[id]).filter(Boolean);
+    if (cardFilter.sort === 'alpha') cards.sort((a, b) => (a.word_or_phrase || a.word || '').localeCompare(b.word_or_phrase || b.word || ''));
+  } else if (spine && spine.length > 0) {
     cards = spine.map(id => window.BWTL.FLASHCARDS[id]).filter(Boolean);
   } else {
     cards = Object.values(window.BWTL.FLASHCARDS || {});
@@ -210,15 +236,11 @@ function CardsTab({ cardFilter, setCardFilter, spine, onOpenCard }) {
     if (cardFilter.chips.includes('missing_data')) cards = cards.filter(c => !c.pie_root && !(c.pie_roots && c.pie_roots.length));
     // REQ-008: filter by etymology_layer presence
     if (cardFilter.chips.includes('has_ety_layer')) cards = cards.filter(c => !!c.etymology_layer);
-    if (cardFilter.q) {
-      const qLow = cardFilter.q.toLowerCase();
-      cards = cards.filter(c => ((c.word_or_phrase || c.word || '') + ' ' + (c.definition || '')).toLowerCase().includes(qLow));
-    }
     if (cardFilter.sort === 'alpha') cards.sort((a, b) => (a.word_or_phrase || a.word || '').localeCompare(b.word_or_phrase || b.word || ''));
   }
 
-  if (loading && !cards.length) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>Loading cards…</div>;
-  if (!loading && !cards.length) return (
+  if ((loading || searchLoading) && !cards.length) return <div style={{ padding: 24, color: 'var(--fg-3)', fontSize: 14 }}>{searchLoading ? 'Searching…' : 'Loading cards…'}</div>;
+  if (!loading && !searchLoading && !cards.length) return (
     <div className="cards-empty" style={{ padding: '40px 0', textAlign: 'center', color: 'var(--fg-4)', fontSize: 13 }}>
       No cards match this filter.{cardFilter.chips.includes('bookmarked') ? ' Your study set is empty — bookmark cards to add them.' : ''}
     </div>
@@ -444,7 +466,7 @@ function BeekesTab({ q }) {
     if (term === lastQ.current) return;
     lastQ.current = term;
     setLoading(true);
-    window.BWTL._apiFetch('/api/etymology/search?q=' + encodeURIComponent(term) + '&limit=50')
+    window.BWTL._apiFetch('/api/etymology/search?q=' + encodeURIComponent(term) + '&source=beekes&limit=50') // BUG-104: scope to source=beekes only
       .then(data => {
         const items = Array.isArray(data) ? data : (data.results || data.items || []);
         setDocs(items.map((d, i) => ({

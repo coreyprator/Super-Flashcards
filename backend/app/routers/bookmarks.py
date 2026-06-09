@@ -2,12 +2,13 @@
 import uuid
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
 from app import models
+from app.default_user import get_default_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,7 +31,7 @@ class BookmarkCreate(BaseModel):
     flashcard_ref_id: Optional[str] = None  # UUID string; required when kind in ('word','flashcard')
     figure_ref_id: Optional[int] = None     # required when kind = 'figure'
     ref_label: Optional[str] = None
-    owner_id: str
+    owner_id: Optional[str] = None  # BUG-113: ignored — owner derived server-side
     collection_id: Optional[str] = None
 
 
@@ -63,13 +64,43 @@ def _col_dict(c: models.BookmarkCollection) -> dict:
     }
 
 
+def _resolve_owner(request: Request, db: Session) -> Optional[str]:
+    """BUG-113: Derive bookmark owner server-side.
+    Tries JWT Authorization Bearer token first; falls back to cached default PL user.
+    Never trusts owner_id from the request body.
+    """
+    from app.services.auth_service import decode_access_token
+    from jose import JWTError
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            payload = decode_access_token(token)
+            user_id = payload.get("user_id")
+            if user_id:
+                return str(user_id)
+        except Exception:
+            pass
+
+    # Fall back to default PL user (single-user deployment)
+    return get_default_user_id()
+
+
 # ── Bookmark endpoints ─────────────────────────────────────────────────────────
 
 @router.post("/bookmarks")
 def create_bookmark(
+    request: Request,
     body: BookmarkCreate,
     db: Session = Depends(get_db),
 ):
+    # BUG-113: derive owner server-side; ignore owner_id in request body.
+    # Try JWT from Authorization header; fall back to default PL user.
+    server_owner_id = _resolve_owner(request, db)
+    if not server_owner_id:
+        raise HTTPException(status_code=401, detail="Cannot determine bookmark owner")
+
     if body.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {body.kind}")
 
@@ -101,7 +132,7 @@ def create_bookmark(
         flashcard_ref_id=body.flashcard_ref_id,
         figure_ref_id=body.figure_ref_id,
         ref_label=body.ref_label,
-        owner_id=body.owner_id,
+        owner_id=server_owner_id,  # BUG-113: always use server-derived owner
         collection_id=body.collection_id,
     )
     db.add(bm)
