@@ -157,8 +157,11 @@ function App() {
   };
 
   // REQ-039: card deleted — evict from spine and go back to browse
+  // BUG-115: cardSpine is derived via useMemo; there is no setCardSpine setter.
+  // Bumping flashcardsVersion forces recompute; the card was already evicted from
+  // window.BWTL.FLASHCARDS before onCardDeleted is called.
   const onCardDeleted = (cardId) => {
-    setCardSpine(s => (s || []).filter(id => id !== cardId));
+    setFlashcardsVersion(v => v + 1);
     setDetailCardId(null);
     setSection('browse');
     showToast('Card deleted');
@@ -593,6 +596,7 @@ function NewCardSheet({ role, onClose, onCreated }) {
 
   // BUG-101: Start AI immediately when user confirms word + language
   const startAi = async () => {
+    if (step !== 'input') return; // BUG-101: guard against double-submit
     const trimmed = word.trim();
     if (!trimmed) {
       setWordError('Word or phrase is required.'); // BUG-108: inline validation
@@ -617,7 +621,8 @@ function NewCardSheet({ role, onClose, onCreated }) {
         body: JSON.stringify({ word_or_phrase: trimmed, language_id: resolvedId }),
       });
       setCreatedCard(card);
-      window.dispatchEvent(new CustomEvent('bwtl:card-reload'));
+      window.BWTL.FLASHCARDS[card.id] = card; // BUG-101: seed cache before reload event
+      window.dispatchEvent(new CustomEvent('bwtl:card-reload', { detail: card.id }));
       onCreated(card.word_or_phrase || trimmed, lang);
     } catch (err) {
       setAiError(`AI generation failed: ${err.message}. You can try Manual Entry instead.`);

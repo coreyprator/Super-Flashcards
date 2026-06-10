@@ -1,4 +1,30 @@
 steps:
+  # BUG-111: Pre-compile JSX to a production bundle — no in-browser Babel.
+  # package.json is gitignored (*.json rule) so we inline the deps here.
+  # The built dist/bundle.js is written to /workspace and picked up by Docker.
+  - name: 'node:20-slim'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        mkdir -p /build-tmp
+        cat > /build-tmp/package.json << 'EOF'
+        {
+          "name": "bwtl-frontend",
+          "version": "5.7.0",
+          "private": true,
+          "dependencies": {
+            "@babel/core": "^7.24.0",
+            "@babel/preset-react": "^7.24.0"
+          }
+        }
+        EOF
+        cp frontend/bwtl/build.js /build-tmp/
+        cd /build-tmp && npm install --quiet
+        BWTL_SRC=/workspace/frontend/bwtl/src \
+        BWTL_DIST=/workspace/frontend/bwtl/dist \
+        node /build-tmp/build.js
+
   - name: 'gcr.io/cloud-builders/docker'
     args: 
       - 'build'

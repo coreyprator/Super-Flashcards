@@ -116,6 +116,11 @@ def delete_flashcard(db: Session, flashcard_id: str):
         text("DELETE FROM flashcard_pie_roots WHERE flashcard_id = :card_id"),
         {"card_id": flashcard_id},
     )
+    # BUG-115: delete bookmarks referencing this card to avoid FK violations on DELETE.
+    db.execute(
+        text("DELETE FROM bookmarks WHERE flashcard_ref_id = :card_id"),
+        {"card_id": flashcard_id},
+    )
     db_flashcard = get_flashcard(db, flashcard_id)
     if db_flashcard:
         db.delete(db_flashcard)

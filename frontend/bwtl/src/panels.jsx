@@ -6,30 +6,33 @@
 // The glow prop is the integration cue: when a user clicks a cross-app link
 // in the word card, the corresponding panel briefly glows in its accent color.
 
-function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, onClose, onPin, pinned, children, headRight, onExpand }) {
+function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, onClose, onPin, pinned, children, headRight, onExpand, expanded }) {
   return (
-    <div className={`panel ${variant} ${glow ? 'glow' : ''} ${collapsed ? 'collapsed' : ''}`}>
-      <div className="panel-head" onClick={onToggle}>
-        <div className="title">
-          <Ic.caret_d style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }} />
-          {title}
+    <>
+      {expanded && <div className="panel-fullview-backdrop" onClick={onExpand} />}
+      <div className={`panel ${variant} ${glow ? 'glow' : ''} ${collapsed ? 'collapsed' : ''} ${expanded ? 'fullview' : ''}`}>
+        <div className="panel-head" onClick={onToggle}>
+          <div className="title">
+            <Ic.caret_d style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }} />
+            {title}
+          </div>
+          <div className="ctrls" onClick={(e) => e.stopPropagation()}>
+            {meta && <span className="meta">{meta}</span>}
+            {headRight}
+            {onExpand && (
+              <button title={expanded ? 'Exit full view' : 'Full view'} onClick={onExpand}><Ic.expand /></button>
+            )}
+            {onPin && (
+              <button title={pinned ? 'Unpin' : 'Pin to rail'} onClick={onPin}>
+                {pinned ? <Ic.pin_filled /> : <Ic.pin />}
+              </button>
+            )}
+            {onClose && <button title="Close" onClick={onClose}><Ic.x /></button>}
+          </div>
         </div>
-        <div className="ctrls" onClick={(e) => e.stopPropagation()}>
-          {meta && <span className="meta">{meta}</span>}
-          {headRight}
-          {onExpand && (
-            <button title="Full view" onClick={onExpand}><Ic.expand /></button>
-          )}
-          {onPin && (
-            <button title={pinned ? 'Unpin' : 'Pin to rail'} onClick={onPin}>
-              {pinned ? <Ic.pin_filled /> : <Ic.pin />}
-            </button>
-          )}
-          {onClose && <button title="Close" onClick={onClose}><Ic.x /></button>}
-        </div>
+        <div className="panel-body">{children}</div>
       </div>
-      <div className="panel-body">{children}</div>
-    </div>
+    </>
   );
 }
 
@@ -84,7 +87,7 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
 
   return (
     <PanelShell variant="pie" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
-      onExpand={() => setExpanded(e => !e)}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.spark /> PIE Explorer</>}
       meta={<>SF · EFG merged</>}
       headRight={
@@ -178,7 +181,7 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <button className="btn sm ghost"><Ic.chat /> Chat about this root</button>
         <button className="btn sm ghost"><Ic.bookmark /> Bookmark root</button>
-        <button className="btn sm ghost" style={{ marginLeft: 'auto' }}><Ic.expand /> Open full</button>
+        <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => setExpanded(e => !e)}><Ic.expand /> {expanded ? 'Exit full' : 'Open full'}</button>
       </div>
     </PanelShell>
   );
@@ -372,7 +375,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
   );
   if (!graphData && siblings.length === 0) return (
     <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
-      onExpand={() => setExpanded(e => !e)}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.graph /> Etymology Graph</>} meta="no data">
       <div className="efg-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No graph data available for this word. The EFG service may be offline.</div>
     </PanelShell>
@@ -380,7 +383,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
 
   return (
     <PanelShell variant="graph" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
-      onExpand={() => setExpanded(e => !e)}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.graph /> Etymology Graph</>}
       meta={<>{siblings.length} nodes · {Math.floor(siblings.length * 1.4)} edges</>}
     >
@@ -430,6 +433,7 @@ function EfgPanel({ pieRootKey, currentWordId, glow, collapsed, onToggle, onClos
 function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, pinned }) {
   const [f, setF] = React.useState(window.BWTL.FIGURES[figureId] || null);
   const [loadingFig, setLoadingFig] = React.useState(!f);
+  const [expanded, setExpanded] = React.useState(false); // REQ-044
 
   React.useEffect(() => {
     if (!figureId) return;
@@ -442,12 +446,14 @@ function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, p
 
   if (loadingFig) return (
     <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.shield /> Etymython</>} meta="loading…">
       <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading figure data…</div>
     </PanelShell>
   );
   if (!f) return (
     <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.shield /> Etymython</>} meta="no figure">
       <div className="myth-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>No mythological figure linked to this card.</div>
     </PanelShell>
@@ -455,6 +461,7 @@ function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, p
 
   return (
     <PanelShell variant="myth" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.shield /> Etymython</>}
       meta={<>{f.figure_type} · 1 of 183</>}
     >
@@ -539,12 +546,14 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
 
   if (loadingRag) return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
+      onExpand={() => setExpanded(ex => !ex)} expanded={expanded}
       title={<><Ic.book /> Dictionary content</>} meta="loading…">
       <div style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>Loading dictionary data…</div>
     </PanelShell>
   );
   if (!e) return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose}
+      onExpand={() => setExpanded(ex => !ex)} expanded={expanded}
       title={<><Ic.book /> Dictionary content</>} meta="no entry">
       <div className="rag-empty" style={{ color: 'var(--fg-3)', fontSize: 13, padding: 12 }}>
         No Beekes entry found for this root. <a className="xlink" style={{ '--xc': 'var(--acc)' }}>Request ingestion</a>.
@@ -554,7 +563,7 @@ function RagPanel({ pieRootKey, glow, collapsed, onToggle, onClose, onPin, pinne
 
   return (
     <PanelShell variant="rag" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
-      onExpand={() => setExpanded(ex => !ex)}
+      onExpand={() => setExpanded(ex => !ex)} expanded={expanded}
       title={<><Ic.book /> Dictionary content</>}
       meta={<>{e.source}</>}
     >
@@ -577,6 +586,7 @@ function ArtForgePanel({ card, figureId, glow, collapsed, onToggle, onClose, onP
   const [stage, setStage] = React.useState('idle'); // idle | queued | rendering | done
   const [jobId, setJobId] = React.useState(null);
   const [jobError, setJobError] = React.useState(null);
+  const [expanded, setExpanded] = React.useState(false); // REQ-044
 
   const handleGenerate = () => {
     if (!card?.id) return;
@@ -588,6 +598,7 @@ function ArtForgePanel({ card, figureId, glow, collapsed, onToggle, onClose, onP
 
   return (
     <PanelShell variant="forge" glow={glow} collapsed={collapsed} onToggle={onToggle} onClose={onClose} onPin={onPin} pinned={pinned}
+      onExpand={() => setExpanded(e => !e)} expanded={expanded}
       title={<><Ic.film /> ArtForge — etymology only</>}
       meta={<>panel mode</>}
     >

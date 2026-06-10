@@ -385,6 +385,24 @@
   .panel-body { padding: 14px; }
   .panel.collapsed .panel-body { display: none; }
   .panel.collapsed .panel-head { border-bottom-color: transparent; }
+  /* REQ-044: Full-View expand — panel becomes a fixed overlay */
+  .panel.fullview {
+    position: fixed;
+    inset: 60px 20px 20px 20px;
+    z-index: 120;
+    overflow-y: auto;
+    box-shadow: 0 24px 80px -16px rgba(0,0,0,.75);
+    border-color: color-mix(in oklch, var(--pc, var(--acc)) 55%, var(--line));
+  }
+  .panel.fullview + .panel-fullview-backdrop {
+    display: block;
+  }
+  .panel-fullview-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 119;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(2px);
+  }
 
   /* PIE Explorer — special dense layout */
   .pie-root-hero {
@@ -827,31 +845,16 @@
   .browse-thumb .bt-badge.star  { background: var(--acc-bg); color: var(--acc-2); }
 </style>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-HmxXp1bIUCVCaFVrApqbCrVwA2OXqU3nRIvWVV+tDXoMbDCW4U3GFQ0p4qVBLUH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-jUDxgxLfT9qfVkuXxnZ/WoMqEJ9lsDpL/lWbv78I8kT/gPVXsEoUdoV8GbAIH5C" crossorigin="anonymous"></script>
 
 </head>
 <body>
 
 <div id="root"></div>
 
-<script type="text/babel" src="/bwtl/src/icons.jsx"></script>
-<script type="text/babel" src="/bwtl/src/bwtl-api.js"></script>
-<script type="text/babel" src="/bwtl/src/etymology.jsx"></script>
-<script type="text/babel" src="/bwtl/src/tweaks-panel.jsx"></script>
-<script type="text/babel" src="/bwtl/src/panels.jsx"></script>
-<script type="text/babel" src="/bwtl/src/chat.jsx"></script>
-<script type="text/babel" src="/bwtl/src/workspace.jsx"></script>
-<script type="text/babel" src="/bwtl/src/study-extra.jsx"></script>
-<script type="text/babel" src="/bwtl/src/library.jsx"></script>
-<script type="text/babel" src="/bwtl/src/generate.jsx"></script>
-<script type="text/babel" src="/bwtl/src/theodoros.jsx"></script>
-<script type="text/babel" src="/bwtl/src/bookmarks.jsx"></script>
-<script type="text/babel" src="/bwtl/src/admin.jsx"></script>
-<script type="text/babel" src="/bwtl/src/spec.jsx"></script>
-<script type="text/babel" src="/bwtl/src/tweaks.jsx"></script>
-<script type="text/babel" src="/bwtl/src/app.jsx"></script>
+<!-- BUG-111: pre-compiled production bundle — no in-browser Babel -->
+<script src="/bwtl/dist/bundle.js"></script>
 
 </body>
 </html>
