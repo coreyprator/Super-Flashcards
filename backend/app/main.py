@@ -249,6 +249,10 @@ if os.path.exists(frontend_path):
 bwtl_path = os.path.join(frontend_path, "bwtl")
 if os.path.exists(bwtl_path):
     app.mount("/bwtl/src", StaticFiles(directory=os.path.join(bwtl_path, "src")), name="bwtl-src")
+    # BUG-111: serve the pre-compiled production bundle
+    bwtl_dist = os.path.join(bwtl_path, "dist")
+    if os.path.exists(bwtl_dist):
+        app.mount("/bwtl/dist", StaticFiles(directory=bwtl_dist), name="bwtl-dist")
 
     @app.get("/bwtl", include_in_schema=False)
     @app.get("/bwtl/", include_in_schema=False)
@@ -257,9 +261,9 @@ if os.path.exists(bwtl_path):
         bwtl_index = os.path.join(bwtl_path, "index.html")
         with open(bwtl_index, "r", encoding="utf-8") as _f:
             html = _f.read()
-        # BUG-111: inject APP_VERSION as cache-busting query param on every JS source tag
+        # BUG-111: bundle.js cache-bust — inject version on the single bundle script tag
         html = _re.sub(
-            r'(src="/bwtl/src/[^"]+)(?:\?v=[\d.]+)?(")',
+            r'(src="/bwtl/dist/bundle\.js)(?:\?v=[\d.]+)?(")',
             lambda m: m.group(1) + f"?v={APP_VERSION}" + m.group(2),
             html,
         )
