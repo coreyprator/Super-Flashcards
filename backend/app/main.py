@@ -1,5 +1,5 @@
 # backend/app/main.py
-# Version: 5.6.0 - BWTL-GOLIVE-BUNDLE-001: BV-01..18 go-live fixes
+# Version: 5.7.0 - BWTLGO3: control-operation inventory, atomic sweep, version bump
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +28,7 @@ from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.6.0"
+APP_VERSION = "5.7.0"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
