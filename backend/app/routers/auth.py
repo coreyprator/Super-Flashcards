@@ -41,7 +41,7 @@ async def bwtl_passphrase_login(
     Checks passphrase against APP_PASSPHRASE env var (populated from GCP Secret Manager
     app-passphrase at Cloud Run deploy time).  Returns a short-lived JWT access token
     and sets a refresh cookie identical to the regular login flow."""
-    stored = os.getenv("APP_PASSPHRASE", "")
+    stored = os.getenv("APP_PASSPHRASE", "").strip()  # strip trailing newline from Secret Manager injection
     if not stored:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
