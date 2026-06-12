@@ -616,19 +616,6 @@ function AiEditButton({ field, label, subtle, floating, card }) {
         
           {stage === 'idle' &&
         <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center' }}>
-              {/* REQ-051/BUG-126: lookup Beekes entry for this card's root and prepend to prompt */}
-              <button className="btn xs ghost" onClick={() => {
-                const root = card?.pie_root || card?.word_or_phrase || '';
-                if (!root) return;
-                window.BWTL.searchEtymology(root).then(results => {
-                  const items = Array.isArray(results) ? results : (results.results || results.items || []);
-                  const entry = items[0];
-                  if (entry) {
-                    const snippet = entry.full_text || entry.snippet || entry.text || entry.content || '';
-                    setPromptText(pt => `[Beekes: ${snippet.slice(0, 300)}]\n${pt}`);
-                  }
-                }).catch(err => console.error('[Beekes]', err));
-              }}>Use Beekes context</button>
               <button className="btn xs primary" style={{ marginLeft: 'auto' }} onClick={runIt}><Ic.spark /> Generate</button>
             </div>
         }

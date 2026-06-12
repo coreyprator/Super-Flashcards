@@ -120,6 +120,36 @@ def create_flashcard(
         except Exception as efg_err:
             logger.warning(f"[SF18-add-card] EFG 7-layer write failed (non-fatal) for card {db_card.id}: {efg_err}")
 
+    # REQ-051: auto-populate etymology from Beekes dictionary on card creation
+    # Plain SQL lookup by word_or_phrase against etymology_entries (source='beekes').
+    # Non-fatal: if no entry found or DB error, card is still returned without it.
+    if not db_card.etymology:
+        try:
+            word_lc = (flashcard.word_or_phrase or '').strip().lower()
+            if word_lc:
+                beekes_row = db.execute(
+                    text(
+                        "SELECT TOP 1 [excerpt], [full_text] "
+                        "FROM [dbo].[etymology_entries] "
+                        "WHERE [source] = 'beekes' "
+                        "  AND (LOWER([headword]) = :w OR LOWER([headword_latin]) = :w OR LOWER([headword_ascii]) = :w) "
+                        "ORDER BY [confidence] DESC"
+                    ),
+                    {"w": word_lc},
+                ).fetchone()
+                if beekes_row:
+                    beekes_text = beekes_row[1] or beekes_row[0] or ''
+                    if beekes_text:
+                        db.execute(
+                            text("UPDATE flashcards SET etymology = :etym WHERE id = :cid"),
+                            {"etym": beekes_text, "cid": str(db_card.id)},
+                        )
+                        db.commit()
+                        db.refresh(db_card)
+                        logger.info(f"[REQ-051] Beekes etymology populated for card {db_card.id}")
+        except Exception as beekes_err:
+            logger.warning(f"[REQ-051] Beekes lookup failed (non-fatal) for card {db_card.id}: {beekes_err}")
+
     return db_card
 
 @router.get("/", response_model=List[schemas.Flashcard])
