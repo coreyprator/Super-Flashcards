@@ -1,6 +1,7 @@
 # backend/app/routers/chat.py — BWTL03 chat endpoints
 import uuid
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -291,6 +292,7 @@ def create_promotion(
         before_value=body.before_value,
         after_value=body.after_value,
         accepted_by=body.accepted_by,
+        accepted_at=datetime.now(timezone.utc),
     )
     db.add(promo)
 
