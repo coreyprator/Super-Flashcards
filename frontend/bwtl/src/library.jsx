@@ -589,7 +589,26 @@ function DccTab({ q, onOpenCard, languageId }) {
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 10.5, color: 'var(--fg-4)' }}>{w.pos || w.part_of_speech}</td>
               <td style={{ padding: '8px 12px' }}>{(w.pie_root || w.pie) && <span className="pill pie" style={{ fontSize: 9.5 }}>{w.pie_root || w.pie}</span>}</td>
               <td style={{ padding: '8px 12px', fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{w.freq_per_10k || w.frequency}</td>
-              <td style={{ padding: '8px 12px' }}>{w.sf_linked ? <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" />linked</span> : <button className="btn xs ghost" onClick={e => { e.stopPropagation(); }}>Create card</button>}</td>
+              <td style={{ padding: '8px 12px' }}>{w.sf_linked ? <span className="pill ok" style={{ fontSize: 9.5 }}><span className="dot ok" />linked</span> : <button className="btn xs ghost" onClick={e => {
+                e.stopPropagation();
+                // BUG-116: create flashcard from DCC row — POST /api/flashcards/
+                const langId = (window.BWTL.LANGUAGES || []).find(l => l.name === 'Ancient Greek' || (l.code && l.code === 'el'))?.id || null;
+                const word = w.label || w.word || '';
+                const def = w.gloss || w.definition || '';
+                window.BWTL._apiFetch('/api/flashcards/', {
+                  method: 'POST',
+                  body: JSON.stringify({ word_or_phrase: word, definition: def, language_id: langId }),
+                }).then(card => {
+                  if (card?.id) {
+                    // Mark as SF-linked in local cache
+                    w.sf_linked = true;
+                    w.sf_card_id = card.id;
+                    if (window.BWTL.FLASHCARDS) window.BWTL.FLASHCARDS[card.id] = card;
+                    window.dispatchEvent(new CustomEvent('bwtl:flashcards-loaded'));
+                    setWords(prev => [...prev]); // force re-render
+                  }
+                }).catch(err => console.error('[DCC CreateCard]', err));
+              }}>Create card</button>}</td>
             </tr>
           ))}
         </tbody>

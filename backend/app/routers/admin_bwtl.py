@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import require_admin
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 # 16 healable fields from BWTL01 cross-cutting table
@@ -89,3 +90,67 @@ async def get_af_job_status(job_id: str):
             return r.json()
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"ArtForge error: {e}")
+
+
+# ── REQ-049: From-figure storyboard proxy (BUG-124) ──────────────────────────
+# Calls ArtForge POST /api/v1/stories/from-figure.
+# figure_id must be a slug known to Etymython (e.g. "mnemosyne").
+
+_AF_V1_STORIES = "https://artforge-beta-57478301787.us-central1.run.app/api/v1/stories"
+
+
+@router.post("/bwtl/figures/{figure_id}/story")
+async def create_figure_story(figure_id: str):
+    """REQ-049: Proxy to ArtForge POST /api/v1/stories/from-figure.
+    Creates a story + collection + 3 scenes for the given mythological figure."""
+    api_key = os.environ.get("ARTFORGE_EXTERNAL_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ArtForge API key not configured")
+    payload = {"figure": figure_id}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            r = await client.post(
+                f"{_AF_V1_STORIES}/from-figure",
+                json=payload,
+                headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+            )
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"Figure '{figure_id}' not found in ArtForge")
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"ArtForge error: {e}")
+
+
+# ── REQ-050: Generate imagery proxy (BUG-125) ─────────────────────────────────
+# Calls ArtForge POST /api/v1/mythology/generate — DALL-E 3 still image.
+# Request: {figure, style: classical|modern|watercolor|sketch}
+# Returns: {image_url}
+
+_AF_V1_MYTH = "https://artforge-beta-57478301787.us-central1.run.app/api/v1/mythology"
+_VALID_STYLES = {"classical", "modern", "watercolor", "sketch"}
+
+
+@router.post("/bwtl/figures/{figure_id}/image")
+async def generate_figure_image(figure_id: str, style: str = "classical"):
+    """REQ-050: Proxy to ArtForge POST /api/v1/mythology/generate (DALL-E 3 still image)."""
+    api_key = os.environ.get("ARTFORGE_EXTERNAL_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ArtForge API key not configured")
+    if style not in _VALID_STYLES:
+        raise HTTPException(status_code=422, detail=f"style must be one of {sorted(_VALID_STYLES)}")
+    payload = {"figure": figure_id, "style": style}
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            r = await client.post(
+                f"{_AF_V1_MYTH}/generate",
+                json=payload,
+                headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+            )
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"Figure '{figure_id}' not found in ArtForge")
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"ArtForge error: {e}")
+

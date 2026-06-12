@@ -60,6 +60,56 @@ function App() {
   const [browseTab, setBrowseTab] = React.useState('cards');
   const [detailCardId, setDetailCardId] = React.useState(null);
   const [detailMode, setDetailMode] = React.useState('study');
+
+  // BWTLGO5 (BUG-128): passphrase modal state
+  const [authRequired, setAuthRequired] = React.useState(!window.BWTL._getToken());
+  const [passphraseInput, setPassphraseInput] = React.useState('');
+  const [passphraseError, setPassphraseError] = React.useState('');
+  const [passphraseLoading, setPassphraseLoading] = React.useState(false);
+  React.useEffect(() => {
+    const handler = () => setAuthRequired(true);
+    window.addEventListener('bwtl:auth-required', handler);
+    return () => window.removeEventListener('bwtl:auth-required', handler);
+  }, []);
+  const handlePassphraseSubmit = async (e) => {
+    e.preventDefault();
+    setPassphraseLoading(true);
+    setPassphraseError('');
+    try {
+      await window.BWTL.bwtlLogin(passphraseInput);
+      setAuthRequired(false);
+      setPassphraseInput('');
+    } catch (err) {
+      setPassphraseError('Incorrect passphrase — try again.');
+    } finally {
+      setPassphraseLoading(false);
+    }
+  };
+  // Show passphrase modal if no token — nothing else renders until auth
+  if (authRequired) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-0)' }}>
+        <div className="card card-body" style={{ padding: 32, maxWidth: 360, width: '100%', textAlign: 'center' }}>
+          <div className="display" style={{ fontSize: 22, marginBottom: 6 }}>BWTL</div>
+          <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 24 }}>Enter the session passphrase to continue.</div>
+          <form onSubmit={handlePassphraseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input
+              type="password"
+              value={passphraseInput}
+              onChange={e => setPassphraseInput(e.target.value)}
+              placeholder="Passphrase"
+              autoFocus
+              style={{ padding: '10px 14px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--fg)', fontSize: 14, outline: 'none' }}
+            />
+            {passphraseError && <div style={{ fontSize: 12, color: 'var(--danger, #e55)' }}>{passphraseError}</div>}
+            <button className="btn primary" type="submit" disabled={!passphraseInput || passphraseLoading}>
+              {passphraseLoading ? 'Authenticating…' : 'Continue →'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
   const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [flashcardsVersion, setFlashcardsVersion] = React.useState(0);
@@ -149,11 +199,23 @@ function App() {
     setPanelState(p => ({ ...p, myth: 'open' }));
   };
 
-  // ── chat Accept → audit log (REV item 4 / 5) ────────────────────────────
-  // No review queue. Each Accept writes directly and appends an audit row.
+  // BUG-121: Accept writes to chat_promotions via POST /api/chat/promotions.
+  // payload: { card: card_id, field: target_field, preview: proposed_value, msgId? }
   const onPromote = (payload) => {
     const fieldMeta = window.BWTL.PROMOTE_FIELDS.find(f => f.key === payload.field);
-    showToast(`Accepted to ${window.BWTL.FLASHCARDS[payload.card]?.word || payload.card} · ${fieldMeta?.label || payload.field}`);
+    window.BWTL.promoteField({
+      chat_message_id: payload.msgId || 'unknown',
+      card_id: payload.card,
+      target_field: payload.field,
+      before_value: null,
+      after_value: payload.preview || '',
+      accepted_by: role,
+    }).then(() => {
+      showToast(`Accepted → ${window.BWTL.FLASHCARDS[payload.card]?.word || payload.card} · ${fieldMeta?.label || payload.field}`);
+    }).catch(err => {
+      console.error('[onPromote]', err);
+      showToast(`Accepted (local only — audit write failed)`);
+    });
   };
 
   // REQ-039: card deleted — evict from spine and go back to browse

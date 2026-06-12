@@ -100,8 +100,38 @@ if IS_QA:
 
 # Session middleware removed in BWTL08 (OAuth removed)
 # Bypass auth middleware removed in BWTL09 (SF-16)
+# Write-auth middleware re-added SERVICE-WIDE in BWTLGO5 (BUG-128)
 
-# Proxy header middleware for Cloud Run
+# WriteAuthMiddleware — enforces a valid Bearer JWT on every POST/PUT/PATCH/DELETE.
+# Exempted paths (auth.py login/session + the passphrase endpoint):
+_WRITE_AUTH_EXEMPT = frozenset({
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+    "/api/auth/logout",
+    "/api/auth/bwtl-passphrase",
+})
+_WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+class WriteAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method in _WRITE_METHODS and request.url.path not in _WRITE_AUTH_EXEMPT:
+            auth = request.headers.get("Authorization", "")
+            if not auth.startswith("Bearer "):
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            token = auth[7:].strip()
+            try:
+                from app.services.auth_service import decode_access_token
+                decode_access_token(token)
+            except Exception:
+                return JSONResponse({"detail": "Invalid or expired session"}, status_code=401)
+        return await call_next(request)
+
+
+app.add_middleware(WriteAuthMiddleware)
+
+
 # Cloud Run terminates HTTPS and forwards as HTTP, so we need to trust X-Forwarded-Proto
 class ProxyHeaderMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

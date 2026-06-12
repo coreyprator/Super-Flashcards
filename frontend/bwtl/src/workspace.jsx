@@ -184,6 +184,13 @@ function Workspace({
           onToggle={() => togglePanel('pie')}
           onClose={() => closePanel('pie')}
           onNavigate={onNavigateWord}
+          onOpenPieChat={(root) => {
+            // REQ-047/BUG-119: open ChatDock anchored to the PIE root
+            setExpandedChat(true);
+            setActiveThreadId(null); // new thread anchored to pie_root
+            // Dispatch event so ChatDock can pick up a fresh anchor
+            window.dispatchEvent(new CustomEvent('bwtl:open-pie-chat', { detail: { root } }));
+          }}
           pinned={true} />
 
         }
@@ -609,7 +616,19 @@ function AiEditButton({ field, label, subtle, floating, card }) {
         
           {stage === 'idle' &&
         <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center' }}>
-              <button className="btn xs ghost">Use Beekes context</button>
+              {/* REQ-051/BUG-126: lookup Beekes entry for this card's root and prepend to prompt */}
+              <button className="btn xs ghost" onClick={() => {
+                const root = card?.pie_root || card?.word_or_phrase || '';
+                if (!root) return;
+                window.BWTL.searchEtymology(root).then(results => {
+                  const items = Array.isArray(results) ? results : (results.results || results.items || []);
+                  const entry = items[0];
+                  if (entry) {
+                    const snippet = entry.full_text || entry.snippet || entry.text || entry.content || '';
+                    setPromptText(pt => `[Beekes: ${snippet.slice(0, 300)}]\n${pt}`);
+                  }
+                }).catch(err => console.error('[Beekes]', err));
+              }}>Use Beekes context</button>
               <button className="btn xs primary" style={{ marginLeft: 'auto' }} onClick={runIt}><Ic.spark /> Generate</button>
             </div>
         }
@@ -628,7 +647,6 @@ function AiEditButton({ field, label, subtle, floating, card }) {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn xs ghost" onClick={() => setStage('idle')}>Re-roll</button>
-                <button className="btn xs ghost" style={{ marginLeft: 'auto' }}>Send to review</button>
                 <button className="btn xs primary" onClick={applyIt}>
                   <Ic.check /> Apply
                 </button>

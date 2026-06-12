@@ -62,8 +62,6 @@ function BookmarksView({ go, onOpenCard, onOpenFigure }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn sm ghost"><Ic.grid /> Board view</button>
-          <button className="btn sm"><Ic.plus /> New collection</button>
         </div>
       </div>
 

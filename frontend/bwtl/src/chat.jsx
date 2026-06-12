@@ -169,7 +169,7 @@ function ChatDock({
 
               <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {contextOpen && active && (
-                  <ContextPanel ctx={ctx} card={card} onClose={() => setContextOpen(false)} />
+                  <ContextPanel ctx={ctx} card={card} onClose={() => setContextOpen(false)} activeThreadId={activeThreadId} anchor={anchor} />
                 )}
                 <div className="chat-messages" ref={messagesRef}>
                   {loadingMsgs && <div style={{ padding: 12, color: 'var(--fg-4)', fontSize: 11 }}>Loading messages…</div>}
@@ -261,10 +261,10 @@ function ChatDock({
 }
 
 // ── Context payload panel ──────────────────────────────────────────────────
-// Visible above messages when the "Context" button is toggled. Shows which
-// card fields, EFG node, and figure are bundled per turn, plus a steering
-// directive the user can edit live.
-function ContextPanel({ ctx, card, onClose }) {
+// BUG-122: Save-for-thread persists context settings as a chat_messages row
+// (role='context_snapshot') in the active thread via POST /api/chat/threads/{id}/messages.
+// No DB migration — uses the existing context_snapshot NVARCHAR(MAX) column.
+function ContextPanel({ ctx, card, onClose, activeThreadId, anchor }) {
   const allFields = [
     'word_or_phrase','language','pos','ipa_pronunciation','definition',
     'etymology','pie_root','pie_ipa','english_cognates','related_words','image_caption','efg_node_id',
@@ -343,7 +343,26 @@ function ContextPanel({ ctx, card, onClose }) {
           />
           <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
             <button className="btn xs ghost" onClick={() => { setSteering(ctx?.steering || ''); setFields(new Set(ctx?.fields || [])); }}>Revert</button>
-            <button className="btn xs primary" onClick={onClose}><Ic.check /> Save for thread</button>
+            <button className="btn xs primary" onClick={async () => {
+              // BUG-122: persist context as a chat_messages row
+              const snapshot = JSON.stringify({ fields: [...fields], efg, figure: fig, steering });
+              try {
+                let tid = activeThreadId;
+                if (!tid || tid === 'new') {
+                  // Create a thread if none active
+                  const anchorMode = (anchor && anchor.mode) || 'flashcard_id';
+                  const anchorVal = (anchor && anchor.value) || (card && card.id) || '';
+                  const t = await window.BWTL.createThread({ anchor_mode: anchorMode, anchor_value: anchorVal, owner_id: 'pl' });
+                  tid = t.id;
+                }
+                await window.BWTL.addMessage(tid, {
+                  role: 'context_snapshot',
+                  text: `Context saved: ${fields.size} fields, steering: ${steering || '(none)'}`,
+                  context_snapshot: snapshot,
+                });
+              } catch (e) { console.error('[ContextPanel save]', e); }
+              onClose();
+            }}><Ic.check /> Save for thread</button>
           </div>
         </div>
       </div>

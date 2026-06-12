@@ -4,13 +4,76 @@
 //
 // BWTL03-MEGA-001 (Challenge: 92c8f456ecf825af3edb3010f60633aa)
 
-// Bypass token removed in BWTL09 (SF-16)
+// BWTLGO5 (BUG-128): write-auth SESSION MANAGEMENT
+// Token is stored in sessionStorage['bwtl_token'].
+// Mutations automatically include Authorization: Bearer <token>.
+// On 401 the request is retried after a refresh attempt; if refresh also fails,
+// the passphrase modal is shown (dispatched via custom event).
+
+const _WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function _getToken() { return sessionStorage.getItem('bwtl_token') || ''; }
+function _setToken(t) { if (t) sessionStorage.setItem('bwtl_token', t); else sessionStorage.removeItem('bwtl_token'); }
+
+async function _refreshToken() {
+  // Use the existing refresh-cookie flow
+  const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => null);
+  if (data?.access_token) { _setToken(data.access_token); return true; }
+  return false;
+}
+
+// Called by app.jsx passphrase modal on successful login
+async function bwtlLogin(passphrase) {
+  const res = await fetch('/api/auth/bwtl-passphrase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ passphrase }),
+  });
+  if (!res.ok) throw new Error('Incorrect passphrase');
+  const data = await res.json();
+  _setToken(data.access_token);
+}
+
+// Check sessionStorage token, then try cookie refresh, then signal for modal
+async function _ensureAuth() {
+  if (_getToken()) return true;
+  if (await _refreshToken()) return true;
+  window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+  return false;
+}
 
 async function _apiFetch(path, opts = {}) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-  });
+  const method = (opts.method || 'GET').toUpperCase();
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+
+  if (_WRITE_METHODS.has(method)) {
+    // Ensure we have a valid token before sending mutations
+    const token = _getToken() || (await _refreshToken() ? _getToken() : null);
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(path, { ...opts, headers, credentials: 'include' });
+
+  if (res.status === 401 && _WRITE_METHODS.has(method)) {
+    // Token may have expired — try one refresh then retry
+    if (await _refreshToken()) {
+      const token2 = _getToken();
+      if (token2) headers['Authorization'] = `Bearer ${token2}`;
+      const retry = await fetch(path, { ...opts, headers, credentials: 'include' });
+      if (!retry.ok) {
+        if (retry.status === 401) window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+        const err = await retry.text().catch(() => retry.statusText);
+        throw new Error(`API ${retry.status}: ${err}`);
+      }
+      return retry.json();
+    }
+    window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+    throw new Error('API 401: Session expired — please re-authenticate');
+  }
+
   if (!res.ok) {
     const err = await res.text().catch(() => res.statusText);
     throw new Error(`API ${res.status}: ${err}`);
@@ -240,7 +303,11 @@ async function fetchFigure(id) {
 }
 
 async function fetchFigureStory(id) {
-  return _apiFetch(`/api/bwtl/figures/${id}/story`);
+  return _apiFetch(`/api/bwtl/figures/${id}/story`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+async function generateFigureImage(id, style = 'classical') {
+  return _apiFetch(`/api/bwtl/figures/${id}/image?style=${encodeURIComponent(style)}`, { method: 'POST', body: JSON.stringify({}) });
 }
 
 async function fetchCognates(word) {
@@ -320,6 +387,11 @@ window.BWTL = {
   // Internal API helper — exposed for components that need direct fetch access
   _apiFetch,
 
+  // BWTLGO5 (BUG-128): auth helpers
+  bwtlLogin,
+  _getToken,
+  _ensureAuth,
+
   // SF API helpers
   fetchCard,
   fetchCards,
@@ -345,6 +417,7 @@ window.BWTL = {
   fetchFigures,
   fetchFigure,
   fetchFigureStory,
+  generateFigureImage,
   fetchCognates,
   fetchEfgGraph,
   fetchEfgRoots,

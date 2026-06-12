@@ -1,4 +1,4 @@
-# backend/app/routers/admin_repair.py
+# backend/app/routers/admin_repair.py — BWTLGO5: admin role required (require_admin)
 # SF18 REQ-022 — Standard PIE Relationship Repair Process
 # 7-layer atomic write: flashcards + junction + EFG node + EFG edges + state invalidation + audio + audit log
 import json
@@ -15,10 +15,11 @@ from app.database import get_db
 from app import models
 from app.routers.efg import _get_efg_connection
 from app.default_user import get_default_user_email
+from app.dependencies import require_admin
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin", tags=["admin-repair"])
+router = APIRouter(prefix="/api/admin", tags=["admin-repair"], dependencies=[Depends(require_admin)])
 
 
 # ── Request/Response schemas ─────────────────────────────────────────────────

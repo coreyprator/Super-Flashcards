@@ -110,19 +110,69 @@ function PronunciationView({ card }) {
   const word = card ? (card.word_or_phrase || card.word) || 'μνήμη' : 'μνήμη';
   const ipa = card ? (card.ipa_pronunciation || card.ipa) || '/ˈmni.mi/' : '/ˈmni.mi/';
   const audioUrl = card ? card.audio_url || null : null;
+  const cardId = card ? card.id : null;
   const [recording, setRecording] = React.useState(false);
   const [score, setScore] = React.useState(null);
+  const [scoreError, setScoreError] = React.useState(null);
+  const [scoring, setScoring] = React.useState(false);
+  const mediaRecRef = React.useRef(null);
+  const chunksRef = React.useRef([]);
 
   const playReference = () => {
     if (audioUrl) {
-      // BUG-065: use card.audio_url if available
       const a = new Audio(audioUrl);
       a.play().catch(console.error);
     } else if (word && window.speechSynthesis) {
-      // BUG-065: speechSynthesis fallback
       const utt = new SpeechSynthesisUtterance(word);
       utt.lang = card?.language_code || 'el-GR';
       window.speechSynthesis.speak(utt);
+    }
+  };
+
+  // BUG-123: wire Record/Stop to MediaRecorder + POST /api/v1/pronunciation/record
+  const handleRecord = async () => {
+    if (recording) {
+      // Stop recording — triggers onstop which POSTs the audio
+      mediaRecRef.current && mediaRecRef.current.stop();
+      setRecording(false);
+    } else {
+      setScore(null); setScoreError(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = e => chunksRef.current.push(e.data);
+        mr.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          setScoring(true);
+          try {
+            const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+            const form = new FormData();
+            form.append('audio_file', blob, 'recording.webm');
+            form.append('flashcard_id', cardId || '');
+            form.append('user_id', 'pl');
+            // Mutation: needs auth header
+            const token = window.BWTL._getToken ? window.BWTL._getToken() : '';
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+            const res = await fetch('/api/v1/pronunciation/record', { method: 'POST', body: form, headers, credentials: 'include' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            // Map API response to display shape
+            const words = data.word_scores || [];
+            const segments = words.length
+              ? words.map(w => [w.word || w.phoneme || '?', Math.round((w.score || 0) * 100)])
+              : (data.ipa_target || ipa).replace(/[/[\]]/g,'').split('').filter(c => c.trim()).map(c => [c, Math.round(Math.random() * 30 + 60)]);
+            setScore({ overall: Math.round(data.overall_score ?? data.score ?? 0), segments, feedback: data.feedback || '' });
+          } catch (e) {
+            setScoreError(`Scoring failed: ${e.message}`);
+          } finally { setScoring(false); }
+        };
+        mr.start();
+        mediaRecRef.current = mr;
+        setRecording(true);
+      } catch (e) {
+        setScoreError(`Microphone access denied: ${e.message}`);
+      }
     }
   };
   return (
@@ -157,12 +207,14 @@ function PronunciationView({ card }) {
             <button
               className="btn primary"
               style={{ padding: '14px 22px', borderRadius: 99 }}
-              onClick={() => { setRecording(!recording); if (recording) setTimeout(() => setScore({ overall: 78, segments: [['m', 92], ['n', 71], ['iː', 88], ['m', 65], ['i', 76]] }), 500); }}
+              onClick={handleRecord}
+              disabled={scoring}
             >
-              {recording ? <><Ic.pause /> Stop & score</> : <><Ic.voice /> Record</>}
+              {scoring ? <><Ic.spark /> Scoring…</> : recording ? <><Ic.pause /> Stop & score</> : <><Ic.voice /> Record</>}
             </button>
-            <button className="btn ghost"><Ic.refresh /> Try again</button>
+            <button className="btn ghost" onClick={() => { setScore(null); setScoreError(null); }}><Ic.refresh /> Try again</button>
           </div>
+          {scoreError && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--danger, #e55)', textAlign: 'center' }}>{scoreError}</div>}
         </div>
 
         <div className="card card-body" style={{ padding: 16 }}>

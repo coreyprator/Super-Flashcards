@@ -41,7 +41,7 @@ function PanelShell({ variant = 'rag', title, meta, glow, collapsed, onToggle, o
 // MERGES SF flashcards + EFG efg_pie_explorer_data into one stacked view.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, collapsed, onToggle, onClose, onPin, pinned }) {
+function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, onOpenPieChat, collapsed, onToggle, onClose, onPin, pinned }) {
   const [root, setRoot] = React.useState(window.BWTL.PIE_ROOTS[pieRootKey] || null);
   const [loadingRoot, setLoadingRoot] = React.useState(!root);
   const [expanded, setExpanded] = React.useState(false);
@@ -179,8 +179,8 @@ function PiePanel({ pieRootKey, currentWord, glow, onNavigate, onOpenRoot, colla
       />
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button className="btn sm ghost"><Ic.chat /> Chat about this root</button>
-        <button className="btn sm ghost"><Ic.bookmark /> Bookmark root</button>
+        {/* REQ-047/BUG-119: wire Chat about this root → PIE-anchored ChatDock */}
+        <button className="btn sm ghost" onClick={() => onOpenPieChat && onOpenPieChat(pieRootKey)}><Ic.chat /> Chat about this root</button>
         <button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => setExpanded(e => !e)}><Ic.expand /> {expanded ? 'Exit full' : 'Open full'}</button>
       </div>
     </PanelShell>
@@ -510,8 +510,25 @@ function EtymythonPanel({ figureId, glow, collapsed, onToggle, onClose, onPin, p
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <button className="btn xs ghost"><Ic.spark /> Generate imagery</button>
-        <button className="btn xs ghost"><Ic.film /> From-figure storyboard</button>
+        {/* REQ-050/BUG-125: generate still image via ArtForge POST /api/v1/mythology/generate */}
+        <button className="btn xs ghost" onClick={() => {
+          if (!f?.slug && !f?.id) return;
+          const fig = f.slug || f.id;
+          window.BWTL.generateFigureImage(fig).then(data => {
+            if (data?.image_url) window.open(data.image_url, '_blank');
+          }).catch(err => console.error('[GenerateImagery]', err));
+        }}><Ic.spark /> Generate imagery</button>
+        {/* REQ-049/BUG-124: from-figure storyboard via ArtForge POST /api/v1/stories/from-figure */}
+        <button className="btn xs ghost" onClick={() => {
+          if (!f?.slug && !f?.id) return;
+          const fig = f.slug || f.id;
+          window.BWTL.fetchFigureStory(fig).then(data => {
+            if (data?.id || data?.story_id) {
+              // Story created — could navigate to AF story URL or show a toast
+              window.dispatchEvent(new CustomEvent('bwtl:toast', { detail: `Story created: ${data.title || fig}` }));
+            }
+          }).catch(err => console.error('[FromFigureStory]', err));
+        }}><Ic.film /> From-figure storyboard</button>
       </div>
     </PanelShell>
   );

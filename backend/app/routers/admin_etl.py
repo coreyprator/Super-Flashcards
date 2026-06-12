@@ -1,4 +1,4 @@
-# backend/app/routers/admin_etl.py
+# backend/app/routers/admin_etl.py — BWTLGO5: admin role required (require_admin)
 # SF-ETL-DICT: Admin ETL — apply migrations + dictionary ETL from Portfolio RAG
 #
 # Routes:
@@ -23,9 +23,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db, engine
+from app.dependencies import require_admin
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/admin", tags=["admin-etl"])
+router = APIRouter(prefix="/admin", tags=["admin-etl"], dependencies=[Depends(require_admin)])
 
 # External service URLs — no user-controlled input used in URL construction
 _RAG_URL = "https://portfolio-rag-57478301787.us-central1.run.app"

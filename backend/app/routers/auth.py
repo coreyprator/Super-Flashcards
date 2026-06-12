@@ -4,7 +4,10 @@ Authentication router — email/password login and registration.
 Google OAuth removed in BWTL08. get_current_user removed in BWTL08.
 """
 
+import os
+import secrets as _secrets
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -22,6 +25,42 @@ from app.services.auth_service import (
 )
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+class BwtlPassphraseRequest(BaseModel):
+    passphrase: str
+
+
+@router.post("/bwtl-passphrase")
+async def bwtl_passphrase_login(
+    body: BwtlPassphraseRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Single-user passphrase login for BWTL frontend (BUG-128 / write-auth-standard).
+    Checks passphrase against APP_PASSPHRASE env var (populated from GCP Secret Manager
+    app-passphrase at Cloud Run deploy time).  Returns a short-lived JWT access token
+    and sets a refresh cookie identical to the regular login flow."""
+    stored = os.getenv("APP_PASSPHRASE", "")
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Passphrase not configured — contact admin",
+        )
+    if not _secrets.compare_digest(body.passphrase.encode(), stored.encode()):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect passphrase")
+
+    # Reuse the cached PL user (cprator@cbsware.com)
+    admin_email = os.getenv("ADMIN_EMAIL", "cprator@cbsware.com")
+    user = db.query(models.User).filter(models.User.email == admin_email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PL user not found")
+
+    token_data = {"user_id": str(user.id), "email": user.email}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+    _set_refresh_cookie(response, refresh_token)
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str):
