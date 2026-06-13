@@ -61,55 +61,6 @@ function App() {
   const [detailCardId, setDetailCardId] = React.useState(null);
   const [detailMode, setDetailMode] = React.useState('study');
 
-  // BWTLGO5 (BUG-128): passphrase modal state
-  const [authRequired, setAuthRequired] = React.useState(!window.BWTL._getToken());
-  const [passphraseInput, setPassphraseInput] = React.useState('');
-  const [passphraseError, setPassphraseError] = React.useState('');
-  const [passphraseLoading, setPassphraseLoading] = React.useState(false);
-  React.useEffect(() => {
-    const handler = () => setAuthRequired(true);
-    window.addEventListener('bwtl:auth-required', handler);
-    return () => window.removeEventListener('bwtl:auth-required', handler);
-  }, []);
-  const handlePassphraseSubmit = async (e) => {
-    e.preventDefault();
-    setPassphraseLoading(true);
-    setPassphraseError('');
-    try {
-      await window.BWTL.bwtlLogin(passphraseInput);
-      setAuthRequired(false);
-      setPassphraseInput('');
-    } catch (err) {
-      setPassphraseError('Incorrect passphrase — try again.');
-    } finally {
-      setPassphraseLoading(false);
-    }
-  };
-  // Show passphrase modal if no token — nothing else renders until auth
-  if (authRequired) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-0)' }}>
-        <div className="card card-body" style={{ padding: 32, maxWidth: 360, width: '100%', textAlign: 'center' }}>
-          <div className="display" style={{ fontSize: 22, marginBottom: 6 }}>BWTL</div>
-          <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 24 }}>Enter the session passphrase to continue.</div>
-          <form onSubmit={handlePassphraseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input
-              type="password"
-              value={passphraseInput}
-              onChange={e => setPassphraseInput(e.target.value)}
-              placeholder="Passphrase"
-              autoFocus
-              style={{ padding: '10px 14px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--fg)', fontSize: 14, outline: 'none' }}
-            />
-            {passphraseError && <div style={{ fontSize: 12, color: 'var(--danger, #e55)' }}>{passphraseError}</div>}
-            <button className="btn primary" type="submit" disabled={!passphraseInput || passphraseLoading}>
-              {passphraseLoading ? 'Authenticating…' : 'Continue →'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
   const [cardFilter, setCardFilter] = React.useState({ chips: [], language: null, sort: 'modified', q: '' });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [flashcardsVersion, setFlashcardsVersion] = React.useState(0);
@@ -836,5 +787,80 @@ function NewCardSheet({ role, onClose, onCreated }) {
     </>
   );
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// PassphraseModal — extracted component; fixes React #310 hook-count crash (BUG-130)
+// BUG-131: autoComplete + name attrs prevent Chrome from logging the value.
+// ─────────────────────────────────────────────────────────────────────────────
+function PassphraseModal({ passphraseInput, setPassphraseInput, passphraseError, passphraseLoading, onSubmit }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-0)' }}>
+      <div className="card card-body" style={{ padding: 32, maxWidth: 360, width: '100%', textAlign: 'center' }}>
+        <div className="display" style={{ fontSize: 22, marginBottom: 6 }}>BWTL</div>
+        <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 24 }}>Enter the session passphrase to continue.</div>
+        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input
+            type="password"
+            name="passphrase"
+            autoComplete="current-password"
+            value={passphraseInput}
+            onChange={e => setPassphraseInput(e.target.value)}
+            placeholder="Passphrase"
+            autoFocus
+            style={{ padding: '10px 14px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--fg)', fontSize: 14, outline: 'none' }}
+          />
+          {passphraseError && <div style={{ fontSize: 12, color: 'var(--danger, #e55)' }}>{passphraseError}</div>}
+          <button className="btn primary" type="submit" disabled={!passphraseInput || passphraseLoading}>
+            {passphraseLoading ? 'Authenticating…' : 'Continue →'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppGate — holds auth state; renders PassphraseModal or App (BUG-130)
+// ─────────────────────────────────────────────────────────────────────────────
+function AppGate() {
+  const [authRequired, setAuthRequired] = React.useState(!window.BWTL._getToken());
+  const [passphraseInput, setPassphraseInput] = React.useState('');
+  const [passphraseError, setPassphraseError] = React.useState('');
+  const [passphraseLoading, setPassphraseLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = () => setAuthRequired(true);
+    window.addEventListener('bwtl:auth-required', handler);
+    return () => window.removeEventListener('bwtl:auth-required', handler);
+  }, []);
+
+  const handlePassphraseSubmit = async (e) => {
+    e.preventDefault();
+    setPassphraseLoading(true);
+    setPassphraseError('');
+    try {
+      await window.BWTL.bwtlLogin(passphraseInput);
+      setAuthRequired(false);
+      setPassphraseInput('');
+    } catch (err) {
+      setPassphraseError('Incorrect passphrase — try again.');
+    } finally {
+      setPassphraseLoading(false);
+    }
+  };
+
+  if (authRequired) {
+    return (
+      <PassphraseModal
+        passphraseInput={passphraseInput}
+        setPassphraseInput={setPassphraseInput}
+        passphraseError={passphraseError}
+        passphraseLoading={passphraseLoading}
+        onSubmit={handlePassphraseSubmit}
+      />
+    );
+  }
+  return <App />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(<AppGate />);

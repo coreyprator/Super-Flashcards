@@ -223,8 +223,20 @@ class ApiClient {
      * @param {Object} options - Additional options
      * @returns {Promise} Response data
      */
+    // BWTLSEC1 BUG-129: refresh bwtl token via cookie flow
+    async _refreshBwtlToken() {
+        try {
+            const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+            if (!res.ok) return false;
+            const data = await res.json().catch(() => null);
+            if (data && data.access_token) { sessionStorage.setItem('bwtl_token', data.access_token); return true; }
+            return false;
+        } catch { return false; }
+    }
+
     async makeHttpRequest(method, url, data, options) {
         let lastError;
+        const _WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
         
         for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
             try {
@@ -236,6 +248,11 @@ class ApiClient {
                     },
                     credentials: 'include'  // Include cookies (for HTTP-only auth cookies)
                 };
+                // BWTLSEC1 BUG-129: attach bwtl bearer token for write operations only
+                if (_WRITE.has(method.toUpperCase())) {
+                    const bwtlToken = sessionStorage.getItem('bwtl_token');
+                    if (bwtlToken) requestOptions.headers['Authorization'] = `Bearer ${bwtlToken}`;
+                }
                 
                 if (data && (method === 'POST' || method === 'PUT')) {
                     requestOptions.body = JSON.stringify(data);
@@ -249,6 +266,21 @@ class ApiClient {
                         console.warn(`  ⚠️  Server error (${response.status}), retrying... (${attempt}/${this.retryAttempts})`);
                         await this.sleep(this.retryDelay * attempt);
                         continue;
+                    }
+                    // BWTLSEC1 BUG-129: on 401 for writes, refresh token then retry once
+                    if (response.status === 401 && _WRITE.has(method.toUpperCase())) {
+                        const refreshed = await this._refreshBwtlToken();
+                        if (refreshed) {
+                            const tok2 = sessionStorage.getItem('bwtl_token');
+                            if (tok2) requestOptions.headers['Authorization'] = `Bearer ${tok2}`;
+                            const retry = await fetch(url, requestOptions);
+                            if (retry.ok) {
+                                if (retry.status === 204) return null;
+                                return retry.json();
+                            }
+                        }
+                        window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+                        throw new Error('HTTP 401: Session expired — please re-authenticate');
                     }
                     
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);

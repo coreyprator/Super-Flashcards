@@ -28,6 +28,7 @@ secret.txt
 pwd.bin
 *.ps1
 *.bat
+frontend/bwtl/node_modules/
 *.cmd
 *.sh
 

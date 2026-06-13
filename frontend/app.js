@@ -349,15 +349,100 @@ function hideLoading() {
     document.getElementById('loading-overlay').classList.add('hidden');
 }
 
+// BWTLSEC1 BUG-129: bwtl write-auth helpers for legacy app
+const _BWTL_WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+async function _bwtlRefreshToken() {
+    try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+        if (!res.ok) return false;
+        const data = await res.json().catch(() => null);
+        if (data && data.access_token) { sessionStorage.setItem('bwtl_token', data.access_token); return true; }
+        return false;
+    } catch { return false; }
+}
+
+async function _bwtlLogin(passphrase) {
+    const res = await fetch('/api/auth/bwtl-passphrase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ passphrase }),
+    });
+    if (!res.ok) throw new Error('Incorrect passphrase');
+    const data = await res.json();
+    sessionStorage.setItem('bwtl_token', data.access_token);
+}
+
+function _bwtlShowPassphraseModal() {
+    return new Promise((resolve) => {
+        let modal = document.getElementById('bwtl-auth-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'bwtl-auth-modal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(8,8,13,0.85);';
+            modal.innerHTML = `
+                <div style="background:#14141f;border:1px solid #2a2a3d;border-radius:12px;padding:32px;max-width:340px;width:90%;text-align:center;">
+                  <div style="font-size:20px;font-weight:700;margin-bottom:8px;color:#ebebf2;">Super Flashcards</div>
+                  <div style="font-size:13px;color:#9898b0;margin-bottom:20px;">Enter the session passphrase to continue.</div>
+                  <form id="bwtl-auth-form" style="display:flex;flex-direction:column;gap:10px;">
+                    <input id="bwtl-passphrase-input" type="password" name="passphrase" autocomplete="current-password"
+                      placeholder="Passphrase"
+                      style="padding:10px 14px;background:#1c1c2b;border:1px solid #2a2a3d;border-radius:8px;color:#ebebf2;font-size:14px;outline:none;" />
+                    <div id="bwtl-auth-error" style="font-size:12px;color:#e55;display:none;"></div>
+                    <button type="submit" style="padding:10px;background:oklch(70% 0.17 295);border:0;border-radius:8px;color:#0b0918;font-weight:700;cursor:pointer;font-size:14px;">Continue \u2192</button>
+                  </form>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        modal.style.display = 'flex';
+        const input = modal.querySelector('#bwtl-passphrase-input');
+        const form = modal.querySelector('#bwtl-auth-form');
+        const errDiv = modal.querySelector('#bwtl-auth-error');
+        if (input) { input.value = ''; setTimeout(() => input.focus(), 50); }
+        const handler = async (e) => {
+            e.preventDefault();
+            const passphrase = input ? input.value : '';
+            if (!passphrase) return;
+            try {
+                await _bwtlLogin(passphrase);
+                modal.style.display = 'none';
+                form.removeEventListener('submit', handler);
+                resolve(true);
+            } catch (_err) {
+                if (errDiv) { errDiv.textContent = 'Incorrect passphrase \u2014 try again.'; errDiv.style.display = ''; }
+            }
+        };
+        form.addEventListener('submit', handler);
+    });
+}
+
 async function apiRequest(endpoint, options = {}) {
+    // BWTLSEC1 BUG-129: attach bwtl bearer token for write operations
+    const _method = (options.method || 'GET').toUpperCase();
+    const _headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (_BWTL_WRITE.has(_method)) {
+        const _tok = sessionStorage.getItem('bwtl_token');
+        if (_tok) _headers['Authorization'] = `Bearer ${_tok}`;
+    }
     try {
         const response = await fetch(`${API_BASE}${endpoint}`, {
             ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
+            headers: _headers,
         });
+
+        // BWTLSEC1 BUG-129: on 401 for writes, refresh then retry, else show passphrase modal
+        if (response.status === 401 && _BWTL_WRITE.has(_method)) {
+            const refreshed = await _bwtlRefreshToken();
+            if (refreshed) {
+                const _tok2 = sessionStorage.getItem('bwtl_token');
+                if (_tok2) _headers['Authorization'] = `Bearer ${_tok2}`;
+                const retry = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: _headers });
+                if (retry.ok) return retry.json();
+            }
+            await _bwtlShowPassphraseModal();
+            throw new Error('Session expired — please retry after re-authenticating');
+        }
 
         if (!response.ok) {
             // Standard A: capture and log the full response body
