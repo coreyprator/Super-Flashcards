@@ -36,6 +36,7 @@ jobs:
             --source . \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
+            --update-secrets=OPENAI_API_KEY=openai-api-key:latest \
             --quiet
       
       - name: Get Service URL
