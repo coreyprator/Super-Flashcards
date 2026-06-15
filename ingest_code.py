@@ -51,6 +51,7 @@ EXCLUDED_PATH_PREFIXES = (
     "Output/",           # Data output dirs
     ".pytest_cache/",    # Test cache
     "archive/",          # Archived / obsolete code
+    "bwtl_rev3_extract/", # Temporary source extract — not deployed
 )
 
 MAX_FILE_SIZE = 1_000_000  # 1 MB
