@@ -222,6 +222,12 @@ def ingest(app: str, repo_root: str, sha: str, db_host: str, db_password: str,
             if any(rel_path.startswith(p) for p in EXCLUDED_PATH_PREFIXES):
                 continue
 
+            # Skip *_extract and temp_* top-level dirs (mirrors audit DISALLOWED_GLOB_FIRST_COMPONENTS)
+            import fnmatch
+            first_component = rel_path.split("/")[0]
+            if any(fnmatch.fnmatch(first_component, pat) for pat in ("*_extract", "temp_*")):
+                continue
+
             # Extension filter (allowlist)
             ext = os.path.splitext(rel_path)[1].lower()
             if ext not in INCLUDED_EXTENSIONS:
