@@ -28,7 +28,7 @@ from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.8.2"
+APP_VERSION = "5.8.3"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
