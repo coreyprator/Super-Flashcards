@@ -1,3 +1,8 @@
+# DEPRECATED — build-only artifact, no deploy step.
+# The canonical deploy config is the root cloudbuild.yaml which includes
+# the MP132 hardengate step. This file pre-dates the unified deploy pipeline
+# and must NOT be used as a substitute for the root cloudbuild.yaml.
+# It is retained for historical reference only.
 steps:
   # BUG-111: Pre-compile JSX to a production bundle — no in-browser Babel.
   # package.json is gitignored (*.json rule) so we inline the deps here.
