@@ -417,6 +417,11 @@ function _bwtlShowPassphraseModal() {
     });
 }
 
+// LEGWRITE1 BUG-133: surface passphrase modal when ApiClient (api-client.js) hits refresh-failed 401
+window.addEventListener('bwtl:auth-required', () => {
+    _bwtlShowPassphraseModal().catch(() => {});
+});
+
 async function apiRequest(endpoint, options = {}) {
     // BWTLSEC1 BUG-129: attach bwtl bearer token for write operations
     const _method = (options.method || 'GET').toUpperCase();

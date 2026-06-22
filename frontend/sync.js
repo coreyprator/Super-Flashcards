@@ -326,10 +326,14 @@ class SyncManager {
      * @param {Object} flashcard - Flashcard data
      */
     async createFlashcardOnServer(flashcard) {
+        // LEGWRITE1 BUG-133: attach bwtl bearer token for write auth
+        const _tok = sessionStorage.getItem('bwtl_token');
+        const _authHeaders = _tok ? { 'Authorization': `Bearer ${_tok}` } : {};
         const response = await fetch('/api/flashcards', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ..._authHeaders
             },
             credentials: 'include',  // Include Basic Auth credentials
             body: JSON.stringify(flashcard)
@@ -355,10 +359,14 @@ class SyncManager {
      * @param {Object} flashcard - Updated flashcard data
      */
     async updateFlashcardOnServer(id, flashcard) {
+        // LEGWRITE1 BUG-133: attach bwtl bearer token for write auth
+        const _tok = sessionStorage.getItem('bwtl_token');
+        const _authHeaders = _tok ? { 'Authorization': `Bearer ${_tok}` } : {};
         const response = await fetch(`/api/flashcards/${id}`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ..._authHeaders
             },
             credentials: 'include',  // Include Basic Auth credentials
             body: JSON.stringify(flashcard)
@@ -377,8 +385,12 @@ class SyncManager {
      * @param {Number} id - Flashcard ID
      */
     async deleteFlashcardOnServer(id) {
+        // LEGWRITE1 BUG-133: attach bwtl bearer token for write auth
+        const _tok = sessionStorage.getItem('bwtl_token');
+        const _authHeaders = _tok ? { 'Authorization': `Bearer ${_tok}` } : {};
         const response = await fetch(`/api/flashcards/${id}`, {
             method: 'DELETE',
+            headers: { ..._authHeaders },
             credentials: 'include'  // Include Basic Auth credentials
         });
         

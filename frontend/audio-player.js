@@ -101,43 +101,16 @@ async function generateAudio(cardId, word) {
         }
         
         // Make API call to generate audio
-        const backendBase = getBackendBase();
-        const url = `${backendBase}/api/audio/generate/${cardId}`;
+        // LEGWRITE1: route through apiRequest for bwtl write-auth (token attach, refresh, re-auth prompt)
+        const url = `/api/audio/generate/${cardId}`;
         console.log('🔧 Making request to URL:', url);
         console.log('🔧 Request method: POST');
-        console.log('🔧 Request headers: Content-Type: application/json');
         
         const requestStartTime = Date.now();
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        const result = await apiRequest(`/audio/generate/${cardId}`, { method: 'POST' });
         const requestDuration = Date.now() - requestStartTime;
         
         console.log('🔧 Response received after', requestDuration, 'ms');
-        console.log('🔧 Response status:', response.status);
-        console.log('🔧 Response statusText:', response.statusText);
-        console.log('🔧 Response ok:', response.ok);
-        console.log('🔧 Response URL:', response.url);
-        console.log('🔧 Response headers:', Object.fromEntries(response.headers));
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ ERROR RESPONSE BODY:', errorText);
-            console.error('❌ Full error details:', {
-                status: response.status,
-                statusText: response.statusText,
-                url: url,
-                actualResponseUrl: response.url,
-                errorBody: errorText,
-                requestDuration: requestDuration
-            });
-            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-        }
-        
-        const result = await response.json();
         
         if (result.success) {
             // Audio generated successfully
@@ -241,15 +214,8 @@ async function generateIPA(cardId) {
     console.log('🔤 Generating IPA for card:', cardId);
     
     try {
-        const backendBase = getBackendBase();
-        const response = await fetch(`${backendBase}/api/ipa/generate-ipa/${cardId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        const result = await response.json();
+        // LEGWRITE1: route through apiRequest for bwtl write-auth
+        const result = await apiRequest(`/ipa/generate-ipa/${cardId}`, { method: 'POST' });
         
         if (result.success) {
             console.log('✅ IPA generated:', result.ipa_pronunciation);
@@ -292,15 +258,8 @@ async function generateIPAAudio(cardId) {
     console.log('🔊 Generating IPA audio for card:', cardId);
     
     try {
-        const backendBase = getBackendBase();
-        const response = await fetch(`${backendBase}/api/ipa/generate-ipa-audio/${cardId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        const result = await response.json();
+        // LEGWRITE1: route through apiRequest for bwtl write-auth
+        const result = await apiRequest(`/ipa/generate-ipa-audio/${cardId}`, { method: 'POST' });
         
         if (result.success) {
             console.log('✅ IPA audio generated:', result.ipa_audio_url);
