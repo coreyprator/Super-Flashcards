@@ -1,10 +1,43 @@
 # Super-Flashcards -- Project Knowledge Document
 <!-- CHECKPOINT: SF-PK-B1E7 -->
 
-Generated/Updated: 2026-03-22 — Sprint "SM04-TYPEAHEAD-SPEECHIFY"
+Generated/Updated: 2026-06-22 — Sprint "LEGWRITE1-LEGACY-WRITE-AUTH-001 (LEGWRITE1, v5.8.4)"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-03-22 (SM04-TYPEAHEAD-SPEECHIFY, v3.4.3)
+### Latest Session Update — 2026-06-22 (LEGWRITE1, v5.8.4)
+
+- **Sprint LEGWRITE1**: BUG-133 P1 — Finished legacy write-auth wiring for learn.rentyourcio.com.
+- **Current Version**: v5.8.4 (commit `f2527fe7c991b29f93a93a3a90e26f149c0ad508`)
+- **Fixes (BUG-133)**:
+  1. `audio-player.js` `generateAudio()` now routes through `apiRequest()` — bwtl_token attach + Authorization + 401-refresh + passphrase re-auth modal. Same fix applied to `generateIPA()` and `generateIPAAudio()`.
+  2. `app.js` now listens for `bwtl:auth-required` event from `ApiClient` and surfaces `_bwtlShowPassphraseModal()`.
+  3. `sync.js` `createFlashcardOnServer`, `updateFlashcardOnServer`, `deleteFlashcardOnServer` all now attach bwtl_token header.
+- **New Revision**: super-flashcards-00598-blt (100% traffic)
+- **Deploy**: GitHub Actions push-to-main (gcloud run deploy --source), workflow run 27938312201
+- **BUG-133**: Resolved. Audio generation and card deletion authed and working on learn.rentyourcio.com.
+- **Handoff**: 4120BC6D-36CE-4AC0-9BBE-B50E18F03AE8 | UAT 8BE62E05-F2B7-4874-A3AE-16958AA6B82B
+
+
+- **Sprint AIGEN1**: BUG-132 P1 — AI card generation restored after OPENAI_API_KEY secret binding dropped.
+- **Current Version**: v5.8.3 (commit `574e49afc18471dd433c39164b10d319c0d85914`)
+- **Root Cause (BUG-132)**: OPENAI_API_KEY env var was dropped from the Cloud Run service during the v5.8.x deploy chain (revisions 00590 and 00591). The deploy workflow (`gcloud run deploy --source`) does not re-specify secrets, and a prior deploy stripped the OPENAI_API_KEY binding. The OpenAI SDK read an empty key, constructed an invalid `Authorization: Bearer ` header, and httpx raised `LocalProtocolError: Illegal header value b'Bearer '` before any TCP/DNS/TLS connection was attempted. This manifested as `openai.APIConnectionError: Connection error.` — NOT a network/VPC issue.
+- **Fix**: `gcloud run services update super-flashcards --update-secrets=OPENAI_API_KEY=openai-api-key:latest` (non-destructive, does not clobber other secrets per Lesson 15). APP_VERSION bumped to 5.8.3.
+- **New Revision**: super-flashcards-00592-5hm (100% traffic)
+- **Deploy Warning for Future Sprints**: Any gcloud deploy that does NOT use `--update-secrets` for OPENAI_API_KEY will drop the binding again. The deploy.yml workflow must be updated to include `--set-secrets OPENAI_API_KEY=openai-api-key:latest` or the service config must be preserved.
+- **BUG-132**: Resolved. AI generation working on both learn.rentyourcio.com (legacy) and /bwtl.
+- **Handoff**: D31BA5EF-00EB-4859-89DC-BCD572C84834 | UAT AFD5C6FB-E34C-4AF2-B7BC-260FA0BCC4D0
+
+
+
+- **Sprint BWTLSEC1**: Four-fix security sprint — BUG-130 AppGate, BUG-129 legacy write-auth, BUG-131 passphrase exposure, secret rotation
+- **Current Version**: v5.8.2 (commit `6345bde3c80921bbda258f3e11103f94030fac08`)
+- **BUG-130**: Extracted `PassphraseModal` component + `AppGate` wrapper. App never has early return; hook count is constant. Root renders `<AppGate/>` not `<App/>`.
+- **BUG-129**: Legacy app (learn.rentyourcio.com) now sends `Authorization: Bearer bwtl_token` on POST/PUT/PATCH/DELETE. `_bwtlLogin()` / `_bwtlRefreshToken()` added to app.js. `ApiClient.makeHttpRequest` patched with same pattern.
+- **BUG-131**: Both passphrase inputs (BWTL app.jsx PassphraseModal + legacy app.js modal) have `autoComplete="current-password"` and `name="passphrase"`. No console.log of passphrase or token anywhere.
+- **Secret rotation**: app-passphrase version 4 is the only enabled version. Old versions 1, 2, 3 disabled. PL to retrieve new passphrase from Secret Manager version 4.
+- **Revision**: super-flashcards-00591-sb9 (100% traffic)
+- **Handoff**: (set at closeout) | UAT 080708ED-3EA0-49AB-B92C-D73565495E45
+
 
 - **Sprint SM04**: SW skipWaiting+clients.claim (typeahead root cause fix), readCardAloud() Web Speech API, EM-013 EFG link deployed
 - **Current Version**: v3.4.3 (commit `2bae3b0`)
