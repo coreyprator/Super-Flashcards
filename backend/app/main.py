@@ -28,7 +28,7 @@ from app.routers import figures  # SF-RAG-NUKE Phase 2: /api/figures
 # Added: study (Sprint 9 - Spaced Repetition + Progress Dashboard)
 
 # App version — single source of truth; injected into index.html for cache-busting (BUG-029)
-APP_VERSION = "5.8.4"
+APP_VERSION = "5.8.5"
 
 # Environment detection (QA vs Production)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -476,6 +476,8 @@ async def read_root():
             html = f.read()
         import re
         html = re.sub(r'app\.js\?v=[\d.]+', f'app.js?v={APP_VERSION}', html)
+        html = re.sub(r'audio-player\.js\?v=[\d.]+', f'audio-player.js?v={APP_VERSION}', html)
+        html = re.sub(r'sync\.js\?v=[\d.]+', f'sync.js?v={APP_VERSION}', html)
         # BUG-041: inject APP_VERSION into window.APP_VERSION and visible badge
         html = re.sub(r"window\.APP_VERSION = '[^']*'", f"window.APP_VERSION = '{APP_VERSION}'", html)
         html = re.sub(r'id="version-badge">v[\d.]+<', f'id="version-badge">v{APP_VERSION}<', html)

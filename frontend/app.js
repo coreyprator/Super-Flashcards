@@ -16,35 +16,10 @@ window.PortfolioDebug = window.PortfolioDebug || {
   enable: function() { this.enabled = true; }
 };
 
-// Check version consistency on load
+// Check version consistency on load — NOVERWARN1: removed false-positive visual banner
 window.addEventListener('DOMContentLoaded', () => {
     const htmlVersion = window.APP_VERSION || 'unknown';
-    const versionBadge = document.querySelector('span.font-mono[class*="text-gray"]');
-    const badgeVersion = versionBadge ? versionBadge.textContent.trim() : 'unknown';
-    
-    console.log('🏷️ === VERSION CHECK ===');
-    console.log(`🏷️ HTML declared: ${htmlVersion}`);
-    console.log(`🏷️ App.js version: ${APP_JS_VERSION}`);
-    console.log(`🏷️ Badge displays: ${badgeVersion}`);
-    
-    // Check if all versions match
-    const allMatch = htmlVersion === APP_JS_VERSION && badgeVersion === `v${APP_JS_VERSION}`;
-    
-    if (!allMatch) {
-        console.error('⚠️⚠️⚠️ VERSION MISMATCH DETECTED! ⚠️⚠️⚠️');
-        console.error(`HTML: ${htmlVersion}, App.js: ${APP_JS_VERSION}, Badge: ${badgeVersion}`);
-        console.error('CACHE ISSUE: Hard refresh (Ctrl+Shift+R) or clear cache!');
-        
-        // Show visual warning to user
-        setTimeout(() => {
-            const warningDiv = document.createElement('div');
-            warningDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px;text-align:center;z-index:10000;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
-            warningDiv.innerHTML = `⚠️ VERSION MISMATCH! Badge: ${badgeVersion}, JS: v${APP_JS_VERSION}, HTML: ${htmlVersion}<br>Press <strong>Ctrl+Shift+R</strong> to hard refresh! ⚠️`;
-            document.body.prepend(warningDiv);
-        }, 1000);
-    } else {
-        console.log('✅ Version check passed - all components synchronized at v' + APP_JS_VERSION);
-    }
+    console.debug(`[version] html=${htmlVersion} app.js=${APP_JS_VERSION}`);
 });
 
 // Sprint 5: Offline-First Architecture
