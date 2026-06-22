@@ -4,7 +4,15 @@
 Generated/Updated: 2026-06-22 — Sprint "LEGWRITE1-LEGACY-WRITE-AUTH-001 (LEGWRITE1, v5.8.4)"
 Purpose: Canonical reference for all AI sessions working on this project.
 
-### Latest Session Update — 2026-06-22 (LEGWRITE1, v5.8.4)
+### Latest Session Update — 2026-06-22 (NOVERWARN1, v5.8.5)
+
+- **Sprint NOVERWARN1**: BUG-134 P3 — Removed false-positive VERSION MISMATCH banner from legacy app.
+- **Current Version**: v5.8.5 (commit `e6bd4c7bfeb3c03a51ec69bbc3766deae4c831d3`)
+- **Fixes (BUG-134)**: Removed the always-false `allMatch` check and `setTimeout`/`warningDiv`/`prepend` banner from `app.js`. Kept a single quiet `console.debug` for diagnostics. Extended backend `read_root` to dynamically rewrite `audio-player.js?v=`, `sync.js?v=`, and `app.js?v=` using `APP_VERSION` regex, so future bumps auto-bust all three caches.
+- **New Revision**: super-flashcards-00599-z8g (100% traffic)
+- **BUG-134**: Resolved. No more false VERSION MISMATCH banner on any device.
+- **Handoff**: 2C6F2E44-EC11-4F67-ABF1-3F89735EA0C1 | UAT C0681B4B-DE4F-4EE8-BAD5-0BA028D27099
+
 
 - **Sprint LEGWRITE1**: BUG-133 P1 — Finished legacy write-auth wiring for learn.rentyourcio.com.
 - **Current Version**: v5.8.4 (commit `f2527fe7c991b29f93a93a3a90e26f149c0ad508`)
