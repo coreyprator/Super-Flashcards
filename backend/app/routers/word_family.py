@@ -18,7 +18,7 @@ router = APIRouter()
 
 def _get_etymython_connection_string() -> str:
     """Build connection string for Etymython database (same SQL Server instance)."""
-    server = os.getenv("SQL_SERVER", "35.224.242.223")
+    server = os.getenv("SQL_SERVER")
     password = os.getenv("SQL_PASSWORD", "")
     return (
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"

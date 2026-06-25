@@ -105,9 +105,9 @@ Write-Host "========================================" -ForegroundColor Magenta
 # Deploy to Cloud Run QA service
 Write-Host "`nStep 2: Deploying to Cloud Run QA service..." -ForegroundColor Yellow
 
-# Google OAuth credentials (same as prod for now)
-$GOOGLE_CLIENT_ID = "57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com"
-$GOOGLE_CLIENT_SECRET = "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"
+# Google OAuth credentials — read from Secret Manager (SEC1: removed hardcoded values)
+$GOOGLE_CLIENT_ID = (gcloud secrets versions access latest --secret=google-client-id --project=super-flashcards-475210 2>$null)
+$GOOGLE_CLIENT_SECRET = (gcloud secrets versions access latest --secret=google-client-secret --project=super-flashcards-475210 2>$null)
 
 # QA redirect URI - will be updated after first deployment to get actual URL
 # For now, use a placeholder - we'll update it after seeing the actual QA URL
@@ -119,7 +119,7 @@ gcloud run deploy super-flashcards-qa `
     --platform managed `
     --region us-central1 `
     --allow-unauthenticated `
-    --set-env-vars="SQL_SERVER=35.224.242.223,SQL_DATABASE=LanguageLearning_QA,SQL_USER=flashcards_qa_user,BASIC_AUTH_USERNAME=qa,BASIC_AUTH_PASSWORD=qa2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI_QA,ENVIRONMENT=qa" `
+    --set-env-vars="SQL_SERVER=$env:SQL_SERVER,SQL_DATABASE=LanguageLearning_QA,SQL_USER=flashcards_qa_user,BASIC_AUTH_USERNAME=qa,BASIC_AUTH_PASSWORD=qa2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI_QA,ENVIRONMENT=qa" `
     --update-secrets="SQL_PASSWORD=db-password-qa:latest,OPENAI_API_KEY=openai-api-key:latest" `
     --project=super-flashcards-475210
 
@@ -137,7 +137,7 @@ if ($LASTEXITCODE -ne 0) {
                 --platform managed `
                 --region us-central1 `
                 --allow-unauthenticated `
-                --set-env-vars="SQL_SERVER=35.224.242.223,SQL_DATABASE=LanguageLearning_QA,SQL_USER=flashcards_qa_user,BASIC_AUTH_USERNAME=qa,BASIC_AUTH_PASSWORD=qa2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI_QA,ENVIRONMENT=qa" `
+                --set-env-vars="SQL_SERVER=$env:SQL_SERVER,SQL_DATABASE=LanguageLearning_QA,SQL_USER=flashcards_qa_user,BASIC_AUTH_USERNAME=qa,BASIC_AUTH_PASSWORD=qa2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI_QA,ENVIRONMENT=qa" `
                 --update-secrets="SQL_PASSWORD=db-password-qa:latest,OPENAI_API_KEY=openai-api-key:latest" `
                 --project=super-flashcards-475210
             

@@ -8,7 +8,7 @@ Write-Host ""
 Write-Host "Connecting to Cloud SQL and granting permissions..."
 Write-Host ""
 
-sqlcmd -S "35.224.242.223,1433" -U "sqlserver" -P $adminPwd -i "fix-sql-permissions.sql"
+sqlcmd -S "$env:SQL_SERVER,1433" -U "sqlserver" -P $adminPwd -i "fix-sql-permissions.sql"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""

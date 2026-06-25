@@ -194,7 +194,7 @@ steps:
         python ingest_code.py --app super-flashcards --repo-root . --sha $COMMIT_SHA --trigger-src cloudbuild
         echo "MP132: ingest completed for super-flashcards sha=$COMMIT_SHA"
     env:
-      - 'DB_HOST=35.224.242.223'
+      - 'DB_HOST=$_DB_HOST'
     secretEnv: ['DB_PASSWORD']
     id: 'ingest'
     waitFor: ['hardengate']

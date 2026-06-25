@@ -46,7 +46,7 @@ def _get_efg_connection():
     password = _get_efg_password()
     conn_str = (
         "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=35.224.242.223,1433;"
+        f"SERVER={os.getenv('SQL_SERVER')},1433;"
         "DATABASE=EtymologyGraph;"
         "UID=efg_user;"
         f"PWD={password};"

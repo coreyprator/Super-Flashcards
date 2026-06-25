@@ -133,9 +133,9 @@ Write-Host "`nStep 2: Deploying to Cloud Run..." -ForegroundColor Yellow
 
 Write-Host "Deploying to Cloud Run..." -ForegroundColor Cyan
 
-# Google OAuth credentials from .env.example
-$GOOGLE_CLIENT_ID = "57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com"
-$GOOGLE_CLIENT_SECRET = "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"
+# Google OAuth credentials — read from Secret Manager (SEC1: removed hardcoded values)
+$GOOGLE_CLIENT_ID = (gcloud secrets versions access latest --secret=google-client-id --project=super-flashcards-475210 2>$null)
+$GOOGLE_CLIENT_SECRET = (gcloud secrets versions access latest --secret=google-client-secret --project=super-flashcards-475210 2>$null)
 $GOOGLE_REDIRECT_URI = "https://learn.rentyourcio.com/api/auth/google/callback"
 
 # Use --update-secrets to mount secrets directly from Secret Manager
@@ -145,7 +145,7 @@ gcloud run deploy super-flashcards `
     --platform managed `
     --region us-central1 `
     --allow-unauthenticated `
-    --set-env-vars="SQL_SERVER=35.224.242.223,SQL_DATABASE=LanguageLearning,SQL_USER=flashcards_user,BASIC_AUTH_USERNAME=beta,BASIC_AUTH_PASSWORD=flashcards2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" `
+    --set-env-vars="SQL_SERVER=$env:SQL_SERVER,SQL_DATABASE=LanguageLearning,SQL_USER=flashcards_user,BASIC_AUTH_USERNAME=beta,BASIC_AUTH_PASSWORD=flashcards2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" `
     --update-secrets="SQL_PASSWORD=db-password:latest,OPENAI_API_KEY=openai-api-key:latest" `
     --project=super-flashcards-475210
 
@@ -163,7 +163,7 @@ if ($LASTEXITCODE -ne 0) {
                 --platform managed `
                 --region us-central1 `
                 --allow-unauthenticated `
-                --set-env-vars="SQL_SERVER=35.224.242.223,SQL_DATABASE=LanguageLearning,SQL_USER=flashcards_user,BASIC_AUTH_USERNAME=beta,BASIC_AUTH_PASSWORD=flashcards2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" `
+                --set-env-vars="SQL_SERVER=$env:SQL_SERVER,SQL_DATABASE=LanguageLearning,SQL_USER=flashcards_user,BASIC_AUTH_USERNAME=beta,BASIC_AUTH_PASSWORD=flashcards2025,GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI" `
                 --update-secrets="SQL_PASSWORD=db-password:latest,OPENAI_API_KEY=openai-api-key:latest" `
                 --project=super-flashcards-475210
             
