@@ -10,7 +10,7 @@ CLOUD_RUN = os.getenv("K_SERVICE") is not None
 
 if CLOUD_RUN:
     # Cloud SQL connection via Public IP
-    server = os.getenv("SQL_SERVER", "35.224.242.223")  # Cloud SQL Public IP
+    server = os.getenv("SQL_SERVER")  # Cloud SQL Public IP — must be set via SQL_SERVER env var
     database = os.getenv("SQL_DATABASE", "LanguageLearning")
     username = os.getenv("SQL_USER", os.getenv("SQL_USERNAME", "flashcards_user"))  # Try SQL_USER first (Cloud Run), then SQL_USERNAME (legacy)
     password = os.getenv("SQL_PASSWORD", "")  # Will be loaded from Secret Manager
