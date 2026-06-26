@@ -96,6 +96,22 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 Set-Location "g:\My Drive\Code\Python\Super-Flashcards"
 
+# DEPLOY1: Dirty-tree guard — refuse to build from uncommitted changes.
+# Use -AllowDirty parameter to override. Add param($AllowDirty) to script if needed.
+$_diff = git diff --exit-code 2>&1; $_diffCached = git diff --cached --exit-code 2>&1
+if (($LASTEXITCODE -ne 0) -or $_diff -or $_diffCached) {
+    $allowDirtyFlag = $args -contains "-AllowDirty"
+    if (-not $allowDirtyFlag) {
+        Write-Host ""
+        Write-Host "ERROR: Working tree has uncommitted changes. Refusing to build." -ForegroundColor Red
+        Write-Host "       Commit or stash your changes first." -ForegroundColor Yellow
+        Write-Host "       To override: add -AllowDirty as a command-line argument." -ForegroundColor Yellow
+        git status --short | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+        exit 1
+    }
+    Write-Host "WARNING: Deploying from DIRTY working tree (-AllowDirty override)." -ForegroundColor Red
+}
+
 # Build the container
 Write-Host "`nStep 1: Building container image..." -ForegroundColor Yellow
 gcloud builds submit --config cloudbuild.yaml --project=super-flashcards-475210
