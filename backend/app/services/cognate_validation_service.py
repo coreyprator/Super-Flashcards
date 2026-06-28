@@ -1,5 +1,6 @@
 # backend/app/services/cognate_validation_service.py
 # SF04C — Cognate PIE root validation service
+# BUG-139: Portfolio RAG removed; lookups now query learning.etymology_entries via SQL.
 import json
 import os
 import logging
@@ -11,7 +12,6 @@ logger = logging.getLogger(__name__)
 async def validate_cognate(cognate_word: str, card_pie_root: str, card_word: str) -> dict:
     """Validate a single cognate word against the card's PIE root.
     Returns {word, proposed_pie_root, is_true_cognate, citation, kept, validated_at}"""
-    import httpx
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     base_result = {
@@ -23,27 +23,33 @@ async def validate_cognate(cognate_word: str, card_pie_root: str, card_word: str
         "validated_at": now,
     }
 
-    # Step 1 — Portfolio RAG lookup
-    rag_url = "https://portfolio-rag-57478301787.us-central1.run.app/semantic"
+    # Step 1 — SQL lookup in learning.etymology_entries
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(rag_url, json={
-                "q": f"{cognate_word} PIE root etymology",
-                "collection": "etymology",
-                "n": 3,
-            })
-            resp.raise_for_status()
-            chunks = resp.json().get("results", [])
+        from sqlalchemy import text as sql_text
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            rows = db.execute(
+                sql_text(
+                    "SELECT TOP 3 [excerpt], [full_text], [source], [page_ref], [confidence] "
+                    "FROM [dbo].[etymology_entries] "
+                    "WHERE LOWER([headword]) = LOWER(:word) "
+                    "ORDER BY COALESCE([confidence], 0) DESC"
+                ),
+                {"word": cognate_word.strip()},
+            ).fetchall()
+        finally:
+            db.close()
     except Exception as e:
-        logger.warning(f"[cognate] RAG lookup failed for '{cognate_word}': {e}")
-        chunks = []
+        logger.warning(f"[cognate] SQL lookup failed for '{cognate_word}': {e}")
+        rows = []
 
-    # Step 2 — No chunks → rag_miss, keep the word
-    if not chunks:
-        logger.info(f"[cognate] rag_miss for '{cognate_word}' — kept (inconclusive)")
+    # Step 2 — No rows → dictionary_miss, keep the word (best-effort)
+    if not rows:
+        logger.info(f"[cognate] dictionary_miss for '{cognate_word}' — kept (inconclusive)")
         return base_result
 
-    # Step 3 — Call GPT-4o-mini with RAG context
+    # Step 3 — Call GPT-4o-mini with SQL-grounded context
     from openai import OpenAI
 
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
@@ -51,7 +57,14 @@ async def validate_cognate(cognate_word: str, card_pie_root: str, card_word: str
         logger.error("[cognate] OPENAI_API_KEY not set — keeping word")
         return base_result
 
-    rag_context = "\n\n".join([c.get("text", c.get("document", "")) for c in chunks[:3]])
+    chunks = []
+    for row in rows:
+        text_content = (row[1] or row[0] or "").strip()
+        if text_content:
+            citation = f"{row[2] or ''} {row[3] or ''}".strip()
+            chunks.append(text_content if not citation else f"{text_content}\n[Source: {citation}]")
+
+    rag_context = "\n\n".join(chunks[:3])
 
     prompt = f"""You are an etymologist. Using ONLY the dictionary references below, determine:
 
@@ -111,20 +124,21 @@ async def process_card_cognates(
     card_word: str,
 ) -> tuple:
     """Validate ALL cognates for a card.
-    Returns: (cleaned_english_cognates, cognate_pie_roots_list, rag_miss_count)"""
+    Returns: (cleaned_english_cognates, cognate_pie_roots_list, dictionary_miss_count)"""
     if not english_cognates or not english_cognates.strip():
         return english_cognates, [], 0
 
     words = [w.strip() for w in english_cognates.split(",") if w.strip()]
     audit = []
-    rag_miss_count = 0
+    dictionary_miss_count = 0
 
     for word in words:
         result = await validate_cognate(word, card_pie_root, card_word)
         if result["is_true_cognate"] is None and result["proposed_pie_root"] is None:
-            rag_miss_count += 1
+            dictionary_miss_count += 1
         audit.append(result)
 
     survivors = [r["word"] for r in audit if r["kept"]]
     cleaned = ", ".join(survivors)
-    return cleaned, audit, rag_miss_count
+    return cleaned, audit, dictionary_miss_count
+

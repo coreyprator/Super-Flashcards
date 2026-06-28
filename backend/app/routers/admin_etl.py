@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin-etl"], dependencies=[Depends(require_admin)])
 
 # External service URLs — no user-controlled input used in URL construction
-_RAG_URL = "https://portfolio-rag-57478301787.us-central1.run.app"
+# _RAG_URL removed: Portfolio RAG deprecated (BUG-139). Etymology corpus lives in learning.etymology_entries.
 _EFG_URL = "https://efg.rentyourcio.com/api/words"
 
 # Path to migrations directory (relative to this file)
@@ -428,18 +428,9 @@ async def _etl_etymology_batch(db: Session) -> dict:
 
 
 async def _query_rag_etymology(headword: str) -> list:
-    """Query Portfolio RAG etymology collection for a headword. Returns result list."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            f"{_RAG_URL}/semantic",
-            params={"q": headword, "collection": "etymology", "n": _RAG_N},
-        )
-    if resp.status_code != 200:
-        return []
-    data = resp.json()
-    results = data.get("results", [])
-    # Only keep results with meaningful confidence
-    return [r for r in results if r.get("score", 0) >= 0.25]
+    """Portfolio RAG removed (BUG-139). Returns empty list; ETL route is now a no-op
+    since the etymology corpus already lives in learning.etymology_entries."""
+    return []
 
 
 def _insert_etymology_sentinel(db: Session, headword: str) -> None:

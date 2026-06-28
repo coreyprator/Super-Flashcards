@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 PIE_API_URL = "https://efg.rentyourcio.com/api/words?include_dcc=true"  # legacy — no longer called
-RAG_URL = "https://portfolio-rag-57478301787.us-central1.run.app"  # legacy
+# RAG_URL removed: Portfolio RAG deprecated (BUG-139).
 DCC_SITE_URL = "https://dcc.dickinson.edu/greek-core-list"
 
 # In-memory cache: stripped_lemma -> dcc word dict
@@ -154,37 +154,6 @@ async def get_card_dcc(card_id: UUID = Path(...), db: Session = Depends(get_db))
 
 
 async def _fetch_rag_rich(lemma: str, gloss: str) -> dict | None:
-    """Query Portfolio RAG dcc collection for rich content."""
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"{RAG_URL}/semantic",
-                params={"q": f"{lemma} {gloss}", "collection": "dcc", "n": 1},
-            )
-        if resp.status_code != 200:
-            return None
-        results = resp.json().get("results", [])
-        if not results or results[0].get("score", 0) < 0.3:
-            return None
-        snippet = results[0].get("snippet", "")
-        rich = {}
-        for line in snippet.split("\n"):
-            line = line.strip()
-            if line.startswith("**Definition:**"):
-                rich["extended_def"] = line.replace("**Definition:**", "").strip()
-            elif line.startswith("**Part of speech:**"):
-                rich["part_of_speech"] = line.replace("**Part of speech:**", "").strip()
-            elif line.startswith("**PIE root:**"):
-                rich["pie_root"] = line.replace("**PIE root:**", "").strip()
-            elif line.startswith("**English cognates:**"):
-                cognates_str = line.replace("**English cognates:**", "").strip()
-                rich["cognates"] = [c.strip() for c in cognates_str.split(",")]
-            elif line.startswith("**Frequency context:**"):
-                rich["frequency_context"] = line.replace("**Frequency context:**", "").strip()
-            elif line.startswith("**Usage note:**"):
-                rich["usage_note"] = line.replace("**Usage note:**", "").strip()
-            elif line.startswith("**Semantic group:**"):
-                rich["semantic_group"] = line.replace("**Semantic group:**", "").strip()
-        return rich if rich else None
-    except Exception:
-        return None
+    """Portfolio RAG removed (BUG-139). Returns None; DCC route falls back to local match data."""
+    return None
+

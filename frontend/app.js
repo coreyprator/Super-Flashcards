@@ -420,7 +420,12 @@ async function apiRequest(endpoint, options = {}) {
                 const retry = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: _headers });
                 if (retry.ok) return retry.json();
             }
+            // BUG-139: wait for the passphrase modal to resolve, then retry once
             await _bwtlShowPassphraseModal();
+            const _tok3 = sessionStorage.getItem('bwtl_token');
+            if (_tok3) _headers['Authorization'] = `Bearer ${_tok3}`;
+            const retry2 = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: _headers });
+            if (retry2.ok) return retry2.json();
             throw new Error('Session expired — please retry after re-authenticating');
         }
 

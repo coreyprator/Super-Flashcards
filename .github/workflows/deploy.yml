@@ -37,6 +37,7 @@ jobs:
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
             --update-secrets=OPENAI_API_KEY=openai-api-key:latest \
+            --update-env-vars=GIT_SHA=${{ github.sha }} \
             --quiet
       
       - name: Get Service URL

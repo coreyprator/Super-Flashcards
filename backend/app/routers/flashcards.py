@@ -216,12 +216,12 @@ async def backfill_cognate_pie_roots(
     removed_count = 0
     skipped = 0
     errors = 0
-    rag_miss_total = 0
+    dictionary_miss_total = 0
 
     for row in rows:
         card_id, word, cognates, pie_root = row[0], row[1], row[2], row[3]
         try:
-            cleaned, audit, rag_miss = await process_card_cognates(cognates, pie_root, word)
+            cleaned, audit, dictionary_miss = await process_card_cognates(cognates, pie_root, word)
             db.execute(text("""
                 UPDATE flashcards
                 SET english_cognates = :cleaned,
@@ -230,7 +230,7 @@ async def backfill_cognate_pie_roots(
             """), {"cleaned": cleaned, "audit": json.dumps(audit), "card_id": card_id})
             db.commit()
             removed_count += len([r for r in audit if not r["kept"]])
-            rag_miss_total += rag_miss
+            dictionary_miss_total += dictionary_miss
             processed += 1
         except Exception as e:
             logger.error(f"[backfill] Error on card {card_id}: {e}")
@@ -253,7 +253,7 @@ async def backfill_cognate_pie_roots(
         "removed_cognates_total": removed_count,
         "skipped": skipped,
         "errors": errors,
-        "rag_miss_count": rag_miss_total,
+        "dictionary_miss_count": dictionary_miss_total,
         "remaining_estimate": remaining,
         "message": f"Run again to continue. {removed_count} synonyms removed from english_cognates across {processed} cards.",
     }
@@ -460,7 +460,7 @@ async def validate_card_cognates(flashcard_id: str, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="Card has no english_cognates or pie_root to validate")
 
     original = card.english_cognates
-    cleaned, audit, rag_miss = await process_card_cognates(original, card.pie_root, card.word_or_phrase)
+    cleaned, audit, dictionary_miss = await process_card_cognates(original, card.pie_root, card.word_or_phrase)
 
     # Persist
     db.execute(text("""
@@ -481,7 +481,7 @@ async def validate_card_cognates(flashcard_id: str, db: Session = Depends(get_db
         "cleaned_english_cognates": cleaned,
         "removed": removed,
         "kept": kept,
-        "rag_miss_count": rag_miss,
+        "dictionary_miss_count": dictionary_miss,
     }
 
 

@@ -85,10 +85,10 @@ else:
 engine = create_engine(
     DATABASE_URL, 
     echo=True,
-    pool_pre_ping=True,      # Test connection before use
+    pool_pre_ping=True,      # Test connection before use (detects stale connections)
     pool_size=5,              # Number of connections to maintain
     max_overflow=10,          # Additional connections when pool exhausted
-    pool_recycle=3600,        # Recycle connections after 1 hour
+    pool_recycle=1800,        # BUG-139: recycle every 30 min (was 3600) to avoid pyodbc 08S01 TCP resets
     pool_timeout=30           # Timeout for getting connection from pool
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

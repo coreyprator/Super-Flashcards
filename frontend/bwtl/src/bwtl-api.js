@@ -12,6 +12,16 @@
 
 const _WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// BUG-139: deferred-promise mechanism so _apiFetch can await re-auth from the React modal
+let _authPendingResolvers = [];
+function _notifyAuthResolved() {
+  const cbs = _authPendingResolvers.splice(0);
+  cbs.forEach(r => r());
+}
+function _waitForAuth() {
+  return new Promise(resolve => _authPendingResolvers.push(resolve));
+}
+
 function _getToken() { return sessionStorage.getItem('bwtl_token') || ''; }
 function _setToken(t) { if (t) sessionStorage.setItem('bwtl_token', t); else sessionStorage.removeItem('bwtl_token'); }
 
@@ -64,13 +74,27 @@ async function _apiFetch(path, opts = {}) {
       if (token2) headers['Authorization'] = `Bearer ${token2}`;
       const retry = await fetch(path, { ...opts, headers, credentials: 'include' });
       if (!retry.ok) {
-        if (retry.status === 401) window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+        if (retry.status === 401) {
+          // BUG-139: dispatch modal, await re-auth, retry once
+          window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+          await _waitForAuth();
+          const token3 = _getToken();
+          if (token3) headers['Authorization'] = `Bearer ${token3}`;
+          const retry2 = await fetch(path, { ...opts, headers, credentials: 'include' });
+          if (retry2.ok) return retry2.json();
+        }
         const err = await retry.text().catch(() => retry.statusText);
         throw new Error(`API ${retry.status}: ${err}`);
       }
       return retry.json();
     }
+    // BUG-139: dispatch modal, await re-auth, retry once
     window.dispatchEvent(new CustomEvent('bwtl:auth-required'));
+    await _waitForAuth();
+    const token4 = _getToken();
+    if (token4) headers['Authorization'] = `Bearer ${token4}`;
+    const retry3 = await fetch(path, { ...opts, headers, credentials: 'include' });
+    if (retry3.ok) return retry3.json();
     throw new Error('API 401: Session expired — please re-authenticate');
   }
 
@@ -391,6 +415,8 @@ window.BWTL = {
   bwtlLogin,
   _getToken,
   _ensureAuth,
+  // BUG-139: resolve deferred re-auth promises so _apiFetch retries after modal
+  _notifyAuthResolved,
 
   // SF API helpers
   fetchCard,

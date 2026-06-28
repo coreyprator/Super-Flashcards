@@ -64,15 +64,18 @@ async def bwtl_passphrase_login(
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str):
-    """Set refresh token as HTTP-only cookie with iOS-compatible settings."""
+    """Set refresh token as HTTP-only cookie.
+    BUG-139: SameSite=Lax, Path=/, Domain=learn.rentyourcio.com so the cookie
+    survives across all paths and is sent with /api/auth/refresh calls."""
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite="none",
+        samesite="lax",
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        path="/api/auth",
+        path="/",
+        domain="learn.rentyourcio.com",
     )
 
 
@@ -171,5 +174,5 @@ async def login(login_data: schemas.UserLogin, response: Response, db: Session =
 async def logout(response: Response):
     """Logout user by clearing auth cookies."""
     response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token", path="/api/auth")
+    response.delete_cookie(key="refresh_token", path="/", domain="learn.rentyourcio.com")
     return {"message": "Successfully logged out"}

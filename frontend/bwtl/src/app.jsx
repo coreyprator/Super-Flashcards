@@ -841,6 +841,8 @@ function AppGate() {
       await window.BWTL.bwtlLogin(passphraseInput);
       setAuthRequired(false);
       setPassphraseInput('');
+      // BUG-139: unblock any _apiFetch calls awaiting re-auth
+      if (window.BWTL._notifyAuthResolved) window.BWTL._notifyAuthResolved();
     } catch (err) {
       setPassphraseError('Incorrect passphrase — try again.');
     } finally {
