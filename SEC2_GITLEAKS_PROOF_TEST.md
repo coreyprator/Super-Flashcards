@@ -1,2 +1,2 @@
-# SEC2 Gitleaks Guard Proof Test - 20260628-094810
+# SEC2 Guard Proof Test 20260628-094816
 FAKE_KEY=AIzaSyXk4j8MnP2qW9vB3cT5dR7fH6gY0eL1sAz
