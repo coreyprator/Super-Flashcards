@@ -108,8 +108,8 @@ I've successfully implemented a complete Google OAuth and user authentication sy
 **From:** `backend/app/google_oauth_client.json`
 
 ```
-Client ID: 57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com
-Client Secret: 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
+Client ID: [REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com
+Client Secret: GOCSPX-[REDACTED]
 ```
 
 **Configured URLs:**

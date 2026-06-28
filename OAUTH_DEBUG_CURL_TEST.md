@@ -60,7 +60,7 @@ Location: Google Cloud Console → APIs & Services → OAuth consent screen
 ### Step 1: Get Fresh Authorization Code
 Copy and paste this entire URL into your browser (incognito mode):
 ```
-https://accounts.google.com/o/oauth2/v2/auth?client_id=57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com&redirect_uri=https://learn.rentyourcio.com/api/auth/google/callback&response_type=code&scope=openid%20email%20profile&access_type=offline
+https://accounts.google.com/o/oauth2/v2/auth?client_id=[REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com&redirect_uri=https://learn.rentyourcio.com/api/auth/google/callback&response_type=code&scope=openid%20email%20profile&access_type=offline
 ```
 
 1. Authorize with Google (if prompted)
@@ -85,8 +85,8 @@ In PowerShell, run this command. **Replace `PASTE_CODE_HERE` with your actual co
 
 ```powershell
 $code = "PASTE_CODE_HERE"
-$clientId = "57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com"
-$clientSecret = "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"
+$clientId = "[REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com"
+$clientSecret = "GOCSPX-[REDACTED]"
 $redirectUri = "https://learn.rentyourcio.com/api/auth/google/callback"
 
 $body = @{

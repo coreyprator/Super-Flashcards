@@ -58,8 +58,8 @@ OAuth authentication fails at the database connection step with:
 
 ### Environment Variables (Confirmed Present)
 ```yaml
-- GOOGLE_CLIENT_ID: 57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com
-- GOOGLE_CLIENT_SECRET: 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
+- GOOGLE_CLIENT_ID: [REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com
+- GOOGLE_CLIENT_SECRET: GOCSPX-[REDACTED]
 - GOOGLE_REDIRECT_URI: https://learn.rentyourcio.com/api/auth/google/callback
 - SECRET_KEY: ipg6DA97eqezGFta0KH10uPglgYBbT3s3csa+/aC0Us=
 - SQL_PASSWORD: (from Secret Manager db-password:latest)

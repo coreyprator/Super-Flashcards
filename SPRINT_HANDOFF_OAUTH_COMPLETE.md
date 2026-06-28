@@ -39,7 +39,7 @@ Successfully deployed Google OAuth authentication to production Cloud Run enviro
 - **study_sessions**: 0 records (awaiting study activity)
 
 ### OAuth Configuration
-- **Client ID**: 57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com
+- **Client ID**: [REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com
 - **Redirect URI**: https://learn.rentyourcio.com/api/auth/google/callback
 - **Callback Route**: `/auth/google/callback` (router prefix: `/auth`)
 - **Publishing Status**: Testing mode

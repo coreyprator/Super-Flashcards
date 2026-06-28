@@ -9,7 +9,7 @@
 - OAuth redirect from our app to Google works perfectly
 - Cloud Run deployment successful (revision 00050-qng)
 - All OAuth configuration correct:
-  - Client ID: `57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com`
+  - Client ID: `[REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com`
   - Redirect URIs properly configured in Google Cloud Console
   - Environment variables set in Cloud Run
 - Our app successfully redirects to Google's OAuth consent screen
@@ -63,7 +63,7 @@ The user is on the correct project (`super-flashcards-475210`) but the console i
 
 ### Project Configuration
 - **Project ID:** super-flashcards-475210
-- **OAuth Client ID:** 57478301787-80l70otb16jfgliododcl2s4m59vnc67.apps.googleusercontent.com
+- **OAuth Client ID:** [REDACTED-OAUTH-CLIENT-ID].apps.googleusercontent.com
 - **User Type:** External (assumed, since it's asking for consent)
 - **Authorized Domains:** 
   - `super-flashcards-57478301787.us-central1.run.app`
